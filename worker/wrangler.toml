@@ -5,16 +5,17 @@ name = "ck-lead-worker"
 main = "src/index.ts"
 compatibility_date = "2026-08-01"
 
-# Binding IDs are omitted on purpose: `wrangler deploy` provisions D1 and KV on first deploy
-# (verified to parse in a dry run; live provisioning is confirmed on the first real deploy).
-# Fallback if provisioning is refused: run the "bootstrap" workflow, then add the printed IDs here.
+# D1 and KV were created in the owner's Cloudflare account on 2026-09-19; their IDs are pinned here so deploys never
+# create duplicates. Resource IDs are identifiers, not secrets.
 [[d1_databases]]
 binding = "DB"
 database_name = "ck-leads"
+database_id = "20b1180d-b390-4d59-9334-cb536a378147"
 migrations_dir = "migrations"
 
 [[kv_namespaces]]
 binding = "KV"
+id = "1201e75e1ed84ddeaeb756756cf86898"
 
 [vars]
 OUTBOUND = "off"                      # stays off until the go-live checklist is complete
