@@ -1,0 +1,17 @@
+# Owner: @sharjeelhashmat. Enable "Require review from Code Owners" in branch protection once the first deploy has succeeded.
+# Everything below is a guardrail, gate, or outbound/routing policy: the autonomous maintainer may not change it without the owner.
+/.github/                    @sharjeelhashmat
+/guardrails/                 @sharjeelhashmat
+/worker/templates/           @sharjeelhashmat
+/worker/test/                @sharjeelhashmat
+/worker/runtime/             @sharjeelhashmat
+/worker/scripts/             @sharjeelhashmat
+/worker/migrations/          @sharjeelhashmat
+/worker/vitest.config.ts     @sharjeelhashmat
+/worker/tsconfig*.json       @sharjeelhashmat
+/worker/wrangler.toml        @sharjeelhashmat
+/worker/src/                 @sharjeelhashmat
+# Security mechanics and dependency bumps stay autonomous (no owner listed = no required review):
+/worker/src/firewall.ts
+/worker/package.json
+/worker/package-lock.json
