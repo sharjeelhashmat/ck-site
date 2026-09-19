@@ -1,0 +1,27 @@
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  worker:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+      - run: npm ci
+      # Call the tools directly (not via package.json scripts) so the gate cannot be weakened by editing scripts.
+      - run: npx tsc -p tsconfig.json --noEmit
+      - run: npx tsc -p tsconfig.tools.json --noEmit
+      - run: npx tsc -p tsconfig.runtime.json --noEmit
+      - run: npx vitest run
+      - run: npx tsx scripts/lint-templates.ts
