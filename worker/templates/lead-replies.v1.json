@@ -1,0 +1,131 @@
+{
+  "schema": 1,
+  "templates": [
+    {
+      "id": "ACK-PRIORITY",
+      "version": 1,
+      "lane": "PRIORITY",
+      "channel": "email",
+      "stream": "leads",
+      "marketing": false,
+      "subject": "Received · Sharjeel Hashmat",
+      "body": "{{first_name}},\n\nReceived. I will come back to you personally within {{sla_hours}} hours.\n\nTo move faster, choose a time that suits you: {{booking_url}}\n\nCome with one answer: what should this property do for you?\n\nSharjeel Hashmat\nReal Estate Consultant · UAE\n{{affiliation_line}}\n\nAutomated acknowledgment. The follow-up is not automated.",
+      "slots": [
+        "affiliation_line",
+        "first_name",
+        "sla_hours",
+        "booking_url"
+      ]
+    },
+    {
+      "id": "ACK-QUALIFIED",
+      "version": 1,
+      "lane": "QUALIFIED",
+      "channel": "email",
+      "stream": "leads",
+      "marketing": false,
+      "subject": "Your enquiry · Sharjeel Hashmat",
+      "body": "{{first_name}},\n\nYour enquiry is in. I reply personally, within {{sla_hours}} hours.\n\nIf you would rather book a time directly: {{booking_url}}\n\nBefore we speak, read how I evaluate a property: {{resource_url}}\n\nSharjeel Hashmat\nReal Estate Consultant · UAE\n{{affiliation_line}}\n\nAutomated acknowledgment. The follow-up is not automated.",
+      "slots": [
+        "affiliation_line",
+        "first_name",
+        "sla_hours",
+        "booking_url",
+        "resource_url"
+      ]
+    },
+    {
+      "id": "ACK-NURTURE",
+      "version": 1,
+      "lane": "NURTURE",
+      "channel": "email",
+      "stream": "leads",
+      "marketing": true,
+      "subject": "Received · Sharjeel Hashmat",
+      "body": "{{first_name}},\n\nReceived. If the timing is not now, that is a sound position.\n\nYou opted in to my weekly note. One message, the analysis that matters, nothing else. Stop whenever you like: {{unsubscribe_url}}\n\nWhen the timing changes, reply to this email.\n\nSharjeel Hashmat\nReal Estate Consultant · UAE\n{{affiliation_line}}\n\nAutomated message. You receive it because you opted in.",
+      "slots": [
+        "affiliation_line",
+        "first_name",
+        "unsubscribe_url"
+      ]
+    },
+    {
+      "id": "ACK-COLD",
+      "version": 1,
+      "lane": "COLD",
+      "channel": "email",
+      "stream": "leads",
+      "marketing": false,
+      "subject": "Received · Sharjeel Hashmat",
+      "body": "{{first_name}},\n\nReceived. Before any property is discussed, this is how I approach a purchase: {{resource_url}}\n\nIf you want a conversation, reply to this email or book a time: {{booking_url}}\n\nSharjeel Hashmat\nReal Estate Consultant · UAE\n{{affiliation_line}}\n\nAutomated acknowledgment. The follow-up is not automated.",
+      "slots": [
+        "affiliation_line",
+        "first_name",
+        "resource_url",
+        "booking_url"
+      ]
+    },
+    {
+      "id": "ACK-SELLER",
+      "version": 1,
+      "lane": "SELLER",
+      "channel": "email",
+      "stream": "leads",
+      "marketing": false,
+      "subject": "Your property · Sharjeel Hashmat",
+      "body": "{{first_name}},\n\nReceived. I will not name a number before I have looked at the property properly.\n\nSend me: the unit or title deed reference, size, floor and view, current status (vacant or tenanted), and your timeline. I reply personally within {{sla_hours}} hours.\n\nTo talk it through: {{booking_url}}\n\nSharjeel Hashmat\nReal Estate Consultant · UAE\n{{affiliation_line}}\n\nAutomated acknowledgment. The follow-up is not automated.",
+      "slots": [
+        "affiliation_line",
+        "first_name",
+        "sla_hours",
+        "booking_url"
+      ]
+    },
+    {
+      "id": "ACK-ABROAD",
+      "version": 1,
+      "lane": "ABROAD",
+      "channel": "email",
+      "stream": "leads",
+      "marketing": false,
+      "subject": "Received · Sharjeel Hashmat",
+      "body": "{{first_name}},\n\nReceived. I work with buyers abroad. Tell me your time zone and I will fit around it.\n\nBook a time that suits you: {{booking_url}}\n\nI reply personally within {{sla_hours}} hours. My approach, in the meantime: {{resource_url}}\n\nSharjeel Hashmat\nReal Estate Consultant · UAE\n{{affiliation_line}}\n\nAutomated acknowledgment. The follow-up is not automated.",
+      "slots": [
+        "affiliation_line",
+        "first_name",
+        "sla_hours",
+        "booking_url",
+        "resource_url"
+      ]
+    },
+    {
+      "id": "ACK-ROUTED",
+      "version": 1,
+      "lane": "ROUTED",
+      "channel": "email",
+      "stream": "leads",
+      "marketing": false,
+      "subject": "Received · Sharjeel Hashmat",
+      "body": "{{first_name}},\n\nReceived. If there is a fit, you will hear from me directly.\n\nSharjeel Hashmat\nReal Estate Consultant · UAE\n{{affiliation_line}}\n\nAutomated acknowledgment. The follow-up is not automated.",
+      "slots": [
+        "affiliation_line",
+        "first_name"
+      ]
+    },
+    {
+      "id": "ACK-ESCALATED",
+      "version": 1,
+      "lane": "ESCALATED",
+      "channel": "email",
+      "stream": "leads",
+      "marketing": false,
+      "subject": "Received · Sharjeel Hashmat",
+      "body": "{{first_name}},\n\nReceived. This one needs me personally, not a template. You will hear from me within {{sla_hours}} hours.\n\nSharjeel Hashmat\nReal Estate Consultant · UAE\n{{affiliation_line}}\n\nAutomated acknowledgment. The follow-up is not automated.",
+      "slots": [
+        "affiliation_line",
+        "first_name",
+        "sla_hours"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "name": "ck-lead-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Compass Key lead intake: firewall, scoring, lanes, approved-template replies. No LLM in the outbound path.",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.tools.json --noEmit && tsc -p tsconfig.runtime.json --noEmit",
+    "test": "vitest run",
+    "lint:templates": "tsx scripts/lint-templates.ts",
+    "hash:templates": "tsx scripts/hash-templates.ts",
+    "deploy": "wrangler deploy",
+    "sheet:templates": "tsx scripts/render-approval-sheet.ts",
+    "test:unit": "vitest run --project unit",
+    "test:workerd": "vitest run --project workerd",
+    "bundle:check": "wrangler deploy --dry-run --outdir dist"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
+    "@cloudflare/workers-types": "^5.20260919.1",
+    "@types/node": "^26.6.2",
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11"
+  },
+  "overrides": {
+    "sharp": ">=0.35.4"
+  }
+}

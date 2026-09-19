@@ -1,0 +1,36 @@
+# Secrets are never in this file. Set in Cloudflare (Worker > Settings > Variables and Secrets):
+#   TURNSTILE_SECRET, BREVO_API_KEY, UNSUB_SECRET, ALERT_EMAIL, and optionally SCORING_JSON (private weights)
+# Non-secret variables below are owner-controlled (this file is a CODEOWNERS-protected path).
+name = "ck-lead-worker"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+
+# Binding IDs are omitted on purpose: `wrangler deploy` provisions D1 and KV on first deploy
+# (verified to parse in a dry run; live provisioning is confirmed on the first real deploy).
+# Fallback if provisioning is refused: run the "bootstrap" workflow, then add the printed IDs here.
+[[d1_databases]]
+binding = "DB"
+database_name = "ck-leads"
+migrations_dir = "migrations"
+
+[[kv_namespaces]]
+binding = "KV"
+
+[vars]
+OUTBOUND = "off"                      # stays off until the go-live checklist is complete
+BRN = ""                              # pending: owner to supply before go-live
+AFFILIATION = "Royals Field Properties"
+SITE_URL = "https://sharjeelhashmat.com"
+WORKER_URL = "https://ck-lead-worker.sharjeelhashmat.workers.dev"   # workers.dev subdomain registered 2026-09-19
+BOOKING_URL = ""
+# Automated senders live on subdomains only. The root domain is for human mail.
+FROM_LEADS_EMAIL = "hello@mail.sharjeelhashmat.com"
+FROM_LEADS_NAME = "Sharjeel Hashmat"
+FROM_ALERTS_EMAIL = "alerts@mail.sharjeelhashmat.com"
+FROM_ALERTS_NAME = "Lead desk"
+FROM_NEWS_EMAIL = "brief@news.sharjeelhashmat.com"   # reserved: not used until the opt-in newsletter launches
+FROM_NEWS_NAME = "The Investor's Brief"
+REPLY_TO = "hello@sharjeelhashmat.com"
+MAILBOX_CONFIRMED = "yes"             # confirmed 2026-09-19: outbound test from hello@ passed SPF, DKIM and DMARC in Gmail
+SLA_HOURS = "24"
+DAILY_SEND_CAP = "80"
