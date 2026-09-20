@@ -7,7 +7,7 @@ Rule: claims are the owner's. Nothing below goes public until the owner sets the
 2. Public email is `hello@sharjeelhashmat.com` (footer, form error text). Gmail removed.
 3. Footer/About regulatory line now reads `BRN <number>` (was "RERA ORN pending"). Builds that go public refuse to run without a BRN.
 
-## B. New or changed wording (please approve or edit)
+## B. New or changed wording: APPROVED as written by the owner 2026-09-21
 | Where | Change |
 |---|---|
 | Home, Property Brief card | Added: "My method is set out on the investment approach page." |
@@ -21,14 +21,18 @@ Rule: claims are the owner's. Nothing below goes public until the owner sets the
 | Privacy §7 | Removed the Firestore/Storage rules reference; now "security features of the infrastructure described above". |
 | Privacy date | "Last updated: 20 September 2026". Terms unchanged (5 September 2026). |
 
-## C. Existing claims that are not currently supported (kept verbatim; decide)
-1. Home and Invest: "A structured report on every listed property — see one on any property page". There are no listings, so no Property Brief can be viewed. Suggest: soften until the first listing exists.
-2. "Sharjeel Property Brief™": the ™ asserts a trademark claim. No registration is known to me. Suggest: drop the symbol or keep only if intended.
-3. About: "Emirates NBD in Abu Dhabi" and the Track record placeholder are kept as they were.
-4. Terms §10 mentions "the Compass Key name, mark" while the site is name-first. Kept.
+## C. Previously unsupported claims: DECIDED 2026-09-21 (owner delegated the call; applied)
+1. "A structured report on every listed property, see one on any property page" now reads "A structured report on every property I recommend." (Home, /investment-approach). No listings exist, so nothing implies a viewable report.
+2. The trademark symbol is removed everywhere ("Sharjeel Property Brief"). No registration is known. Re-add only if the owner registers or holds the mark.
+3. About: "Emirates NBD in Abu Dhabi" and the Track record placeholder kept. Owner's own facts; the placeholder is honest.
+4. Terms §10 keeps "the Compass Key name, mark" (ownership wording unchanged apart from the removed symbol).
 
-## D. Regulatory consistency (owner or lawyer decision)
-The site shows no brokerage name by an earlier decision, and Privacy §1 says the site is not affiliated with any employer. The Worker's approved reply templates carry `{{affiliation_line}}` = "Royals Field Properties". [Likely] Dubai property marketing rules expect the broker's registration number and the brokerage's identity on advertising. I am not a lawyer; confirm with Royals Field or a UAE lawyer, then align the site, Privacy §1 and the email footer to one position.
+## D. Brokerage and regulatory consistency: DECIDED 2026-09-21 (applied)
+The site now names **Royals Field Properties** beside the BRN line (footer and About: "Working with Royals Field Properties · BRN <number>"). Privacy §1 now says the site is operated by Sharjeel Hashmat, a freelance real estate consultant working with Royals Field Properties, replacing "not affiliated with any employer". The name lives in one constant, `SITE.brokerage` in `src/lib/site.ts`; changing brokerage is a one-line edit. The Worker email footer (`{{affiliation_line}}`) already says Royals Field Properties, so site and email now agree.
+Open items (not blockers for staging, blockers for public release):
+- BRN is not yet available. The public build refuses to run without `PUBLIC_BRN` (kept on purpose). The site cannot go public and indexable until the BRN exists.
+- Naming a brokerage in marketing normally needs that brokerage's approval. Get Royals Field's OK before going public. [Likely] Not legal advice.
+- Privacy does not say enquiries may be shared with the brokerage. If they are, Privacy needs one more sentence; the owner should confirm the practice first.
 
 ## E. SEO mechanics applied without approval (allowed: sitemap and schema mechanics)
 `/new-launches` and `/insights` (empty states) and the 8 area pages (one overview sentence, rest "Ask Sharjeel") are `noindex` and left out of the sitemap until they carry real content. Live they are indexable thin pages.
