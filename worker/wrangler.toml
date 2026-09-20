@@ -1,5 +1,5 @@
 # Secrets are never in this file. Set in Cloudflare (Worker > Settings > Variables and Secrets):
-#   TURNSTILE_SECRET, BREVO_API_KEY, UNSUB_SECRET, ALERT_EMAIL, and optionally SCORING_JSON (private weights)
+#   TURNSTILE_SECRET, RESEND_API_KEY (or BREVO_API_KEY if EMAIL_PROVIDER="brevo"), UNSUB_SECRET, ALERT_EMAIL, and optionally SCORING_JSON (private weights)
 # Non-secret variables below are owner-controlled (this file is a CODEOWNERS-protected path).
 name = "ck-lead-worker"
 main = "src/index.ts"
@@ -19,6 +19,7 @@ id = "1201e75e1ed84ddeaeb756756cf86898"
 
 [vars]
 OUTBOUND = "off"                      # stays off until the go-live checklist is complete
+EMAIL_PROVIDER = "resend"             # "resend" (default choice) or "brevo"; secrets: RESEND_API_KEY / BREVO_API_KEY
 BRN = ""                              # pending: owner to supply before go-live
 AFFILIATION = "Royals Field Properties"
 SITE_URL = "https://sharjeelhashmat.com"
@@ -34,4 +35,4 @@ FROM_NEWS_NAME = "The Investor's Brief"
 REPLY_TO = "hello@sharjeelhashmat.com"
 MAILBOX_CONFIRMED = "yes"             # confirmed 2026-09-19: outbound test from hello@ passed SPF, DKIM and DMARC in Gmail
 SLA_HOURS = "24"
-DAILY_SEND_CAP = "80"
+DAILY_SEND_CAP = "45"                  # replies only; each valid lead also triggers 1 owner alert, and Resend free allows 100 sends/day
