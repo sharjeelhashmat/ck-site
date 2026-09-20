@@ -1,0 +1,38 @@
+---
+import Mark from './Mark.astro';
+import { NAV_LINKS, SITE, waLink } from '../lib/site';
+const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+const wa = waLink("Hi Sharjeel, I'm interested in UAE real estate.");
+const current = (href: string) => (path === href || path.startsWith(href + '/') ? 'page' : undefined);
+---
+<header class="site-nav">
+  <div class="wrap">
+    <a class="brand" href="/" aria-label={`${SITE.name}, home`}>
+      <Mark />
+      <span>{SITE.name}</span>
+    </a>
+    <nav class="nav-links" aria-label="Primary">
+      {NAV_LINKS.map((l) => <a href={l.href} aria-current={current(l.href)}>{l.label}</a>)}
+      <a class="nav-wa" href={wa} target="_blank" rel="noopener">WhatsApp</a>
+    </nav>
+    <button class="menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu" id="menu-btn">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+<nav class="mobile-menu" id="mobile-menu" aria-label="Mobile">
+  {NAV_LINKS.map((l) => <a href={l.href}>{l.label}</a>)}
+  <a class="btn" href={wa} target="_blank" rel="noopener" style="font-family:var(--sans);font-size:.9rem;width:fit-content">WhatsApp me</a>
+</nav>
+<script>
+  const btn = document.getElementById('menu-btn');
+  const menu = document.getElementById('mobile-menu');
+  function set(open: boolean) {
+    menu?.classList.toggle('open', open);
+    btn?.setAttribute('aria-expanded', String(open));
+    btn?.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+  }
+  btn?.addEventListener('click', () => set(!menu?.classList.contains('open')));
+  menu?.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => set(false)));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') set(false); });
+</script>

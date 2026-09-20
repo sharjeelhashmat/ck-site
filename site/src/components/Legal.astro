@@ -1,0 +1,19 @@
+---
+import type { LegalSection } from '../lib/legal';
+interface Props { title: string; updated: string; sections: LegalSection[] }
+const { title, updated, sections } = Astro.props;
+---
+<section class="section">
+  <div class="narrow prose">
+    <h1 style="font-size:clamp(2rem,4vw,2.75rem)">{title}</h1>
+    <p class="small">Last updated: {updated}</p>
+    {sections.map((s) => (
+      <section>
+        <h2>{s.h}</h2>
+        {s.p.map((t) => <p set:html={t} />)}
+        {s.list && <ul>{s.list.map((li) => <li>{li}</li>)}</ul>}
+        {s.after && <p>{s.after}</p>}
+      </section>
+    ))}
+  </div>
+</section>

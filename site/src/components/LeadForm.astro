@@ -1,0 +1,209 @@
+---
+// One form component, two modes. Both post to the lead Worker (POST /lead) with a Turnstile token.
+// Field names and enums match worker/src/types.ts and worker/src/firewall.ts exactly.
+import { INTENTS, SITE, waLink } from '../lib/site';
+interface Props { mode?: 'general' | 'sell'; defaultIntent?: string; submitLabel?: string }
+const { mode = 'general', defaultIntent = 'buy', submitLabel = 'Send' } = Astro.props;
+const sell = mode === 'sell';
+const countries = [
+  ['AE', 'United Arab Emirates'], ['PK', 'Pakistan'], ['GB', 'United Kingdom'], ['IN', 'India'], ['SA', 'Saudi Arabia'],
+  ['QA', 'Qatar'], ['KW', 'Kuwait'], ['OM', 'Oman'], ['BH', 'Bahrain'], ['US', 'United States'], ['CA', 'Canada'],
+  ['AU', 'Australia'], ['DE', 'Germany'], ['FR', 'France'], ['CN', 'China'], ['', 'Other'],
+];
+---
+<form class="card" id="lead-form" novalidate data-worker={SITE.workerUrl} data-mode={mode} data-default-intent={defaultIntent}>
+  <div class="fields">
+    <div class="field">
+      <label for="f-name">Name</label>
+      <input id="f-name" name="name" type="text" autocomplete="name" required maxlength="80" />
+      <span class="err" data-err="name" role="alert"></span>
+    </div>
+    <div class="field">
+      <label for="f-email">Email</label>
+      <input id="f-email" name="email" type="email" autocomplete="email" required maxlength="254" />
+      <span class="err" data-err="email" role="alert"></span>
+    </div>
+    <div class="field">
+      <label for="f-phone">Phone or WhatsApp (optional)</label>
+      <input id="f-phone" name="phone" type="tel" autocomplete="tel" placeholder="+971 5x xxx xxxx" maxlength="24" />
+    </div>
+    <div class="field">
+      <label for="f-country">Where are you based?</label>
+      <select id="f-country" name="country">
+        <option value="">Select</option>
+        {countries.map(([v, l]) => <option value={v}>{l}</option>)}
+      </select>
+    </div>
+    {sell ? (
+      <input type="hidden" name="intent" value="sell" />
+    ) : (
+      <div class="field">
+        <label for="f-intent">What are you looking to do?</label>
+        <select id="f-intent" name="intent">
+          {INTENTS.map((i) => <option value={i.value}>{i.label}</option>)}
+        </select>
+      </div>
+    )}
+    {!sell && (
+      <div class="field">
+        <label for="f-budget">Budget (optional)</label>
+        <select id="f-budget" name="budget_band">
+          <option value="unspecified">Prefer not to say</option>
+          <option value="under_1m">Under AED 1M</option>
+          <option value="1m_2m">AED 1M – 2M</option>
+          <option value="2m_5m">AED 2M – 5M</option>
+          <option value="over_5m">Over AED 5M</option>
+        </select>
+      </div>
+    )}
+    <div class="field">
+      <label for="f-timeline">Timeline</label>
+      <select id="f-timeline" name="timeline">
+        <option value="exploring">Just exploring</option>
+        <option value="now">Now</option>
+        <option value="3m">Within 3 months</option>
+        <option value="6m">Within 6 months</option>
+        <option value="12m_plus">12 months or later</option>
+      </select>
+    </div>
+    {!sell && (
+      <div class="field">
+        <label for="f-funding">Funding (optional)</label>
+        <select id="f-funding" name="funding">
+          <option value="unsure">Not sure yet</option>
+          <option value="cash">Cash</option>
+          <option value="mortgage">Mortgage</option>
+        </select>
+      </div>
+    )}
+    {sell && (
+      <>
+        <div class="field"><label for="s-location">Location / community</label><input id="s-location" name="s_location" type="text" maxlength="60" /></div>
+        <div class="field"><label for="s-project">Project / building</label><input id="s-project" name="s_project" type="text" maxlength="60" /></div>
+        <div class="field"><label for="s-type">Property type</label><input id="s-type" name="s_type" type="text" placeholder="Apartment, villa, townhouse…" maxlength="40" /></div>
+        <div class="field"><label for="s-bed">Bedrooms</label><input id="s-bed" name="s_bed" type="text" maxlength="10" /></div>
+        <div class="field"><label for="s-size">Size (sq ft)</label><input id="s-size" name="s_size" type="text" maxlength="12" /></div>
+        <div class="field">
+          <label for="s-occ">Occupancy</label>
+          <select id="s-occ" name="s_occ"><option>Vacant</option><option>Tenanted</option><option>Owner-occupied</option></select>
+        </div>
+        <div class="field"><label for="s-price">Expected price, AED (optional)</label><input id="s-price" name="s_price" type="text" maxlength="20" /></div>
+      </>
+    )}
+    <div class="field full">
+      <label for="f-message">{sell ? 'Anything else' : 'Tell me more'}</label>
+      <textarea id="f-message" name="message" maxlength={sell ? 550 : 1000} placeholder={sell ? 'Reason for selling, timing, anything useful' : 'Objective, location preference, anything else useful'}></textarea>
+    </div>
+  </div>
+
+  <div class="hp" aria-hidden="true"><label>Website <input type="text" name="company_website" tabindex="-1" autocomplete="off" /></label></div>
+
+  <div style="display:grid;gap:.75rem;margin-top:1.25rem">
+    <label class="check"><input type="checkbox" name="consent_contact" required /><span>I agree that {SITE.name} may contact me about my enquiry using the details above. <a href="/privacy">Privacy</a></span></label>
+    <span class="err" data-err="consent_contact" role="alert" style="color:var(--err);font-size:.8rem"></span>
+    <label class="check"><input type="checkbox" name="consent_nurture" /><span>Send me the occasional market note. I can unsubscribe at any time. (Optional)</span></label>
+  </div>
+
+  <div class="turnstile cf-turnstile" data-sitekey={SITE.turnstileSiteKey} data-theme="light" data-appearance="always"></div>
+
+  <div class="form-foot">
+    <button class="btn" type="submit" id="lead-submit">{submitLabel}</button>
+    <span class="status" id="lead-status" role="status" aria-live="polite"></span>
+  </div>
+  <p class="fine" style="margin-top:1rem">Prefer WhatsApp? <a href={waLink("Hi Sharjeel, I'd like to discuss UAE real estate.")} target="_blank" rel="noopener">Message me directly</a> or call {SITE.phoneDisplay}.</p>
+</form>
+
+<script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<script>
+  const form = document.getElementById('lead-form') as HTMLFormElement | null;
+  if (form) {
+    const status = document.getElementById('lead-status')!;
+    const btn = document.getElementById('lead-submit') as HTMLButtonElement;
+    const sell = form.dataset.mode === 'sell';
+    const workerUrl = form.dataset.worker!;
+    const mailto = 'hello@sharjeelhashmat.com';
+
+    // Preselect intent from ?intent=
+    const q = new URLSearchParams(location.search).get('intent');
+    const sel = form.elements.namedItem('intent') as HTMLSelectElement | null;
+    const want = q ?? form.dataset.defaultIntent;
+    if (sel && sel.tagName === 'SELECT' && want && [...sel.options].some((o) => o.value === want)) sel.value = want;
+
+    const val = (n: string) => ((form.elements.namedItem(n) as HTMLInputElement | null)?.value ?? '').trim();
+    const setErr = (field: string, msg: string) => {
+      const el = form.querySelector(`[data-err="${field}"]`);
+      if (el) el.textContent = msg;
+    };
+    const clearErrs = () => form.querySelectorAll('[data-err]').forEach((e) => (e.textContent = ''));
+    const say = (msg: string, ok: boolean) => { status.textContent = msg; status.className = 'status ' + (ok ? 'ok' : 'bad'); };
+
+    let attribution: Record<string, string | null> = {};
+    try { attribution = JSON.parse(sessionStorage.getItem('ck_attr') ?? '{}'); } catch { /* storage unavailable */ }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearErrs(); status.textContent = '';
+      const name = val('name'), email = val('email');
+      let bad = false;
+      if (!/^[\p{L}\p{M}' .\-]{2,80}$/u.test(name)) { setErr('name', 'Enter your name.'); bad = true; }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { setErr('email', 'Enter a valid email address.'); bad = true; }
+      const consent = (form.elements.namedItem('consent_contact') as HTMLInputElement).checked;
+      if (!consent) { setErr('consent_contact', 'Please confirm so I can reply to you.'); bad = true; }
+      if (bad) { say('Please fix the highlighted fields.', false); return; }
+
+      const token = (form.querySelector('[name="cf-turnstile-response"]') as HTMLInputElement | null)?.value ?? '';
+      if (!token) { say('Please wait for the security check to finish, then send again.', false); return; }
+
+      let message = val('message');
+      if (sell) {
+        const parts = [
+          ['Location', val('s_location')], ['Project', val('s_project')], ['Type', val('s_type')], ['Bedrooms', val('s_bed')],
+          ['Size sq ft', val('s_size')], ['Occupancy', val('s_occ')], ['Expected AED', val('s_price')],
+        ].filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`);
+        message = (parts.join(' | ') + (message ? ' || ' + message : '')).slice(0, 1000);
+      }
+
+      const payload = {
+        name, email,
+        phone: val('phone') || undefined,
+        country: val('country') || undefined,
+        intent: sell ? 'sell' : val('intent') || 'buy',
+        budget_band: sell ? undefined : val('budget_band') || 'unspecified',
+        timeline: val('timeline') || 'exploring',
+        funding: sell ? undefined : val('funding') || 'unsure',
+        message,
+        consent_contact: true,
+        consent_nurture: (form.elements.namedItem('consent_nurture') as HTMLInputElement).checked,
+        company_website: val('company_website'),
+        turnstile_token: token,
+        utm_source: attribution.utm_source, utm_medium: attribution.utm_medium, utm_campaign: attribution.utm_campaign,
+        utm_content: attribution.utm_content, utm_term: attribution.utm_term,
+        landing_page: attribution.landing_page ?? location.pathname,
+        referrer: attribution.referrer ?? (document.referrer || undefined),
+      };
+
+      btn.disabled = true; say('Sending…', true);
+      try {
+        const res = await fetch(`${workerUrl}/lead`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
+        const body = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; field?: string };
+        if (res.ok && body.ok) {
+          form.reset();
+          say("Received. I'll come back to you personally, usually within a day.", true);
+        } else if (body.error === 'invalid_input' && body.field) {
+          const map: Record<string, string> = { name: 'name', email: 'email', consent_contact: 'consent_contact' };
+          if (map[body.field]) setErr(map[body.field], 'Please check this field.');
+          say('Please check the form and try again.', false);
+        } else if (body.error === 'verification_failed') {
+          say('The security check failed. Reload the page and try again.', false);
+        } else {
+          say(`Something went wrong on my side. Please email ${mailto} or use WhatsApp.`, false);
+        }
+      } catch {
+        say(`Connection problem. Please try again, or email ${mailto}.`, false);
+      } finally {
+        btn.disabled = false;
+        (window as unknown as { turnstile?: { reset: () => void } }).turnstile?.reset();
+      }
+    });
+  }
+</script>

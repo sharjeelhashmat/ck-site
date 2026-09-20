@@ -1,0 +1,29 @@
+---
+import Mark from './Mark.astro';
+import { SITE } from '../lib/site';
+const year = new Date().getFullYear();
+---
+<footer class="site-footer">
+  <div class="wrap">
+    <div class="foot-row">
+      <div class="brand" style="font-size:1.05rem">
+        <Mark />
+        <span>{SITE.name} · {SITE.title} · UAE</span>
+      </div>
+      <div class="foot-links">
+        <a href={SITE.instagram} target="_blank" rel="noopener">Instagram</a>
+        <a href={SITE.linkedin} target="_blank" rel="noopener">LinkedIn</a>
+      </div>
+    </div>
+    <div class="foot-row">
+      <span class="small">© {year} {SITE.name} · All rights reserved</span>
+      <div class="foot-links">
+        <a href={`tel:+${SITE.phoneE164}`}>{SITE.phoneDisplay}</a>
+        <a href={`mailto:${SITE.email}`}>{SITE.email}</a>
+        <a href="/privacy">Privacy</a>
+        <a href="/terms">Terms</a>
+      </div>
+    </div>
+    <p class="disclosure">BRN {SITE.brn || 'pending'}</p>
+  </div>
+</footer>
