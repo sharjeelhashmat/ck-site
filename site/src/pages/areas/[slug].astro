@@ -1,0 +1,31 @@
+---
+import Base from '../../layouts/Base.astro';
+import { AREAS, hasDetails } from '../../lib/areas';
+import { waLink } from '../../lib/site';
+
+export function getStaticPaths() {
+  return AREAS.map((area) => ({ params: { slug: area.slug }, props: { area } }));
+}
+const { area } = Astro.props;
+const FIELDS = [
+  ['buyerProfile', 'Who Buys Here'], ['priceRange', 'Price Range'], ['rentalProfile', 'Rental Profile'],
+  ['investmentCase', 'Investment Case'], ['risks', 'Things to Consider'], ['sharjeelView', "Sharjeel's View"],
+] as const;
+// Thin pages (overview only) stay noindex until the owner supplies real details.
+const noindex = !hasDetails(area);
+---
+<Base title={area.name} description={area.overview} noindex={noindex}>
+  <section class="section">
+    <div class="wrap" style="max-width:56rem">
+      <p class="eyebrow">Area Guide</p>
+      <h1>{area.name}</h1>
+      <p class="lede">{area.overview}</p>
+      <div class="grid grid--2" style="margin-top:2.5rem">
+        {FIELDS.map(([k, label]) => (
+          <div class="card"><p class="kicker" style="margin:0">{label}</p><p>{area.details[k] || 'Ask Sharjeel for current data on this.'}</p></div>
+        ))}
+      </div>
+      <div class="actions"><a class="btn" href={waLink(`Hi Sharjeel, I'd like to know more about ${area.name}.`)} target="_blank" rel="noopener">Ask Sharjeel about {area.name}</a></div>
+    </div>
+  </section>
+</Base>

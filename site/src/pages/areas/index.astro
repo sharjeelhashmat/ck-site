@@ -1,0 +1,18 @@
+---
+import Base from '../../layouts/Base.astro';
+import { AREAS } from '../../lib/areas';
+---
+<Base title="Dubai Areas" description="Area guides for Downtown Dubai, Dubai Marina, Dubai Hills and more.">
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow">Areas</p>
+      <h1 style="max-width:20ch">Where to buy <em>matters as much as what.</em></h1>
+      <p class="lede">Every area has a different buyer profile, price range and investment case. Guides below cover what each one actually is — the property-specific numbers come from Sharjeel directly.</p>
+      <div class="grid grid--2" style="margin-top:2.5rem">
+        {AREAS.map((a) => (
+          <a class="card" href={`/areas/${a.slug}`}><h2>{a.name}</h2><p>{a.overview}</p></a>
+        ))}
+      </div>
+    </div>
+  </section>
+</Base>
