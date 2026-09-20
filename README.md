@@ -1,5 +1,7 @@
 # Compass Key: foundation pack, Phase 1 (lead engine + guardrails)
 
+> **Current state (2026-09-20)** — this README's tables below are from 2026-09-19 and partly stale. Now: email provider is **Resend** (not Brevo), `EMAIL_PROVIDER="resend"`, `DAILY_SEND_CAP="45"`, 88 tests (71 unit + 17 workerd), `OUTBOUND` still off. Free hosting for the site is **Cloudflare Workers Static Assets** (not Pages, and not Vercel Hobby, which is non-commercial only). Phase 2 website: `site/` (static Astro), see `site/docs/MIGRATION.md`.
+
 ## Verification status
 | Check | Result |
 |---|---|
@@ -37,7 +39,7 @@ Workers Free: 100,000 requests/day, **10 ms CPU per invocation** (I/O wait not c
 2. Create an API token (custom): Account > Workers Scripts: Edit, Workers KV Storage: Edit, D1: Edit, Account Settings: Read. [Likely sufficient; if a deploy fails on a permission, the log names it.]
 3. GitHub repo (public, `ck-site`, this folder as contents): Settings > Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`. `.github/CODEOWNERS` already names `@sharjeelhashmat`. Turn on branch protection on `main` only AFTER the first successful deploy: require PR, require the `worker` check, require Code Owner review.
 4. Run the **deploy-worker** workflow (Actions > Run workflow). It type-checks, runs all 77 tests, deploys, applies D1 migrations, smoke-tests `/health` at the `WORKER_URL` in `wrangler.toml` (already set to `https://ck-lead-worker.sharjeelhashmat.workers.dev`), and rolls back on failure. If deploy refuses to auto-provision D1/KV, run **bootstrap-cloudflare** and paste the printed IDs into `wrangler.toml`.
-5. Worker secrets (Cloudflare dashboard > Worker > Settings > Variables and Secrets): `TURNSTILE_SECRET`, `BREVO_API_KEY`, `UNSUB_SECRET` (random, 32+ bytes), `ALERT_EMAIL`, optional `SCORING_JSON`.
+5. Worker secrets (Cloudflare dashboard > Worker > Settings > Variables and Secrets): `TURNSTILE_SECRET`, `RESEND_API_KEY`, `UNSUB_SECRET` (random, 32+ bytes), `ALERT_EMAIL`, optional `SCORING_JSON`.
 6. First live test: follow the header of `worker/scripts/live-smoke.sh` (uses a honeypot lead, so no reply or alert is triggered).
 7. Go-live, in this order: create the mailbox and follow `guardrails/email-identity.md` (DNS, then `MAILBOX_CONFIRMED = "yes"`), approve templates (`TEMPLATES_FOR_APPROVAL.md`, then store hashes in KV key `approved_templates`), set `BOOKING_URL`, share BRN, set `OUTBOUND = "on"`.
 
