@@ -1,0 +1,68 @@
+---
+import '../styles/global.css';
+import Nav from '../components/Nav.astro';
+import Footer from '../components/Footer.astro';
+import { SITE } from '../lib/site';
+
+interface Props { title?: string; description?: string; noindex?: boolean; path?: string }
+const DEFAULT_DESC =
+  'UAE real estate, better decisions. Buy, invest or sell with a consultant who evaluates every property on price, yield, risk and exit before recommending it.';
+const { title, description = DEFAULT_DESC, noindex = false } = Astro.props;
+const fullTitle = title ? `${title} — ${SITE.name}` : `${SITE.name} — ${SITE.title}`;
+const pathname = Astro.url.pathname.replace(/\/$/, '') || '/';
+const canonical = SITE.origin + (pathname === '/' ? '' : pathname);
+// Only a production-indexable build (which requires a BRN) may be indexed, and only for pages with real content.
+const robots = SITE.indexable && !noindex ? 'index,follow,max-image-preview:large' : 'noindex,nofollow';
+const ld = {
+  '@context': 'https://schema.org',
+  '@type': 'RealEstateAgent',
+  name: SITE.name,
+  jobTitle: SITE.title,
+  url: SITE.origin,
+  telephone: `+${SITE.phoneE164}`,
+  email: SITE.email,
+  areaServed: SITE.areasServed,
+  knowsLanguage: SITE.languages,
+  sameAs: [SITE.instagram, SITE.linkedin],
+  ...(SITE.brn ? { identifier: { '@type': 'PropertyValue', name: 'BRN', value: SITE.brn } } : {}),
+};
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    <meta name="robots" content={robots} />
+    <meta name="theme-color" content="#F7F5F0" />
+    <link rel="canonical" href={canonical} />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={SITE.name} />
+    <meta property="og:locale" content="en_AE" />
+    <meta property="og:title" content={fullTitle} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={`${SITE.origin}/og.png`} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json" set:html={JSON.stringify(ld)} />
+    <script is:inline>
+      // First-touch attribution for the lead form. Wrapped: storage can be unavailable.
+      try {
+        if (!sessionStorage.getItem('ck_attr')) {
+          var p = new URLSearchParams(location.search), a = { landing_page: location.pathname };
+          ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'].forEach(function (k) { if (p.get(k)) a[k] = p.get(k); });
+          if (document.referrer && new URL(document.referrer).hostname.replace(/^www\./, '') !== location.hostname.replace(/^www\./, '')) a.referrer = document.referrer;
+          sessionStorage.setItem('ck_attr', JSON.stringify(a));
+        }
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+    <Nav />
+    <main id="main"><slot /></main>
+    <Footer />
+  </body>
+</html>
