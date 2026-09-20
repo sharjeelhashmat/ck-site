@@ -1,0 +1,45 @@
+---
+import Base from '../layouts/Base.astro';
+import { AREAS } from '../lib/areas';
+import { waLink } from '../lib/site';
+---
+<Base title="Buy UAE Property" description="Find and buy the right property in the UAE — ready or off-plan — with personal guidance from selection through DLD registration.">
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow">Buy</p>
+      <h1 style="max-width:18ch">Find the right property. <em>Not just any property.</em></h1>
+      <p class="lede">Whether it's your first home in the UAE or your next one, I shortlist based on your actual brief — budget, community, lifestyle, and what you plan to do with the property — not what's easiest to sell.</p>
+
+      <div class="card empty" style="margin-top:2.5rem">
+        <p>No live sale listings yet — real listings, photos and compliance data are being added as they come in.</p>
+        <div class="actions" style="justify-content:center">
+          <a class="btn" href="/contact?intent=buy">Tell me what you're looking for</a>
+          <a class="btn btn--ghost" href={waLink("Hi Sharjeel, I'd like to discuss buying a property in the UAE.")} target="_blank" rel="noopener">WhatsApp me instead →</a>
+        </div>
+      </div>
+
+      <div class="grid grid--2" style="margin-top:3rem">
+        <div class="card">
+          <h2>Ready Properties</h2>
+          <p>Move-in ready units, personally vetted — the building, the floor plan, the view, the numbers.</p>
+        </div>
+        <div class="card">
+          <h2>Off-Plan Properties</h2>
+          <p>New launches from major developers, reviewed for payment structure, handover timeline and developer track record — see <a href="/new-launches">New Launches</a>.</p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:1.5rem">
+        <p class="kicker" style="margin:0">Areas I cover</p>
+        <ul class="list-plain">
+          {AREAS.map((a) => <li><a href={`/areas/${a.slug}`}>{a.name}</a></li>)}
+        </ul>
+      </div>
+
+      <div style="margin-top:3rem;padding-top:2rem;border-top:1px solid var(--line)">
+        <h2 style="font-size:1.75rem">Buying in the UAE from abroad</h2>
+        <p class="lede" style="font-size:1rem">You don't need to be in the UAE to buy well here. Briefing → virtual shortlist → remote viewings → due diligence → negotiation → transaction coordination → handover or leasing — managed on your behalf from wherever you are.</p>
+      </div>
+    </div>
+  </section>
+</Base>

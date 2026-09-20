@@ -1,0 +1,32 @@
+---
+import Base from '../layouts/Base.astro';
+import { SITE } from '../lib/site';
+---
+<Base title="About Sharjeel Hashmat" description="UAE real estate consultant — background, philosophy and how I work.">
+  <section class="section">
+    <div class="narrow">
+      <p class="eyebrow">About</p>
+      <h1>{SITE.name}</h1>
+      <p class="kicker" style="margin-top:.5rem">{SITE.title} · {SITE.areasServed}</p>
+
+      <div style="margin-top:2rem">
+        <p>I work with buyers, investors, sellers and international clients across the UAE — on ready properties, off-plan launches, and the secondary market.</p>
+        <p>Before real estate, my background is in senior general management — ship recycling and steel re-rolling operations in Pakistan — and in sales, at Emirates NBD in Abu Dhabi. I hold a Bachelor of Commerce from the University of Karachi.</p>
+        <p>I speak English, Urdu and Arabic, which covers most of the conversations that actually happen in this market.</p>
+      </div>
+
+      <div class="card" style="margin-top:2.5rem">
+        <h2>How I work</h2>
+        <p>I work for you — not a developer, not a sales target. If a listing isn't right for you, I'll say so, even if it costs me the deal. Every recommendation is qualified against entry price, rental demand, net yield, supply, payment structure and exit — not sold on a headline stat. <a href="/investment-approach">The approach in full.</a></p>
+      </div>
+
+      <div class="card" style="margin-top:1.5rem">
+        <p class="kicker" style="margin:0">Track record</p>
+        <p class="small">Selected transactions and client outcomes will be added here as engagements complete and clients agree to be featured — this section isn't populated with placeholder claims.</p>
+      </div>
+
+      <p class="fine" style="margin-top:2.5rem">BRN {SITE.brn || 'pending'}</p>
+      <div class="actions"><a class="btn" href="/contact">Get in touch</a></div>
+    </div>
+  </section>
+</Base>

@@ -1,0 +1,14 @@
+---
+import Base from '../layouts/Base.astro';
+import LeadForm from '../components/LeadForm.astro';
+---
+<Base title="Contact" description="Tell me what you're looking for — your budget, your objective, your timeline.">
+  <section class="section">
+    <div class="narrow">
+      <p class="eyebrow">Get in touch</p>
+      <h1>Tell me what you're <em>looking for.</em></h1>
+      <p class="lede">Your budget. Your objective. Your timeline. I'll take it from there — usually within a day.</p>
+      <div style="margin-top:2rem"><LeadForm mode="general" /></div>
+    </div>
+  </section>
+</Base>

@@ -1,0 +1,85 @@
+---
+import Base from '../layouts/Base.astro';
+import { AREAS } from '../lib/areas';
+import { BLURBS, INTENTS, waLink } from '../lib/site';
+const intents = INTENTS.filter((i) => i.value !== 'other');
+---
+<Base>
+  <section class="section center" style="padding-top:5rem">
+    <div class="wrap">
+      <p class="eyebrow both">United Arab Emirates</p>
+      <h1 style="max-width:16ch;margin:0 auto">UAE Real Estate.<br /><em>Better Decisions.</em></h1>
+      <p class="lede" style="margin-inline:auto">Buy, invest or sell with a real-estate advisor who looks beyond the sales pitch. I help buyers and investors identify, evaluate and acquire property in the UAE based on their objectives — not simply what's available to sell.</p>
+      <div class="actions">
+        <a class="btn" href="/buy">Explore Properties</a>
+        <a class="btn btn--ghost" href={waLink("Hi Sharjeel, I'd like to speak about UAE real estate.")} target="_blank" rel="noopener">Speak With Sharjeel →</a>
+      </div>
+    </div>
+  </section>
+
+  <div class="band"><div class="wrap trust"><span>UAE Real Estate</span><span>Buyer Representation</span><span>Investment Analysis</span><span>International Clients</span></div></div>
+
+  <section class="section">
+    <div class="wrap">
+      <div class="center">
+        <p class="eyebrow both">What are you looking to do?</p>
+        <h2>Four ways people <em>work with me.</em></h2>
+      </div>
+      <div class="grid grid--pair" style="margin-top:2.5rem">
+        {intents.map((i) => (
+          <a class="card" href={`/contact?intent=${i.value}`}>
+            <h3>{i.label}</h3>
+            <p>{BLURBS[i.value]}</p>
+          </a>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="section band">
+    <div class="narrow center">
+      <h2>I don't believe every property<br />is a <em>good investment.</em></h2>
+      <p class="lede" style="margin-inline:auto">My job isn't to convince you to buy something. It's to help you decide whether it deserves your money.</p>
+      <p>I look at the entry price, rental demand, net yield, supply, payment structure and potential exit before recommending a property. And if I don't think it's right for you, I'll tell you.</p>
+      <div class="card" style="max-width:28rem;margin:2rem auto 0;text-align:left">
+        <h3 style="color:var(--navy)">The Sharjeel Property Brief™</h3>
+        <p class="kicker" style="margin-top:.5rem">Price · Returns · Risk · Exit · My View</p>
+        <p class="small">A structured report on every listed property — see one on any <a href="/buy">property page</a>, or run your own numbers on the <a href="/invest">ROI Calculator</a>. My method is set out on the <a href="/investment-approach">investment approach</a> page.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="wrap split">
+      <div>
+        <p class="eyebrow">For international clients</p>
+        <h2>Buying in the UAE <em>from abroad.</em></h2>
+        <p>You don't need to be in the UAE to make a well-informed property decision. Briefing, virtual shortlist, remote viewings, due diligence, negotiation, transaction coordination and handover — all managed on your behalf.</p>
+        <div class="actions"><a class="btn btn--ghost" href="/contact?intent=abroad">Start the conversation →</a></div>
+      </div>
+      <div class="card">
+        <p class="kicker" style="margin:0">Where I operate</p>
+        <ul class="list-plain">
+          {AREAS.map((a) => <li><a href={`/areas/${a.slug}`}>{a.name}</a></li>)}
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="section band">
+    <div class="narrow center">
+      <p class="eyebrow both">UAE market intelligence</p>
+      <h2>Numbers, not <em>headlines.</em></h2>
+      <p>Property decisions should be based on more than headlines. I track the UAE's transaction activity, pricing, rental market, new launches and area-level trends to help clients understand what the numbers actually mean for their specific decision.</p>
+      <p class="small">Read the latest in <a href="/insights">Insights</a>.</p>
+    </div>
+  </section>
+
+  <section class="section band--navy center">
+    <div class="narrow">
+      <h2>Ready to <em>talk?</em></h2>
+      <p>Tell me what you're looking for. Your budget. Your objective. Your timeline. I'll take it from there.</p>
+      <div class="actions"><a class="btn" href="/contact">Get in touch</a></div>
+    </div>
+  </section>
+</Base>
