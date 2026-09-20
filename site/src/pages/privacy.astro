@@ -1,0 +1,6 @@
+---
+import Base from '../layouts/Base.astro';
+import Legal from '../components/Legal.astro';
+import { PRIVACY, PRIVACY_UPDATED } from '../lib/legal';
+---
+<Base title="Privacy Policy" description="How Sharjeel Hashmat collects, uses and stores personal data."><Legal title="Privacy Policy" updated={PRIVACY_UPDATED} sections={PRIVACY} /></Base>

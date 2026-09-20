@@ -1,0 +1,16 @@
+---
+import Base from '../layouts/Base.astro';
+import LeadForm from '../components/LeadForm.astro';
+const PROCESS = ['Comparable Analysis', 'Pricing Strategy', 'Marketing', 'Qualified Buyers', 'Negotiation', 'Completion'];
+---
+<Base title="Sell Your UAE Property" description="Understand your property's market position before deciding what to do next — comparable analysis, pricing strategy and a managed sale process.">
+  <section class="section">
+    <div class="narrow">
+      <p class="eyebrow">Sell</p>
+      <h1>Know your position. <em>Before you decide.</em></h1>
+      <p class="lede">Understand your property's market position before deciding whether to sell, hold, or re-list. A short valuation request below gets a comparable analysis started.</p>
+      <ol class="steps">{PROCESS.map((s, i) => <li>{i + 1}. {s}</li>)}</ol>
+      <div style="margin-top:2.5rem"><LeadForm mode="sell" submitLabel="Request My Valuation" /></div>
+    </div>
+  </section>
+</Base>

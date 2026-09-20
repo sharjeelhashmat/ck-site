@@ -1,0 +1,18 @@
+---
+import Base from '../layouts/Base.astro';
+import { waLink } from '../lib/site';
+---
+<!-- No launches exist yet, so this page is noindex and out of the sitemap. Remove `noindex` when real launches are added. -->
+<Base title="New Launches" description="Handpicked new project launches from major developers across the UAE." noindex>
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow">New Launches</p>
+      <h1 style="max-width:20ch">What the major developers <em>just released.</em></h1>
+      <p class="lede">Handpicked from major developers across UAE — tracked so you don't have to.</p>
+      <div class="card empty" style="margin-top:2.5rem">
+        <p>No launches listed yet — ask Sharjeel what's currently on the market.</p>
+        <div class="actions" style="justify-content:center"><a class="btn btn--ghost" href={waLink('Hi Sharjeel, what new launches are you tracking right now?')} target="_blank" rel="noopener">Ask Sharjeel →</a></div>
+      </div>
+    </div>
+  </section>
+</Base>

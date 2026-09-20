@@ -1,0 +1,31 @@
+---
+// This URL is linked from the approved lead-reply templates ({{resource_url}} = SITE_URL + /investment-approach).
+// It must exist before OUTBOUND is switched on. Copy below is assembled only from sentences already on the live site.
+import Base from '../layouts/Base.astro';
+import { METHOD } from '../lib/method';
+---
+<Base title="How I approach a purchase" description="Every recommendation is qualified against entry price, rental demand, net yield, supply, payment structure and exit — not sold on a headline stat.">
+  <section class="section">
+    <div class="narrow">
+      <p class="eyebrow">Investment approach</p>
+      <h1>How I approach <em>a purchase.</em></h1>
+      <p class="lede">My job isn't to convince you to buy something. It's to help you decide whether it deserves your money.</p>
+      <p>I work for you — not a developer, not a sales target. If a listing isn't right for you, I'll say so, even if it costs me the deal. Every recommendation is qualified against six factors, not sold on a headline stat.</p>
+
+      <div class="grid" style="margin-top:2rem">
+        {METHOD.map((m, i) => (
+          <div class="card"><p class="kicker" style="margin:0">{i + 1}</p><h2 style="font-size:1.25rem;font-family:var(--sans);font-weight:600;margin-top:.25rem">{m.title}</h2><p>{m.desc}</p></div>
+        ))}
+      </div>
+
+      <div class="card" style="margin-top:2rem">
+        <h3 style="color:var(--navy)">The Sharjeel Property Brief™</h3>
+        <p class="kicker" style="margin-top:.5rem">Price · Returns · Risk · Exit · My View</p>
+        <p class="small">A structured report on every listed property. You can also run your own numbers on the <a href="/invest">ROI Calculator</a>.</p>
+      </div>
+
+      <p class="fine" style="margin-top:2rem">Estimates on this site are based on the figures entered — not financial, tax or legal advice, and not a guarantee of actual performance.</p>
+      <div class="actions"><a class="btn" href="/contact">Get in touch</a></div>
+    </div>
+  </section>
+</Base>

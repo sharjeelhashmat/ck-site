@@ -1,0 +1,6 @@
+---
+import Base from '../layouts/Base.astro';
+import Legal from '../components/Legal.astro';
+import { TERMS, TERMS_UPDATED } from '../lib/legal';
+---
+<Base title="Terms of Service" description="Terms of use for sharjeelhashmat.com."><Legal title="Terms of Service" updated={TERMS_UPDATED} sections={TERMS} /></Base>
