@@ -1,7 +1,7 @@
 import { readConfig } from './config';
 import { sha256Hex } from './hash';
 import { processLead, type AlertPayload, type Deps, type LeadRow } from './pipeline';
-import { brevoSend } from './send';
+import { sendEmail } from './send';
 import templatesJson from '../templates/lead-replies.v1.json';
 import type { Template } from './templates';
 import { verifyUnsubToken } from './unsub';
@@ -11,6 +11,8 @@ export interface Env {
   KV: KVNamespace;
   TURNSTILE_SECRET: string;
   BREVO_API_KEY?: string;
+  RESEND_API_KEY?: string;
+  EMAIL_PROVIDER?: string;
   UNSUB_SECRET?: string;
   SCORING_JSON?: string;
   OUTBOUND?: string;
@@ -67,6 +69,7 @@ async function verifyTurnstile(secret: string, token: unknown, ip: string | null
 
 function makeDeps(env: Env): Deps {
   const cfg = readConfig(env as unknown as Record<string, string | undefined>);
+  const keys = { resend: env.RESEND_API_KEY, brevo: env.BREVO_API_KEY };
   return {
     now: () => new Date(),
     uuid: () => crypto.randomUUID(),
@@ -106,13 +109,12 @@ function makeDeps(env: Env): Deps {
         .bind(crypto.randomUUID(), new Date().toISOString(), type, leadId, detail).run();
     },
     async send(msg) {
-      if (!env.BREVO_API_KEY) throw new Error('no_email_key');
       const sender = cfg.senders[msg.stream];
       if (!sender.email || !cfg.replyTo) throw new Error('no_sender');
-      return brevoSend(env.BREVO_API_KEY, sender, cfg.replyTo, msg);
+      return sendEmail(cfg.emailProvider, keys, sender, cfg.replyTo, msg);
     },
     async alertOwner(p: AlertPayload) {
-      if (!env.BREVO_API_KEY || !cfg.alertEmail || !cfg.senders.alerts.email) return;
+      if (!cfg.hasEmailKey || !cfg.alertEmail || !cfg.senders.alerts.email) return;
       const l = p.lead;
       const subject = `[${p.alert_level === 'instant' ? 'ACTION' : 'DIGEST'}] ${p.lane} ${p.score}/100 · ${l.name} · ${l.intent}`;
       const text = [
@@ -123,7 +125,7 @@ function makeDeps(env: Env): Deps {
         `Source: ${l.attribution.source_type} (${l.attribution.utm_source ?? '-'} / ${l.attribution.utm_campaign ?? '-'})  Landing: ${l.attribution.landing_page ?? '-'}`,
         `Automated reply: ${p.outbound}`, '', 'Message:', l.message.slice(0, 600) || '-', '', `Lead ID: ${p.id}`,
       ].filter(Boolean).join('\n');
-      await brevoSend(env.BREVO_API_KEY, cfg.senders.alerts, cfg.alertEmail, { stream: 'leads', to: cfg.alertEmail, toName: 'Sharjeel Hashmat', subject, text });
+      await sendEmail(cfg.emailProvider, keys, cfg.senders.alerts, cfg.alertEmail, { stream: 'leads', to: cfg.alertEmail, toName: 'Sharjeel Hashmat', subject, text });
     },
   };
 }
