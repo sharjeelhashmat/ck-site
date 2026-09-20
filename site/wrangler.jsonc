@@ -1,0 +1,12 @@
+{
+  // Static-assets-only Worker. Serves ./dist from Cloudflare's edge on the free plan.
+  // Deploy target is the owner's Cloudflare account (workers.dev subdomain: sharjeelhashmat).
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ck-site-web",
+  "compatibility_date": "2026-08-01",
+  "assets": {
+    "directory": "./dist",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  }
+}
