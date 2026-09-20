@@ -1,0 +1,8 @@
+# Legacy Next.js URLs that no longer exist. All other legacy paths are preserved 1:1 (see MIGRATION.md).
+/admin /contact 301
+/admin/* /contact 301
+/properties /buy 301
+/properties/* /buy 301
+/insights/* /insights 301
+/new-launches/* /new-launches 301
+/opengraph-image /og.png 301
