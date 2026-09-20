@@ -28,4 +28,17 @@ describe('outbound gate', () => {
     expect(c.senders.alerts.name).toBe('Lead desk');
     expect(c.senders.news.name).toBe("The Investor's Brief");
   });
+  it('provider defaults to brevo (backward compatible) and needs its own key', () => {
+    const { BREVO_API_KEY: _drop, ...noKey } = goodEnv;
+    expect(outboundBlockers(readConfig(noKey))).toEqual(['BREVO_API_KEY not set']);
+  });
+  it('resend provider uses RESEND_API_KEY, not the Brevo key', () => {
+    const { BREVO_API_KEY: _drop, ...noBrevo } = goodEnv;
+    expect(outboundBlockers(readConfig({ ...noBrevo, EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 'k' }))).toEqual([]);
+    expect(outboundBlockers(readConfig({ ...goodEnv, EMAIL_PROVIDER: 'resend' }))).toEqual(['RESEND_API_KEY not set']);
+    expect(readConfig({ ...goodEnv, EMAIL_PROVIDER: ' Resend ' }).emailProvider).toBe('resend');
+  });
+  it('an unknown provider value blocks outbound', () => {
+    expect(outboundBlockers(readConfig({ ...goodEnv, EMAIL_PROVIDER: 'mailgun' }))).toContain('EMAIL_PROVIDER must be resend or brevo');
+  });
 });
