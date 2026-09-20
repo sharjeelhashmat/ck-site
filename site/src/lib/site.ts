@@ -8,6 +8,8 @@ export const SITE = {
   // Owner decision 2026-09-20: title is "Real Estate Consultant" only (SCA regulates investment advisers).
   title: 'Real Estate Consultant',
   origin: 'https://www.sharjeelhashmat.com',
+  // Owner decision 2026-09-21: the site names the brokerage next to the BRN. Single source of truth: change it here if the brokerage changes.
+  brokerage: 'Royals Field Properties',
   phoneDisplay: '+971 55 541 4468',
   phoneE164: '971555414468',
   // Owner decision 2026-09-19: hello@ replaces the Gmail address publicly.
