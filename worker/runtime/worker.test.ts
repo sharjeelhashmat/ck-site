@@ -24,6 +24,7 @@ const baseEnv = (over: Record<string, string> = {}): Env =>
     MAILBOX_CONFIRMED: 'yes',
     ALERT_EMAIL: 'owner@example.com',
     SLA_HOURS: '24',
+    EMAIL_PROVIDER: 'brevo', // explicit, so tests do not depend on the production value in wrangler.toml
     ...over,
   }) as Env;
 
@@ -70,6 +71,10 @@ beforeEach(async () => {
       calls.push({ url, body: { response: form.get('response'), secret: form.get('secret') } });
       return Response.json({ success: form.get('response') === 'ok' });
     }
+    if (url === 'https://api.resend.com/emails') {
+      calls.push({ url, body: { ...JSON.parse(init?.body as string), _auth: (init?.headers as Record<string, string>).authorization } });
+      return Response.json({ id: `re-${calls.length}` }, { status: 200 });
+    }
     if (url === 'https://api.brevo.com/v3/smtp/email') {
       calls.push({ url, body: JSON.parse(init?.body as string) });
       return Response.json({ messageId: `m-${calls.length}` }, { status: 201 });
@@ -80,6 +85,7 @@ beforeEach(async () => {
 afterEach(() => vi.unstubAllGlobals());
 
 const brevo = () => calls.filter((c) => c.url.includes('brevo'));
+const resend = () => calls.filter((c) => c.url.includes('resend'));
 
 describe('worker on workerd', () => {
   it('serves /health and 404s unknown paths', async () => {
@@ -247,5 +253,37 @@ describe('worker on workerd', () => {
     expect(await rows('SELECT id FROM leads')).toHaveLength(1);
     expect((await rows("SELECT detail FROM events WHERE type = 'outbound'"))[0]!.detail).toBe('failed:send');
     expect((await rows("SELECT type FROM events WHERE type = 'alert_failed'"))).toHaveLength(1);
+  });
+
+  it('resend provider: acknowledgment and owner alert go through Resend, nothing through Brevo', async () => {
+    const e = baseEnv({ ...LIVE, EMAIL_PROVIDER: 'resend', RESEND_API_KEY: 're_test', BREVO_API_KEY: '' });
+    await approveAllInKv(e);
+    const res = await post(lead(), e);
+    expect(res.status).toBe(202);
+    expect(brevo()).toHaveLength(0);
+    const sent = resend();
+    expect(sent).toHaveLength(2);
+    const ack = sent[0]!.body as { from: string; to: string[]; reply_to: string; text: string; _auth: string };
+    expect(ack._auth).toBe('Bearer re_test');
+    expect(ack.from).toBe('Sharjeel Hashmat <hello@mail.sharjeelhashmat.com>');
+    expect(ack.to).toEqual(['amira@example.com']);
+    expect(ack.reply_to).toBe('hello@sharjeelhashmat.com');
+    expect(ack.text).toContain('Royals Field Properties · BRN 12345');
+    const alert = sent[1]!.body as { from: string; to: string[]; subject: string };
+    expect(alert.from).toBe('Lead desk <alerts@mail.sharjeelhashmat.com>');
+    expect(alert.to).toEqual(['owner@example.com']);
+    expect(alert.subject).toMatch(/^\[ACTION\] PRIORITY/);
+    expect((await rows('SELECT template_id, outcome FROM messages'))[0]).toMatchObject({ template_id: 'ACK-PRIORITY', outcome: 'sent' });
+  });
+
+  it('resend selected but no Resend key: nothing is sent and the lead is still stored', async () => {
+    const e = baseEnv({ ...LIVE, EMAIL_PROVIDER: 'resend', RESEND_API_KEY: '' });
+    await approveAllInKv(e);
+    const res = await post(lead(), e);
+    expect(res.status).toBe(202);
+    expect(resend()).toHaveLength(0);
+    expect(brevo()).toHaveLength(0);
+    expect(await rows('SELECT id FROM leads')).toHaveLength(1);
+    expect((await rows("SELECT detail FROM events WHERE type = 'outbound'"))[0]!.detail).toBe('skipped:blocked');
   });
 });
