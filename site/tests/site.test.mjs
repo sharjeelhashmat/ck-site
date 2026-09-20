@@ -41,7 +41,7 @@ test('every page has one title, one h1, a www canonical, and is noindex in non-p
   assert.match(read('robots.txt'), /Disallow: \//);
 });
 
-test('owner decisions hold: no Gmail, no "Investment Advisor", no Firebase, no broker wording', () => {
+test('owner decisions hold: no Gmail, no "Investment Advisor", no Firebase, no "broker" word, no trademark symbol, brokerage named beside BRN', () => {
   for (const f of htmlFiles) {
     const h = readFileSync(f, 'utf8').replace(/<script[\s\S]*?<\/script>/g, '');
     assert.doesNotMatch(h, /gmail/i, f);
@@ -49,6 +49,10 @@ test('owner decisions hold: no Gmail, no "Investment Advisor", no Firebase, no b
     assert.doesNotMatch(h, /firebase|firestore/i, f);
     assert.doesNotMatch(h, /\bbroker\b/i, f);
     assert.match(h, /BRN /, `${f}: BRN line`);
+    assert.match(h, /Working with Royals Field Properties · BRN /, `${f}: brokerage beside BRN`);
+    assert.doesNotMatch(h, /™/, `${f}: no trademark symbol`);
+    assert.doesNotMatch(h, /affiliated with any employer/i, f);
+    assert.doesNotMatch(h, /every listed property/i, f);
   }
 });
 
