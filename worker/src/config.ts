@@ -1,4 +1,5 @@
 import { parseWeights, type ScoringWeights } from './scoring';
+import type { EmailProvider } from './send';
 
 export interface Sender {
   email: string;
@@ -18,6 +19,8 @@ export interface Config {
   mailboxConfirmed: boolean;
   alertEmail: string;
   dailySendCap: number;
+  emailProvider: EmailProvider;
+  emailProviderValid: boolean;
   hasEmailKey: boolean;
   hasUnsubSecret: boolean;
   weights: ScoringWeights;
@@ -25,6 +28,8 @@ export interface Config {
 
 export function readConfig(env: Record<string, string | undefined>): Config {
   const cap = Number.parseInt(env.DAILY_SEND_CAP ?? '', 10);
+  const rawProvider = (env.EMAIL_PROVIDER ?? 'brevo').trim().toLowerCase();
+  const emailProvider: EmailProvider = rawProvider === 'resend' ? 'resend' : 'brevo';
   return {
     outbound: (env.OUTBOUND ?? 'off').toLowerCase() === 'on',
     brn: (env.BRN ?? '').trim(),
@@ -42,7 +47,9 @@ export function readConfig(env: Record<string, string | undefined>): Config {
     mailboxConfirmed: (env.MAILBOX_CONFIRMED ?? 'no').toLowerCase() === 'yes',
     alertEmail: (env.ALERT_EMAIL ?? '').trim(),
     dailySendCap: Number.isFinite(cap) && cap > 0 ? cap : 80,
-    hasEmailKey: Boolean(env.BREVO_API_KEY),
+    emailProvider,
+    emailProviderValid: rawProvider === 'resend' || rawProvider === 'brevo',
+    hasEmailKey: emailProvider === 'resend' ? Boolean(env.RESEND_API_KEY) : Boolean(env.BREVO_API_KEY),
     hasUnsubSecret: Boolean(env.UNSUB_SECRET),
     weights: parseWeights(env.SCORING_JSON),
   };
@@ -81,7 +88,8 @@ export function outboundBlockers(c: Config): string[] {
   if (!c.replyTo) b.push('REPLY_TO not set');
   if (!c.mailboxConfirmed) b.push('MAILBOX_CONFIRMED is not yes (Reply-To mailbox must exist first)');
   if (!c.alertEmail) b.push('ALERT_EMAIL not set');
-  if (!c.hasEmailKey) b.push('BREVO_API_KEY not set');
+  if (!c.emailProviderValid) b.push('EMAIL_PROVIDER must be resend or brevo');
+  if (!c.hasEmailKey) b.push(c.emailProvider === 'resend' ? 'RESEND_API_KEY not set' : 'BREVO_API_KEY not set');
   if (!c.hasUnsubSecret) b.push('UNSUB_SECRET not set');
   return b;
 }
