@@ -1,0 +1,78 @@
+# PROPOSED for .github/workflows/deploy-site.yml. Claude may not edit .github/ (guardrails/autonomy.md), so the owner commits this file.
+# Design: build+test on every site change; deploy only by manual run, gated by the GitHub Environment "production"
+# (Settings > Environments > production > Required reviewers: @sharjeelhashmat). That environment approval is the enforcement
+# point for "website publishing needs owner approval". Security fixes still go through the same gate but can be approved in one tap.
+name: deploy-site
+on:
+  pull_request:
+    paths: ['site/**', 'worker/src/types.ts', 'worker/src/pipeline.ts']
+  workflow_dispatch:
+    inputs:
+      public:
+        description: 'Build the PUBLIC (indexable) site. Requires repo variable BRN. Leave false for a noindex staging build.'
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: deploy-site
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    env:
+      PUBLIC_INDEXABLE: ${{ github.event_name == 'workflow_dispatch' && inputs.public && 'true' || 'false' }}
+      PUBLIC_BRN: ${{ vars.BRN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+      - run: npm run build        # astro check + astro build + CSP/_headers generation
+      - run: npm test             # URL map, Worker contract, CSP, BRN gate
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site-dist
+          path: site/dist
+          retention-days: 7
+  deploy:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    needs: build
+    runs-on: ubuntu-latest
+    environment: production   # <- owner approval happens here
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      WRANGLER_SEND_METRICS: 'false'
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: site-dist
+          path: site/dist
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npx --yes wrangler@4 deploy
+      - name: Smoke test
+        run: |
+          URL="https://ck-site-web.sharjeelhashmat.workers.dev"
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -s -o /tmp/home.html -w '%{http_code}' "$URL/" || true)
+            if [ "$code" = "200" ] && grep -q 'Sharjeel Hashmat' /tmp/home.html \
+               && [ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/investment-approach")" = "200" ]; then echo healthy; exit 0; fi
+            sleep 5
+          done
+          echo "smoke test failed"; exit 1
+      - name: Roll back if the smoke test failed
+        if: ${{ failure() }}
+        run: npx --yes wrangler@4 rollback --message "auto-rollback after failed smoke test" || true
