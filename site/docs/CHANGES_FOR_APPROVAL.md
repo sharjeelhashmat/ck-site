@@ -37,8 +37,8 @@ Open items (not blockers for staging, blockers for public release):
 ## E. SEO mechanics applied without approval (allowed: sitemap and schema mechanics)
 `/new-launches` and `/insights` (empty states) and the 8 area pages (one overview sentence, rest "Ask Sharjeel") are `noindex` and left out of the sitemap until they carry real content. Live they are indexable thin pages.
 
-## F. Investment Intelligence System v1.0 (owner approved decisions 1 to 7 on 2026-09-21): wording that still needs your sign-off before public
-Design is approved. These are the public words it introduced. Nothing here is live: staging is noindex and there are no opportunities or articles yet.
+## F. Investment Intelligence System v1.0: wording APPROVED by the owner on 2026-09-21 ("approve F")
+Design and this wording are approved. Nothing here is live: staging is noindex and there are no opportunities or articles yet.
 | Where | Wording | Why it is here |
 |---|---|---|
 | Terms §4 | "BUY / CONSIDER / PASS" became "BUY / WATCH / PASS"; Terms date is now 21 September 2026 | Decision 1 changed the label; Terms named the old one. This is legal wording, so it needs your explicit OK. |
@@ -46,6 +46,16 @@ Design is approved. These are the public words it introduced. Nothing here is li
 | Property Brief footer | "This Brief is a personal, professional opinion at a point in time. It is not financial, tax or legal advice, and not a guarantee of actual performance. Figures are as sourced above on the dates shown." | Adapted from Terms §2, §4 and the ROI calculator disclaimer. |
 | Insights article footer | "General information, not financial, tax or legal advice." | Same source. |
 | Stale banner (articles) | "This article is past its review date and is being re-checked. Treat the figures as historical until it is updated." | Shown automatically when a review date passes. |
-| Methodology on the public pages | Home, About, Invest and Investment Approach still describe the six-factor method (Entry Price, Rental Demand, Net Yield, Supply, Payment Structure, Exit), carried over from the live site. The approved design uses seven factors (Location, Entry, Fundamentals, Yield, Supply, Liquidity, Risk). | NOT changed. Public methodology copy is yours. Until you approve replacement wording, a Property Brief would show seven factors while the site describes six. Draft wording is on request. |
+| Methodology on the public pages | Home, About, Invest and Investment Approach now describe the seven factors (Location, Entry, Fundamentals, Yield, Supply, Liquidity, Risk), taken from the same list the Brief uses. Owner instruction 2026-09-21: "Make it 7". | Replaces the six-factor copy carried over from the live site. The Entry description now mentions the payment plan, since Payment Structure is no longer a separate factor. |
 
 Open items unchanged from D: BRN, Royals Field's OK to be named, whether enquiries are shared with the brokerage.
+
+## G. Investor profile, step 2 (owner said "build it" on 2026-09-21): wording that needs your sign-off before it is switched on
+The feature ships OFF. None of this appears on any page until the Worker route is deployed and the switch is turned on.
+| Where | Wording | Why it is here |
+|---|---|---|
+| Privacy §2 (added line, appears only when the switch is on; Privacy date then becomes 21 September 2026) | "If you choose to complete the optional investor profile, I also collect your investment objective, preferred property type, preferred areas, risk tolerance and intended holding period. It is stored with your enquiry, used only to match properties to you, and is never published or sent to social media or advertising tools." | The design requires one added line before step 2 goes live. Says nothing about sharing with the brokerage; that question is still open. |
+| After an enquiry (buy, invest, abroad) | "Optional: answer five short questions so I can match properties to you." | The link to `/investor-profile`. |
+| `/investor-profile` page | "Help me match the right property." / "Five short questions. They tell me what would suit you, so a recommendation fits you and not just a budget. You can skip this and I will still reply to your enquiry." / "Stored with your enquiry and used only to match properties to you." | New page. Noindex, not in the sitemap, not in navigation. |
+| Risk tolerance options | "Low: protect the capital" / "Moderate: some ups and downs" / "High: accept risk of loss" | Plain-language labels for the three values. |
+

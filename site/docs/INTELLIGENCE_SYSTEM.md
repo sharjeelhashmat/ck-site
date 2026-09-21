@@ -25,4 +25,4 @@ Design: the "Sharjeel Hashmat Investment Intelligence System v1.0" doc in the Cl
 ## Known limits
 - The site is static, so "stale" only takes effect on the next build. A scheduled rebuild needs a workflow change under `.github/`, which is owner-controlled, and a deploy that waits for approval cannot run unattended. See the report to the owner.
 - "Save as PDF" uses the browser's print dialog and print stylesheet. A server-generated PDF is not built yet.
-- The investor profile step (Worker route and Privacy line) is not built; Worker files are protected.
+- The investor profile step is built on the site (switched OFF) and proposed for the Worker in `docs/proposals/investor-profile-step2/`. It goes live only after you commit the Worker change and approve the Privacy §2 line. See the README there.
