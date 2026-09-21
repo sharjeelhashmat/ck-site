@@ -14,7 +14,7 @@ if (indexable && !process.env.PUBLIC_BRN) {
 // Pages that have no real content yet stay out of the sitemap (they are also noindex in their own markup).
 // /new-launches is always thin for now. Insights, Opportunities and each area page are gated by data (decision 5,
 // 2026-09-21): they enter the sitemap only when their own rules pass, the same rules the pages use for noindex.
-const THIN = ['/new-launches'];
+const THIN = ['/new-launches', '/investor-profile'];
 const intel = loadPublic();
 const liveAreas = new Set(AREAS.filter((a) => areaSnapshotState(a, today()).live).map((a) => `/areas/${a.slug}`));
 
