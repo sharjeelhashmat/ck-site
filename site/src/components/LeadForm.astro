@@ -2,6 +2,7 @@
 // One form component, two modes. Both post to the lead Worker (POST /lead) with a Turnstile token.
 // Field names and enums match worker/src/types.ts and worker/src/firewall.ts exactly.
 import { INTENTS, SITE, waLink } from '../lib/site';
+import { PROFILE_ENABLED, PROFILE_INTENTS } from '../lib/profile';
 interface Props { mode?: 'general' | 'sell'; defaultIntent?: string; submitLabel?: string }
 const { mode = 'general', defaultIntent = 'buy', submitLabel = 'Send' } = Astro.props;
 const sell = mode === 'sell';
@@ -11,7 +12,7 @@ const countries = [
   ['AU', 'Australia'], ['DE', 'Germany'], ['FR', 'France'], ['CN', 'China'], ['', 'Other'],
 ];
 ---
-<form class="card" id="lead-form" novalidate data-worker={SITE.workerUrl} data-mode={mode} data-default-intent={defaultIntent}>
+<form class="card" id="lead-form" novalidate data-worker={SITE.workerUrl} data-mode={mode} data-default-intent={defaultIntent} data-profile={PROFILE_ENABLED ? PROFILE_INTENTS.join(',') : undefined}>
   <div class="fields">
     <div class="field">
       <label for="f-name">Name</label>
@@ -110,6 +111,7 @@ const countries = [
     <button class="btn" type="submit" id="lead-submit">{submitLabel}</button>
     <span class="status" id="lead-status" role="status" aria-live="polite"></span>
   </div>
+  {PROFILE_ENABLED && <p class="fine" id="lead-next" hidden style="margin-top:1rem"></p>}
   <p class="fine" style="margin-top:1rem">Prefer WhatsApp? <a href={waLink("Hi Sharjeel, I'd like to discuss UAE real estate.")} target="_blank" rel="noopener">Message me directly</a> or call {SITE.phoneDisplay}.</p>
 </form>
 
@@ -185,10 +187,21 @@ const countries = [
       btn.disabled = true; say('Sending…', true);
       try {
         const res = await fetch(`${workerUrl}/lead`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
-        const body = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; field?: string };
+        const body = (await res.json().catch(() => ({}))) as { ok?: boolean; id?: string; error?: string; field?: string };
         if (res.ok && body.ok) {
+          const sentIntent = payload.intent;
           form.reset();
           say("Received. I'll come back to you personally, usually within a day.", true);
+          // Optional step 2: only when the feature is switched on, and only for enquiries where a profile helps.
+          const next = document.getElementById('lead-next');
+          const profileIntents = (form.dataset.profile ?? '').split(',').filter(Boolean);
+          if (next && body.id && /^[0-9a-f-]{36}$/i.test(body.id) && profileIntents.includes(sentIntent)) {
+            const a = document.createElement('a');
+            a.href = `/investor-profile?lead=${encodeURIComponent(body.id)}`;
+            a.textContent = 'Optional: answer five short questions so I can match properties to you.';
+            next.replaceChildren(a);
+            next.hidden = false;
+          }
         } else if (body.error === 'invalid_input' && body.field) {
           const map: Record<string, string> = { name: 'name', email: 'email', consent_contact: 'consent_contact' };
           if (map[body.field]) setErr(map[body.field], 'Please check this field.');
