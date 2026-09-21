@@ -19,7 +19,7 @@ Rule: claims are the owner's. Nothing below goes public until the owner sets the
 | Privacy §4 | Added: enquiries are sorted by fixed rules to pick the automated acknowledgement and alert speed; follow-up is written by the owner. (Needed because scoring is automated processing.) |
 | Privacy §5 | Firebase paragraph replaced: Cloudflare (Workers, D1, Turnstile), Resend (email delivery), Zoho Mail (mailbox); data may be held outside the UAE including Europe. |
 | Privacy §7 | Removed the Firestore/Storage rules reference; now "security features of the infrastructure described above". |
-| Privacy date | "Last updated: 20 September 2026". Terms unchanged (5 September 2026). |
+| Privacy date | "Last updated: 20 September 2026". Terms date now 21 September 2026 (see section F). |
 
 ## C. Previously unsupported claims: DECIDED 2026-09-21 (owner delegated the call; applied)
 1. "A structured report on every listed property, see one on any property page" now reads "A structured report on every property I recommend." (Home, /investment-approach). No listings exist, so nothing implies a viewable report.
@@ -36,3 +36,16 @@ Open items (not blockers for staging, blockers for public release):
 
 ## E. SEO mechanics applied without approval (allowed: sitemap and schema mechanics)
 `/new-launches` and `/insights` (empty states) and the 8 area pages (one overview sentence, rest "Ask Sharjeel") are `noindex` and left out of the sitemap until they carry real content. Live they are indexable thin pages.
+
+## F. Investment Intelligence System v1.0 (owner approved decisions 1 to 7 on 2026-09-21): wording that still needs your sign-off before public
+Design is approved. These are the public words it introduced. Nothing here is live: staging is noindex and there are no opportunities or articles yet.
+| Where | Wording | Why it is here |
+|---|---|---|
+| Terms §4 | "BUY / CONSIDER / PASS" became "BUY / WATCH / PASS"; Terms date is now 21 September 2026 | Decision 1 changed the label; Terms named the old one. This is legal wording, so it needs your explicit OK. |
+| `/opportunities` (empty state) | "An opportunity appears here only when every figure in it has a named source and a verification date." and "No opportunity has passed verification yet. In the meantime, see how I assess a property, or ask me directly." | New page. Noindex and out of the sitemap until the first opportunity is published. Not linked from the navigation. |
+| Property Brief footer | "This Brief is a personal, professional opinion at a point in time. It is not financial, tax or legal advice, and not a guarantee of actual performance. Figures are as sourced above on the dates shown." | Adapted from Terms §2, §4 and the ROI calculator disclaimer. |
+| Insights article footer | "General information, not financial, tax or legal advice." | Same source. |
+| Stale banner (articles) | "This article is past its review date and is being re-checked. Treat the figures as historical until it is updated." | Shown automatically when a review date passes. |
+| Methodology on the public pages | Home, About, Invest and Investment Approach still describe the six-factor method (Entry Price, Rental Demand, Net Yield, Supply, Payment Structure, Exit), carried over from the live site. The approved design uses seven factors (Location, Entry, Fundamentals, Yield, Supply, Liquidity, Risk). | NOT changed. Public methodology copy is yours. Until you approve replacement wording, a Property Brief would show seven factors while the site describes six. Draft wording is on request. |
+
+Open items unchanged from D: BRN, Royals Field's OK to be named, whether enquiries are shared with the brokerage.
