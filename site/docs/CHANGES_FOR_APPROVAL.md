@@ -50,8 +50,8 @@ Design and this wording are approved. Nothing here is live: staging is noindex a
 
 Open items unchanged from D: BRN, Royals Field's OK to be named, whether enquiries are shared with the brokerage.
 
-## G. Investor profile, step 2 (owner said "build it" on 2026-09-21): wording that needs your sign-off before it is switched on
-The feature ships OFF. None of this appears on any page until the Worker route is deployed and the switch is turned on.
+## G. Investor profile, step 2: wording APPROVED by the owner on 2026-09-21
+Worker route deployed (deploy-worker run #9, 114 of 114 tests). The switch is ON in the site source; the wording below is live on staging after the next approved deploy.
 | Where | Wording | Why it is here |
 |---|---|---|
 | Privacy §2 (added line, appears only when the switch is on; Privacy date then becomes 21 September 2026) | "If you choose to complete the optional investor profile, I also collect your investment objective, preferred property type, preferred areas, risk tolerance and intended holding period. It is stored with your enquiry, used only to match properties to you, and is never published or sent to social media or advertising tools." | The design requires one added line before step 2 goes live. Says nothing about sharing with the brokerage; that question is still open. |
