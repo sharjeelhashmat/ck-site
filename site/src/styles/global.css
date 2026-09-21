@@ -185,6 +185,8 @@ form.card { padding: 1.75rem; }
 .brief .meta { font-size: .8rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; margin-top: 1rem; }
 .stale-banner { border: 1px solid var(--gold); background: #fbf5e8; padding: 1rem 1.25rem; margin-top: 1.5rem; font-size: .9rem; color: var(--ink); }
 .table-scroll { overflow-x: auto; }
+.cite { font-size: .7rem; margin-left: .15rem; } .cite a, .src a { color: var(--navy); }
+.src a + a { margin-left: .4rem; }
 @media print {
   .site-nav, .mobile-menu, footer, .skip, .actions, .noprint { display: none !important; }
   body { background: #fff; }
