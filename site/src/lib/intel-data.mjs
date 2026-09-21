@@ -5,7 +5,10 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkOpportunity, checkArticle, insightsLive, todayIso } from './intel.mjs';
 
-const defaultDir = fileURLToPath(new URL('../data/', import.meta.url));
+// Astro bundles this module into a build chunk, so a path relative to import.meta.url points at the wrong place during `astro build`.
+// Builds and tests run from site/, so try the working directory first, then the path relative to this file.
+const candidates = [join(process.cwd(), 'src', 'data'), fileURLToPath(new URL('../data/', import.meta.url))];
+const defaultDir = candidates.find((d) => existsSync(join(d, 'insights'))) ?? candidates[0];
 export const dataDir = () => process.env.INTEL_DATA_DIR || defaultDir;
 export const today = () => process.env.INTEL_TODAY || todayIso();
 
