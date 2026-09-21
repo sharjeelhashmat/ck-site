@@ -1,18 +1,35 @@
 ---
 import Base from '../layouts/Base.astro';
 import { waLink } from '../lib/site';
+import { loadPublic } from '../lib/intel-data.mjs';
+const { articles, insightsLive } = loadPublic();
+const list = [...articles].sort((a: any, b: any) => (a.publishedOn < b.publishedOn ? 1 : -1));
+// Decision 5 (2026-09-21): noindex and out of the sitemap until 3 non-stale articles are published.
+const noindex = !insightsLive;
 ---
-<!-- No articles exist yet, so this page is noindex and out of the sitemap. Remove `noindex` when real articles are added. -->
-<Base title="Insights" description="Dubai market updates, investment guides, area guides and buyer guides." noindex>
+<Base title="Insights" description="Dubai market updates, investment guides, area guides and buyer guides." noindex={noindex}>
   <section class="section">
     <div class="narrow">
       <p class="eyebrow">Insights</p>
       <h1>Market updates, investment and <em>area guides.</em></h1>
       <p class="lede">Property decisions should be based on more than headlines.</p>
-      <div class="card empty" style="margin-top:2.5rem">
-        <p>The first Insights articles are being written — check back soon, or ask Sharjeel directly in the meantime.</p>
-        <div class="actions" style="justify-content:center"><a class="btn btn--ghost" href={waLink('Hi Sharjeel, do you have any market insights you can share?')} target="_blank" rel="noopener">Ask Sharjeel →</a></div>
-      </div>
+      {list.length === 0 ? (
+        <div class="card empty" style="margin-top:2.5rem">
+          <p>The first Insights articles are being written — check back soon, or ask Sharjeel directly in the meantime.</p>
+          <div class="actions" style="justify-content:center"><a class="btn btn--ghost" href={waLink('Hi Sharjeel, do you have any market insights you can share?')} target="_blank" rel="noopener">Ask Sharjeel →</a></div>
+        </div>
+      ) : (
+        <div class="grid" style="margin-top:2.5rem">
+          {list.map((a: any) => (
+            <a class="card" href={`/insights/${a.slug}`}>
+              <p class="kicker" style="margin:0">{a.series} · {a.geography}</p>
+              <h2>{a.title}</h2>
+              <p>{a.description}</p>
+              <p class="src">Published {a.publishedOn} · updated {a.updatedOn}{a.stale ? ' · under review' : ''}</p>
+            </a>
+          ))}
+        </div>
+      )}
     </div>
   </section>
 </Base>
