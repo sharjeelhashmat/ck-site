@@ -7,7 +7,7 @@
     "dev": "astro dev",
     "build": "astro check && astro build && node scripts/postbuild.mjs",
     "preview": "astro preview",
-    "test": "node --test tests/*.test.mjs",
+    "test": "node --test --test-concurrency=1 tests/*.test.mjs",
     "freshness": "node scripts/freshness.mjs"
   },
   "dependencies": {
