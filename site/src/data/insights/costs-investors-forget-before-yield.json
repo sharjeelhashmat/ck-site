@@ -1,0 +1,129 @@
+{
+  "status": "draft",
+  "author": "Sharjeel Hashmat",
+  "reviewer": "Sharjeel Hashmat",
+  "publishedOn": "2026-09-21",
+  "updatedOn": "2026-09-21",
+  "geography": "Dubai",
+  "slug": "costs-investors-forget-before-yield",
+  "series": "Before You Buy",
+  "title": "The costs investors forget before they calculate yield",
+  "description": "Registration fees and service charges turn a 7.0% gross yield into 5.66% in the worked example below. Mortgage fees would lower it further. Here is what the Dubai Land Department lists.",
+  "topic": "Acquisition costs and net yield",
+  "confidence": "High",
+  "reviewBy": "2026-12-21",
+  "body": [
+    {
+      "h": "The number on the brochure is gross"
+    },
+    {
+      "p": "A listing shows rent divided by price. An investment decision needs income after costs, divided by everything you actually paid. The gap between the two is where most disappointed investors find their surprise."
+    },
+    {
+      "h": "What you pay to register the purchase"
+    },
+    {
+      "p": "The Dubai Land Department's sale registration page lists a fee of 2% of the sale value for the seller and 2% of the sale value for the buyer. It also lists fixed fees (AED 250 for the title deed certificate, AED 250 for villas and apartments, AED 10 knowledge fee, AED 10 innovation fee, and map fees) and a service partner fee of AED 4,000 plus VAT when the sale value is AED 500,000 or more, or AED 2,000 plus VAT below that. Your contract says who bears each fee, so read it before you count them."
+    },
+    {
+      "h": "What you pay if you borrow"
+    },
+    {
+      "p": "The mortgage registration page lists 0.25% of the mortgage value, AED 250 for the title deed, AED 10 knowledge and AED 10 innovation fees for each drawing, and a service partner fee of AED 4,000 plus VAT. For provisional-sale (Oqood) properties the service partner fee is AED 5,000 plus VAT."
+    },
+    {
+      "h": "What you keep paying: service charges"
+    },
+    {
+      "p": "Under Article 16(b) of Law No. 6 of 2019, the owner is liable for the service and usage charges of jointly owned property, unless the lease says otherwise. The Dubai Land Department states that an owner is not discharged if the tenant fails to pay, and that unpaid charges can end with the unit being sold to settle them."
+    },
+    {
+      "p": "RERA's Service Charge Index lets you look up the approved charges by project, property use and year. Check it before you price a unit, not after."
+    },
+    {
+      "h": "What it does to a yield: an illustration"
+    },
+    {
+      "p": "This is a made-up property to show the arithmetic, not a real listing. Price AED 1,000,000. Annual rent AED 70,000. Annual service charge AED 12,000. Acquisition cost includes one 2% registration fee (AED 20,000) and the AED 4,000 service partner fee, before VAT and the small fixed fees."
+    },
+    {
+      "table": {
+        "head": [
+          "Step",
+          "Annual income",
+          "Base",
+          "Yield"
+        ],
+        "rows": [
+          [
+            "Gross rent on price",
+            "AED 70,000",
+            "AED 1,000,000",
+            "7.00%"
+          ],
+          [
+            "After service charge, on price",
+            "AED 58,000",
+            "AED 1,000,000",
+            "5.80%"
+          ],
+          [
+            "After service charge, on total cost",
+            "AED 58,000",
+            "AED 1,024,000",
+            "5.66%"
+          ]
+        ]
+      }
+    },
+    {
+      "p": "Vacancy, management fees and repairs are not in this table. Each of them lowers the last line further."
+    },
+    {
+      "h": "Before you commit"
+    },
+    {
+      "ul": [
+        "Ask for the service charge history of the building, and check it against the RERA index.",
+        "Ask in writing who pays each registration fee.",
+        "Recalculate the yield on total cost, not on price.",
+        "Add a vacancy allowance and a management cost of your own, and state them."
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "name": "Dubai Land Department: Property sale registration (fees)",
+      "tier": 1,
+      "url": "https://dubailand.gov.ae/en/eservices/property-sale-registration/",
+      "verifiedOn": "2026-09-21",
+      "undated": true
+    },
+    {
+      "name": "Dubai Land Department: Mortgage registration application (fees)",
+      "tier": 1,
+      "url": "https://dubailand.gov.ae/en/eservices/request-for-mortgage-registration/",
+      "verifiedOn": "2026-09-21",
+      "undated": true
+    },
+    {
+      "name": "Dubai Land Department: Owner is obliged to pay service and usage charges",
+      "tier": 1,
+      "url": "https://dubailand.gov.ae/en/news-media/real-estate-property-owner-is-obliged-to-pay-service-and-usage-charges-for-jointly-owned-property/",
+      "verifiedOn": "2026-09-21",
+      "publishedOn": "2020-01-06"
+    },
+    {
+      "name": "Dubai Land Department: Service Charge Index overview",
+      "tier": 1,
+      "url": "https://dubailand.gov.ae/en/eservices/service-charge-index-overview/",
+      "verifiedOn": "2026-09-21",
+      "undated": true
+    }
+  ],
+  "draftNotes": [
+    "Fee figures were read from the three DLD pages by page extraction on 2026-09-21. Open each page yourself before approving; fees change and the pages are undated.",
+    "The DLD sale page lists 2% for the seller and 2% for the buyer. I did not assume who pays in practice; the article tells the reader to check the contract.",
+    "The example uses made-up numbers and says so. VAT and the small fixed fees are excluded and stated as excluded."
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "status": "draft",
+  "author": "Sharjeel Hashmat",
+  "reviewer": "Sharjeel Hashmat",
+  "publishedOn": "2026-09-21",
+  "updatedOn": "2026-09-21",
+  "geography": "Dubai",
+  "slug": "does-rising-transaction-value-mean-rising-prices",
+  "series": "Market Myth",
+  "title": "Myth: rising transaction value means rising prices",
+  "description": "Dubai transaction value rose 31% in Q1 2026 while volume rose 6%. In August 2026, value fell far more than price per square foot. Value and price are different measures.",
+  "topic": "Reading market headlines",
+  "confidence": "Medium",
+  "reviewBy": "2026-10-21",
+  "body": [
+    {
+      "h": "The myth"
+    },
+    {
+      "p": "A headline reports record transaction value and readers hear \"prices are up\". Value is the total of everything sold. It moves with how many deals happen and how large each one is, as well as with price."
+    },
+    {
+      "h": "What the official numbers say"
+    },
+    {
+      "p": "The Dubai Land Department reported Q1 2026 real estate transactions worth AED 252 billion, up 31% year on year, while the number of transactions rose 6%."
+    },
+    {
+      "p": "Value grew about five times as fast as volume. That gap can come from higher prices, from larger or more expensive properties changing hands, or from both. The release does not separate them."
+    },
+    {
+      "h": "A month that ran the other way"
+    },
+    {
+      "p": "For August 2026, Projectory Research analysed Dubai Land Department registrations and reported home sales down 35.2% and registered value down 46.5% year on year. Its median price per square foot was down 1.9% over the same period."
+    },
+    {
+      "p": "If value tracked price, a 46.5% fall in value would mean a collapse in prices. The price per square foot figure does not show one. Deal counts and deal sizes moved much more than the price per square foot did."
+    },
+    {
+      "p": "The August figures are second-hand: I did not find an official monthly release, so read them as reported by Projectory, not confirmed by the Dubai Land Department."
+    },
+    {
+      "h": "What to do with this"
+    },
+    {
+      "ul": [
+        "Ask which measure a headline uses: value, volume or price per square foot.",
+        "Compare price per square foot in your building and unit type. A citywide median cannot tell you what your unit is worth.",
+        "Treat one month as one data point."
+      ]
+    },
+    {
+      "p": "The Dubai Land Department publishes a Residential Sales Price Index, but its own page says the index should not be used for pricing or investment decisions. That is a reason to check transactions in your own building."
+    }
+  ],
+  "sources": [
+    {
+      "name": "Dubai Land Department: Dubai real estate transactions reach AED 252 billion in Q1 2026",
+      "tier": 1,
+      "url": "https://dubailand.gov.ae/en/news-media/dubai-s-real-estate-transactions-surge-31-to-reach-aed-252-billion-in-q1-2026/",
+      "verifiedOn": "2026-09-21",
+      "publishedOn": "2026-04-09"
+    },
+    {
+      "name": "Projectory Research: Dubai property market August 2026, DLD home sales report",
+      "tier": 3,
+      "url": "https://projectory.ae/research/dubai-property-market-august-2026-dld-home-sales-report/",
+      "verifiedOn": "2026-09-21",
+      "publishedOn": "2026-09-01"
+    },
+    {
+      "name": "Dubai Land Department: Residential Sales Price Index overview",
+      "tier": 1,
+      "url": "https://dubailand.gov.ae/en/open-data/residential-properties-price-index-rppi/",
+      "verifiedOn": "2026-09-21",
+      "undated": true
+    }
+  ],
+  "draftNotes": [
+    "August numbers come from one research firm (tier 3). Your own rule says a tier 3 source alone cannot carry a headline number; the Q1 figures are tier 1, the August ones are not. Verify the August figures against DLD open data before approving, or hold this article.",
+    "Projectory says higher-value sales expanded, yet also reports median sale price down 19.7% and value down more than volume. Those do not sit comfortably together, so I left the mix explanation out.",
+    "The 31% and 6% figures are quoted as the release states them. I did not divide one by the other to get an average deal size, because I could not confirm both cover the same set of transactions."
+  ]
+}

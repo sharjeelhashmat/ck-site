@@ -1,0 +1,81 @@
+{
+  "status": "draft",
+  "author": "Sharjeel Hashmat",
+  "reviewer": "Sharjeel Hashmat",
+  "publishedOn": "2026-09-21",
+  "updatedOn": "2026-09-21",
+  "geography": "Dubai",
+  "slug": "dubai-august-2026-market-view",
+  "series": "Sharjeel's Market View",
+  "title": "August 2026: fewer Dubai home sales, price per square foot barely moved",
+  "description": "Dubai recorded 11,147 home sales in August 2026, down 35.2% on a year earlier, while median price per square foot was down 1.9%.",
+  "topic": "Monthly market update",
+  "confidence": "Medium",
+  "reviewBy": "2026-10-05",
+  "body": [
+    {
+      "h": "What changed"
+    },
+    {
+      "p": "Projectory Research, analysing Dubai Land Department registrations, counted 11,147 Dubai home sales in August 2026, worth AED 21.43 billion. That is 11.5% fewer sales than July and 35.2% fewer than August 2025. Registered value was down 46.5% on a year earlier."
+    },
+    {
+      "p": "The median price per square foot was AED 1,693, down 1.9% on August 2025."
+    },
+    {
+      "p": "Off-plan made up 8,270 of the sales (74.2%) and ready homes 2,877 (25.8%). Off-plan registrations fell 10.8% from July, and ready-home sales fell 13.6%."
+    },
+    {
+      "h": "A second count of the same month"
+    },
+    {
+      "p": "Sherwoods Property, also drawing on Dubai Land Department data, reported 11,600 property sales worth AED 27.89 billion in August, an average ticket of AED 2.40 million, with off-plan leading by volume."
+    },
+    {
+      "p": "The two counts differ. They appear to cover different sets of transactions and I have not checked either publisher's full method, so compare the direction and not the totals. Both show off-plan ahead of ready homes."
+    },
+    {
+      "h": "The official baseline"
+    },
+    {
+      "p": "The most recent Dubai Land Department release I found covers Q1 2026: AED 252 billion in transactions, up 31% year on year, with 60,303 transactions, up 6%. I did not find an official August release, so the August numbers above are as reported by the two firms and not confirmed by the Department."
+    },
+    {
+      "h": "How to read it"
+    },
+    {
+      "p": "Fewer transactions with a nearly flat price per square foot means deal counts moved more than prices. One month does not make a trend."
+    },
+    {
+      "p": "Before acting on a single month, check whether the fall is in the segment you care about, off-plan or ready, and what the price per square foot has done in your specific building. The citywide median cannot tell you that."
+    }
+  ],
+  "sources": [
+    {
+      "name": "Projectory Research: Dubai property market August 2026, DLD home sales report",
+      "tier": 3,
+      "url": "https://projectory.ae/research/dubai-property-market-august-2026-dld-home-sales-report/",
+      "verifiedOn": "2026-09-21",
+      "publishedOn": "2026-09-01"
+    },
+    {
+      "name": "Sherwoods Property: Dubai real estate transactions August 2026",
+      "tier": 3,
+      "url": "https://sherwoodsproperty.com/dubai-real-estate-transactions-august-2026-full-dld-data/",
+      "verifiedOn": "2026-09-21",
+      "publishedOn": "2026-09-03"
+    },
+    {
+      "name": "Dubai Land Department: Dubai real estate transactions reach AED 252 billion in Q1 2026",
+      "tier": 1,
+      "url": "https://dubailand.gov.ae/en/news-media/dubai-s-real-estate-transactions-surge-31-to-reach-aed-252-billion-in-q1-2026/",
+      "verifiedOn": "2026-09-21",
+      "publishedOn": "2026-04-09"
+    }
+  ],
+  "draftNotes": [
+    "Every August figure is tier 3. Your own rule says tier 3 cannot be the only source of a headline number. Recommend holding this article until the August figures are checked against DLD open data, or publishing it labelled as reported, which is how it is written now.",
+    "Projectory's statement that higher-value sales expanded conflicts with its median sale price falling 19.7%; I did not use either claim.",
+    "Sherwoods compares August with June and quotes off-plan share as 68.5% of trailing volume; I used only that off-plan leads by volume."
+  ]
+}
