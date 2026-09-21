@@ -2,7 +2,7 @@
 // never files under src/data. Independent of `npm run build` (each build test writes to its own outDir).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -278,7 +278,7 @@ test('a made-up worked example is exempt only when it is marked illustration', (
   assert.equal(checkArticle(withBody([{ ...table, illustration: true }], s), TODAY).publishable, true);
 });
 
-test('the shipped drafts: the two verified ones would pass, the August Market View is blocked by the rule', async () => {
+test('the shipped August Market View draft stays blocked by the figure-source rule (tier 3 sources only)', async () => {
   const { loadIntel } = await import('../src/lib/intel-data.mjs');
   const prev = process.env.INTEL_DATA_DIR; delete process.env.INTEL_DATA_DIR;
   const arts = loadIntel().articles;
@@ -298,4 +298,17 @@ test('build: figure markers link to the numbered Sources table', () => {
   const page = html(r.out, 'insights/a.html');
   assert.match(page, /<sup class="cite"><a href="#src-1" aria-label="Source 1">\[1\]<\/a><\/sup>/);
   assert.match(page, /<tr id="src-1"><td>1<\/td>/);
+});
+
+test('build: a default build (no INTEL_DATA_DIR) emits a page for every published shipped article', () => {
+  const out = mkdtempSync(join(tmpdir(), 'ck-intel-out-'));
+  const env = { ...process.env, PUBLIC_INDEXABLE: 'false', PUBLIC_BRN: '' };
+  delete env.INTEL_DATA_DIR; delete env.INTEL_TODAY;
+  const r = spawnSync('npx', ['astro', 'build', '--outDir', out], { cwd: root, encoding: 'utf8', env });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const dir = join(root, 'src', 'data', 'insights');
+  for (const f of readdirSync(dir).filter((x) => x.endsWith('.json'))) {
+    const rec = JSON.parse(readFileSync(join(dir, f), 'utf8'));
+    if (rec.status === 'published') assert.ok(existsSync(join(out, 'insights', `${rec.slug}.html`)), `${rec.slug} was not built: the build is not reading src/data`);
+  }
 });

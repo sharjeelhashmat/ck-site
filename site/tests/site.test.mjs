@@ -58,7 +58,9 @@ test('owner decisions hold: no Gmail, no "Investment Advisor", no Firebase, no "
 
 test('sitemap lists only pages with real content', () => {
   const s = read('sitemap-0.xml');
-  for (const p of ['/new-launches', '/insights', '/areas/downtown-dubai']) assert.doesNotMatch(s, new RegExp(p + '<'), p);
+  for (const p of ['/new-launches', '/investor-profile', '/areas/downtown-dubai']) assert.doesNotMatch(s, new RegExp(p + '<'), p);
+  // Decision 5: Insights enters the sitemap once 3 non-stale articles are published (true since 2026-09-21).
+  for (const p of ['/insights', '/insights/dubai-q1-2026-who-is-buying']) assert.match(s, new RegExp(p + '<'), p);
   for (const p of ['/buy', '/invest', '/investment-approach', '/contact']) assert.match(s, new RegExp(p + '<'), p);
 });
 
