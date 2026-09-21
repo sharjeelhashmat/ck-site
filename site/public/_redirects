@@ -3,6 +3,5 @@
 /admin/* /contact 301
 /properties /buy 301
 /properties/* /buy 301
-/insights/* /insights 301
 /new-launches/* /new-launches 301
 /opengraph-image /og.png 301
