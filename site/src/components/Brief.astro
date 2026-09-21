@@ -1,0 +1,117 @@
+---
+// The Sharjeel Property Brief: one opportunity record rendered as a research note. Section order is fixed
+// (Investment Intelligence System v1.0, section 3). A missing figure shows its fallback badge, never an estimate.
+import { FACTORS, FALLBACKS } from '../lib/intel.mjs';
+import { SITE } from '../lib/site';
+
+interface Props { o: any }
+const { o } = Astro.props;
+const claimRows = (list: any[] | undefined) => list ?? [];
+const numbers = claimRows(o.numbers);
+const income = claimRows(o.income);
+const comps = claimRows(o.comparables);
+const supply = claimRows(o.supply);
+const allClaims = [...numbers, ...income, ...comps, ...supply];
+const verdictClass = o.verdict === 'BUY' ? 'verdict verdict--buy' : o.verdict === 'PASS' ? 'verdict verdict--pass' : 'verdict';
+const fit = o.investorFit;
+---
+<article class="brief">
+  <p class="eyebrow">Sharjeel Property Brief</p>
+  <h1 style="max-width:22ch">{o.project}{o.unit ? ` · ${o.unit}` : ''}</h1>
+  <p class="lede">{o.developer} · {o.location} · {o.propertyType}</p>
+  <div class="meta">
+    <span>Brief {o.slug} · v{o.version}</span>
+    <span>Published {o.publishedOn}</span>
+    <span>Last verified {o.lastVerified}</span>
+    <span>Review by {o.reviewBy}</span>
+  </div>
+  <p class="meta" style="margin-top:.5rem">Permit {o.compliance.permitNumber} · Working with {SITE.brokerage} · BRN {SITE.brn || 'pending'}</p>
+
+  <h2 id="summary">1. Executive summary</h2>
+  <p><span class={verdictClass}>{o.verdict}</span></p>
+  <p>{o.verdictNote}</p>
+  {fit && <p class="src">Suits: {fit.objective} · {fit.budgetBand} · {fit.timeline} · {fit.riskTolerance} risk tolerance.</p>}
+  <div class="table-scroll">
+    <table>
+      <thead><tr><th>Factor</th><th>Rating</th><th>Why</th></tr></thead>
+      <tbody>
+        {FACTORS.map((f) => (
+          <tr><td>{f.label}</td><td><span class="badge">{o.factors[f.key].rating}</span></td><td>{o.factors[f.key].note}</td></tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+
+  <h2 id="thesis">2. Investment thesis</h2>
+  <p>{o.thesis}</p>
+
+  <h2 id="numbers">3. Acquisition numbers</h2>
+  {numbers.length ? (
+    <div class="table-scroll"><table>
+      <thead><tr><th>Item</th><th>Figure</th><th>Source</th><th>Verified</th></tr></thead>
+      <tbody>{numbers.map((c) => <tr><td>{c.label}</td><td>{c.value}</td><td><a href={c.sourceUrl} rel="noopener" target="_blank">{c.sourceName}</a></td><td>{c.verifiedOn}</td></tr>)}</tbody>
+    </table></div>
+  ) : <p><span class="badge">{FALLBACKS.price}</span></p>}
+
+  <h2 id="income">4. Rental economics and net yield</h2>
+  {income.length ? (
+    <div class="table-scroll"><table>
+      <thead><tr><th>Item</th><th>Figure</th><th>Source</th><th>Verified</th></tr></thead>
+      <tbody>{income.map((c) => <tr><td>{c.label}</td><td>{c.value}</td><td><a href={c.sourceUrl} rel="noopener" target="_blank">{c.sourceName}</a></td><td>{c.verifiedOn}</td></tr>)}</tbody>
+    </table></div>
+  ) : <p><span class="badge">{FALLBACKS.income}</span></p>}
+
+  <h2 id="evidence">5. Market evidence and comparables</h2>
+  {comps.length ? (
+    <div class="table-scroll"><table>
+      <thead><tr><th>Comparable</th><th>Figure</th><th>Source</th><th>Verified</th></tr></thead>
+      <tbody>{comps.map((c) => <tr><td>{c.label}</td><td>{c.value}</td><td><a href={c.sourceUrl} rel="noopener" target="_blank">{c.sourceName}</a></td><td>{c.verifiedOn}</td></tr>)}</tbody>
+    </table></div>
+  ) : <p><span class="badge">{FALLBACKS.comps}</span></p>}
+
+  <h2 id="supply">6. Supply and demand</h2>
+  <p>{o.factors.supply.note}</p>
+  {supply.length > 0 && (
+    <div class="table-scroll"><table>
+      <thead><tr><th>Item</th><th>Figure</th><th>Source</th><th>Verified</th></tr></thead>
+      <tbody>{supply.map((c) => <tr><td>{c.label}</td><td>{c.value}</td><td><a href={c.sourceUrl} rel="noopener" target="_blank">{c.sourceName}</a></td><td>{c.verifiedOn}</td></tr>)}</tbody>
+    </table></div>
+  )}
+
+  <h2 id="exit">7. Exit and liquidity</h2>
+  <p>{o.exitNote}</p>
+  <p>{o.factors.liquidity.note}</p>
+
+  <h2 id="risk">8. Risk assessment</h2>
+  <ul>{o.risks.map((r: string) => <li>{r}</li>)}</ul>
+
+  <h2 id="both-sides">9. Why it could work, why it could fail</h2>
+  <div class="grid grid--pair">
+    <div><p class="kicker">Why it could work</p><ul>{o.couldWork.map((r: string) => <li>{r}</li>)}</ul></div>
+    <div><p class="kicker">Why it could fail</p><ul>{o.couldFail.map((r: string) => <li>{r}</li>)}</ul></div>
+  </div>
+
+  <h2 id="change-view">10. What would change my view</h2>
+  <ul>{o.changeMyView.map((r: string) => <li>{r}</li>)}</ul>
+
+  <h2 id="fit">11. Investor fit</h2>
+  <div class="table-scroll"><table>
+    <tbody>
+      <tr><th>Objective</th><td>{fit.objective}</td></tr>
+      <tr><th>Budget band</th><td>{fit.budgetBand}</td></tr>
+      <tr><th>Timeline</th><td>{fit.timeline}</td></tr>
+      <tr><th>Risk tolerance</th><td>{fit.riskTolerance}</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2 id="sources">12. Sources and freshness</h2>
+  <div class="table-scroll"><table>
+    <thead><tr><th>Claim</th><th>Source</th><th>Type</th><th>Published</th><th>Verified</th></tr></thead>
+    <tbody>
+      {allClaims.map((c) => (
+        <tr><td>{c.label}</td><td><a href={c.sourceUrl} rel="noopener" target="_blank">{c.sourceName}</a></td><td>{String(c.sourceType).replace(/_/g, ' ').toLowerCase()}</td><td>{c.publishedOn}</td><td>{c.verifiedOn} by {c.verifiedBy}</td></tr>
+      ))}
+    </tbody>
+  </table></div>
+  <p class="fine" style="margin-top:2rem">This Brief is a personal, professional opinion at a point in time. It is not financial, tax or legal advice, and not a guarantee of actual performance. Figures are as sourced above on the dates shown.</p>
+</article>
