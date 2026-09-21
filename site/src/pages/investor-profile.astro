@@ -1,0 +1,112 @@
+---
+// Optional step 2 after an enquiry. Reached only from the link shown once an enquiry is received. Never indexed, never in the sitemap.
+import Base from '../layouts/Base.astro';
+import { SITE, waLink } from '../lib/site';
+import { PROFILE_OPTIONS, PROFILE_AREAS } from '../lib/profile';
+const o = PROFILE_OPTIONS;
+---
+<Base title="Investor profile" description="An optional short profile so I can match properties to you." noindex>
+  <section class="section">
+    <div class="narrow">
+      <p class="eyebrow">Optional · one minute</p>
+      <h1>Help me match <em>the right property.</em></h1>
+      <p class="lede">Five short questions. They tell me what would suit you, so a recommendation fits you and not just a budget. You can skip this and I will still reply to your enquiry.</p>
+
+      <form class="card" id="profile-form" novalidate data-worker={SITE.workerUrl} style="margin-top:2rem">
+        <div class="fields">
+          <div class="field">
+            <label for="p-objective">Main objective</label>
+            <select id="p-objective" name="objective" required>
+              <option value="">Select</option>
+              {o.objective.map((x) => <option value={x.value}>{x.label}</option>)}
+            </select>
+            <span class="err" data-err="objective" role="alert"></span>
+          </div>
+          <div class="field">
+            <label for="p-type">Property type</label>
+            <select id="p-type" name="property_type" required>
+              <option value="">Select</option>
+              {o.property_type.map((x) => <option value={x.value}>{x.label}</option>)}
+            </select>
+            <span class="err" data-err="property_type" role="alert"></span>
+          </div>
+          <div class="field">
+            <label for="p-risk">Risk tolerance</label>
+            <select id="p-risk" name="risk_tolerance" required>
+              <option value="">Select</option>
+              {o.risk_tolerance.map((x) => <option value={x.value}>{x.label}</option>)}
+            </select>
+            <span class="err" data-err="risk_tolerance" role="alert"></span>
+          </div>
+          <div class="field">
+            <label for="p-hold">How long would you hold it?</label>
+            <select id="p-hold" name="holding_period" required>
+              <option value="">Select</option>
+              {o.holding_period.map((x) => <option value={x.value}>{x.label}</option>)}
+            </select>
+            <span class="err" data-err="holding_period" role="alert"></span>
+          </div>
+          <fieldset class="field full" style="border:0;padding:0;margin:0">
+            <legend style="font-size:.85rem;font-weight:600;margin-bottom:.5rem">Areas you prefer (optional)</legend>
+            <div style="display:grid;gap:.5rem;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr))">
+              {PROFILE_AREAS.map((a) => (
+                <label class="check" style="text-transform:none;letter-spacing:normal;font-size:.9rem;font-weight:400"><input type="checkbox" name="areas" value={a.value} /><span>{a.label}</span></label>
+              ))}
+            </div>
+          </fieldset>
+        </div>
+        <div class="form-foot">
+          <button class="btn" type="submit" id="profile-submit">Send profile</button>
+          <span class="status" id="profile-status" role="status" aria-live="polite"></span>
+        </div>
+        <p class="fine" style="margin-top:1rem">Stored with your enquiry and used only to match properties to you. <a href="/privacy">Privacy</a>. Prefer to talk? <a href={waLink("Hi Sharjeel, I'd like to discuss what would suit me.")} target="_blank" rel="noopener">WhatsApp me</a>.</p>
+      </form>
+    </div>
+  </section>
+</Base>
+<script>
+  const form = document.getElementById('profile-form') as HTMLFormElement | null;
+  if (form) {
+    const status = document.getElementById('profile-status')!;
+    const btn = document.getElementById('profile-submit') as HTMLButtonElement;
+    const workerUrl = form.dataset.worker!;
+    const lead = new URLSearchParams(location.search).get('lead') ?? '';
+    const say = (m: string, ok: boolean) => { status.textContent = m; status.className = 'status ' + (ok ? 'ok' : 'bad'); };
+    const val = (n: string) => ((form.elements.namedItem(n) as HTMLSelectElement | null)?.value ?? '').trim();
+    if (!/^[0-9a-f-]{36}$/i.test(lead)) {
+      say('This page works from the link shown after you send an enquiry. Please use that link, or message me on WhatsApp.', false);
+      btn.disabled = true;
+    }
+    // A shown error clears as soon as that question is answered.
+    form.querySelectorAll('select').forEach((s) => s.addEventListener('change', () => { const el = form.querySelector(`[data-err="${s.name}"]`); if (el) el.textContent = ''; }));
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      form.querySelectorAll('[data-err]').forEach((x) => (x.textContent = ''));
+      let bad = false;
+      for (const f of ['objective', 'property_type', 'risk_tolerance', 'holding_period']) {
+        if (!val(f)) { const el = form.querySelector(`[data-err="${f}"]`); if (el) el.textContent = 'Please choose one.'; bad = true; }
+      }
+      if (bad) { say('Please answer the highlighted questions.', false); return; }
+      const areas = [...form.querySelectorAll<HTMLInputElement>('input[name="areas"]:checked')].map((c) => c.value);
+      btn.disabled = true; say('Sending…', true);
+      try {
+        const res = await fetch(`${workerUrl}/profile`, {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ lead_id: lead, objective: val('objective'), property_type: val('property_type'), risk_tolerance: val('risk_tolerance'), holding_period: val('holding_period'), areas }),
+        });
+        const body = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (res.ok && body.ok) {
+          form.reset();
+          say('Thank you. I will use this to match properties to you.', true);
+          btn.disabled = true;
+          return;
+        }
+        if (body.error === 'invalid_link' || body.error === 'expired') say('This link is no longer valid. Please message me on WhatsApp and I will note it manually.', false);
+        else say('Something went wrong on my side. Please message me on WhatsApp.', false);
+      } catch {
+        say('Connection problem. Please try again in a moment.', false);
+      }
+      btn.disabled = false;
+    });
+  }
+</script>
