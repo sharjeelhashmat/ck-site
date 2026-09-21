@@ -1,6 +1,8 @@
 ---
 import Base from '../../layouts/Base.astro';
-import { AREAS, hasDetails } from '../../lib/areas';
+import { AREAS } from '../../lib/areas';
+import { areaSnapshotState, SNAPSHOT_FIELDS } from '../../lib/intel.mjs';
+import { today } from '../../lib/intel-data.mjs';
 import { waLink } from '../../lib/site';
 
 export function getStaticPaths() {
@@ -11,8 +13,11 @@ const FIELDS = [
   ['buyerProfile', 'Who Buys Here'], ['priceRange', 'Price Range'], ['rentalProfile', 'Rental Profile'],
   ['investmentCase', 'Investment Case'], ['risks', 'Things to Consider'], ['sharjeelView', "Sharjeel's View"],
 ] as const;
-// Thin pages (overview only) stay noindex until the owner supplies real details.
-const noindex = !hasDetails(area);
+// Decision 5 (2026-09-21): an area page is indexable only when every snapshot figure is sourced, verified and inside its
+// 90-day window. Until then it stays noindex and out of the sitemap. A snapshot that goes stale drops back to noindex.
+const snap = areaSnapshotState(area, today());
+const noindex = !snap.live;
+const claims = SNAPSHOT_FIELDS.map((f) => ({ ...f, c: area.details.snapshot?.[f.key as 'priceSqft' | 'rent' | 'netYield'] })).filter((x) => x.c);
 ---
 <Base title={area.name} description={area.overview} noindex={noindex}>
   <section class="section">
@@ -20,6 +25,20 @@ const noindex = !hasDetails(area);
       <p class="eyebrow">Area Guide</p>
       <h1>{area.name}</h1>
       <p class="lede">{area.overview}</p>
+      {claims.length > 0 && (
+        <div style="margin-top:2.5rem">
+          <p class="kicker">Snapshot</p>
+          <div class="grid grid--3">
+            {claims.map(({ label, c }) => (
+              <div class="card">
+                <p class="kicker" style="margin:0">{label}</p>
+                <p class="figure">{c!.value}</p>
+                <p class="src"><a href={c!.sourceUrl} rel="noopener" target="_blank">{c!.sourceName}</a> · published {c!.publishedOn} · verified {c!.verifiedOn}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div class="grid grid--2" style="margin-top:2.5rem">
         {FIELDS.map(([k, label]) => (
           <div class="card"><p class="kicker" style="margin:0">{label}</p><p>{area.details[k] || 'Ask Sharjeel for current data on this.'}</p></div>
