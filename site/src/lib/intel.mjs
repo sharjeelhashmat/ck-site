@@ -126,6 +126,16 @@ export function checkOpportunity(o, today) {
 }
 
 /** Insights article. Drafts are never built. Published articles past reviewBy stay live with a banner but stop counting toward the launch gate. */
+// What counts as "a figure": a percentage, an AED amount, a bn/billion/million/thousand quantity, or a number written with thousands separators.
+const FIGURE_RE = /\d[\d.]*\s?%|AED\s?[\d,.]+|\d[\d,.]*\s?(bn|billion|million|thousand)\b|\b\d{1,3}(,\d{3})+\b/i;
+function blockText(b) {
+  if (!b || typeof b !== 'object') return '';
+  if (typeof b.p === 'string') return b.p;
+  if (Array.isArray(b.ul)) return b.ul.join(' ');
+  if (b.table) return [...(b.table.head ?? []), ...(b.table.rows ?? []).flat()].join(' ');
+  return '';
+}
+
 export function checkArticle(a, today) {
   const errors = [];
   const need = (cond, msg) => { if (!cond) errors.push(msg); };
@@ -146,6 +156,19 @@ export function checkArticle(a, today) {
   }
   // A number carried by tier 3 sources only cannot stand alone (source tiers, section 5).
   if ((a.sources ?? []).length && (a.sources ?? []).every((s) => s.tier === 3)) errors.push('sources are all tier 3: at least one tier 1 or 2 source is required for a headline number');
+  // Owner rule 2026-09-21: every number is verified and carries its source. A paragraph, list or table that states a figure
+  // must name the sources it comes from (src: [1, 2], 1-based positions in sources), and at least one of them must be tier 1
+  // or 2, so a tier 3 source alone can never carry a headline number. A made-up worked example is marked illustration: true.
+  (a.body ?? []).forEach((blk, i) => {
+    const text = blockText(blk);
+    if (!blk || blk.illustration === true || !FIGURE_RE.test(text)) return;
+    const where = `body block ${i + 1}`;
+    const refs = Array.isArray(blk.src) ? blk.src : [];
+    if (refs.length === 0) { errors.push(`${where} states a figure but names no source (add src: [n])`); return; }
+    const bad = refs.filter((n) => !Number.isInteger(n) || n < 1 || n > (a.sources ?? []).length);
+    if (bad.length) { errors.push(`${where}: src ${bad.join(', ')} does not match a listed source`); return; }
+    if (!refs.some((n) => (a.sources ?? [])[n - 1].tier <= 2)) errors.push(`${where} states a figure that rests on tier 3 sources only. It needs a tier 1 or 2 source`);
+  });
   // Property analysis must carry both sides (owner content rule).
   if (['Would I Buy It?', 'Opportunity vs Risk'].includes(a.series)) {
     need(nonEmptyList(a.couldWork), 'property analysis needs couldWork');

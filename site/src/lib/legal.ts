@@ -3,11 +3,13 @@
 // after the move off Firebase. Every changed sentence is listed in CHANGES_FOR_APPROVAL.md. Owner approval required
 // before publishing (legal wording is a claim in the owner's name).
 import { SITE } from './site';
+import { PROFILE_ENABLED, PROFILE_PRIVACY_LINE } from './profile';
 
 export interface LegalSection { h: string; p: string[]; list?: string[]; after?: string }
 const mail = `<a href="mailto:${SITE.email}">${SITE.email}</a>`;
 
-export const PRIVACY_UPDATED = '20 September 2026';
+// The date moves only when the text does: the investor profile line appears with the feature (owner approval required).
+export const PRIVACY_UPDATED = PROFILE_ENABLED ? '21 September 2026' : '20 September 2026';
 export const PRIVACY: LegalSection[] = [
   {
     h: '1. Who this policy covers',
@@ -19,6 +21,7 @@ export const PRIVACY: LegalSection[] = [
     h: '2. What I collect',
     p: [
       `Contact and enquiry details you submit through the site's forms (name, email, phone, country, budget range, timeline, message, and, for sell enquiries, property details); ROI Calculator inputs, which are processed in your browser and are not stored unless you separately submit them via an enquiry form; and standard technical data (such as IP address and browser information) collected automatically by the hosting and security infrastructure described below, including a bot check (Cloudflare Turnstile) on the enquiry forms. I do not knowingly collect any special category (sensitive) personal data through this site.`,
+      ...(PROFILE_ENABLED ? [PROFILE_PRIVACY_LINE] : []),
     ],
   },
   {
