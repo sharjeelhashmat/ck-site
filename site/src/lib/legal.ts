@@ -1,4 +1,4 @@
-// Legal copy. Terms are carried over verbatim from the live site (last updated 5 September 2026).
+// Legal copy. Terms are carried over from the live site (last updated 5 September 2026). Section 4 changed 2026-09-21: verdict labels are BUY / WATCH / PASS (decision 1 of the Investment Intelligence System).
 // Privacy is the live text with ONLY the sections that describe infrastructure changed (2, 4, 5, 7) so they stay true
 // after the move off Firebase. Every changed sentence is listed in CHANGES_FOR_APPROVAL.md. Owner approval required
 // before publishing (legal wording is a claim in the owner's name).
@@ -82,12 +82,12 @@ export const PRIVACY: LegalSection[] = [
   },
 ];
 
-export const TERMS_UPDATED = '5 September 2026';
+export const TERMS_UPDATED = '21 September 2026';
 export const TERMS: LegalSection[] = [
   { h: '1. Acceptance and eligibility', p: [`By using sharjeelhashmat.com, you agree to these Terms. This site is intended for adults capable of entering a binding agreement under UAE law; if you don't agree with these Terms, please don't use the site or submit an enquiry.`] },
   { h: '2. Informational use', p: [`The content on sharjeelhashmat.com — including listings, area guides, market commentary, the ROI Calculator and any "Sharjeel Property Brief" verdict — is provided for general information only. It does not constitute financial, legal, tax or investment advice, and should not be relied on as a substitute for independent professional advice before making a property decision.`] },
   { h: '3. Listing accuracy and advertising permits', p: [`Listing details (price, size, availability) are provided in good faith and marked with a last-verified date where available, but are subject to change without notice and should be independently confirmed before any transaction. Where a listing is an active Dubai property advertisement, its DLD/RERA advertising permit ("Trakheesi") number is displayed alongside it — a listing shown without one is not yet cleared for advertising and should be treated as indicative only.`] },
-  { h: '4. ROI Calculator and Property Brief disclaimer', p: [`The ROI Calculator produces estimates based solely on the figures you enter — it is not a market forecast, a valuation, or a guarantee of actual rental income, appreciation, or resale value. A "BUY / CONSIDER / PASS" verdict or "Sharjeel's View" on a property reflects a personal, professional opinion at a point in time, not a warranty of investment performance.`] },
+  { h: '4. ROI Calculator and Property Brief disclaimer', p: [`The ROI Calculator produces estimates based solely on the figures you enter — it is not a market forecast, a valuation, or a guarantee of actual rental income, appreciation, or resale value. A "BUY / WATCH / PASS" verdict or "Sharjeel's View" on a property reflects a personal, professional opinion at a point in time, not a warranty of investment performance.`] },
   { h: '5. No warranty', p: [`The site and its content are provided "as is" and "as available," without warranties of any kind, express or implied, including as to accuracy, completeness, or fitness for a particular purpose, to the fullest extent UAE law allows.`] },
   { h: '6. Limitation of liability', p: [`To the extent permitted by UAE law, my liability for any claim arising from your use of this site or reliance on its content is limited to direct damages actually incurred, and excludes indirect or consequential loss. Nothing in these Terms limits or excludes liability that cannot lawfully be limited or excluded under UAE law — including liability for fraud, willful misconduct, or a harmful act (tortious liability), which the UAE Civil Code does not permit parties to exclude or reduce by agreement.`] },
   { h: '7. Indemnification', p: [`You agree to indemnify and hold ${SITE.name} harmless from any claim or loss arising from your misuse of this site or breach of these Terms, to the extent permitted by UAE law.`] },

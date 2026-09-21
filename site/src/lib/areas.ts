@@ -2,7 +2,19 @@
 // investment case, risks and "view" are the owner's judgement calls and are intentionally empty until he
 // supplies them. An area page with no filled detail stays noindex and out of the sitemap.
 
+// A sourced figure. Same fields as an opportunity claim; an area page goes live (indexable, in the sitemap)
+// only when all three snapshot figures are present, sourced and inside their 90-day review window.
+export interface SnapshotClaim {
+  value: string;
+  sourceName: string;
+  sourceType: string;
+  sourceUrl: string;
+  publishedOn: string;
+  verifiedOn: string;
+}
+
 export interface AreaDetails {
+  snapshot?: { priceSqft?: SnapshotClaim; rent?: SnapshotClaim; netYield?: SnapshotClaim };
   buyerProfile?: string;
   priceRange?: string;
   rentalProfile?: string;
@@ -77,4 +89,4 @@ export const AREAS: Area[] = [
   },
 ];
 
-export const hasDetails = (a: Area): boolean => Object.values(a.details).some((v) => Boolean(v));
+export const hasDetails = (a: Area): boolean => Object.entries(a.details).some(([k, v]) => k !== 'snapshot' && Boolean(v));
