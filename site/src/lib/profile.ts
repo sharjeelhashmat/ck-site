@@ -3,11 +3,10 @@
 // Values must match the Worker's validation (worker/src/profile.ts). tests/profile.test.mjs checks that they do.
 import { AREAS } from './areas';
 
-// OFF until the Worker route POST /profile is deployed and the owner has approved the Privacy §2 line.
+// ON since 2026-09-21: the Worker route POST /profile is deployed (deploy-worker run #9) and the owner approved the wording.
 // While off: no link is shown after an enquiry, and the Privacy page does not mention the profile.
-// To go live, change PROFILE_DEFAULT to true in the same commit that follows the Worker deploy.
 // PUBLIC_PROFILE_ENABLED=true/false overrides it for a build (the tests use this).
-const PROFILE_DEFAULT = false;
+const PROFILE_DEFAULT = true;
 const flag = (import.meta.env.PUBLIC_PROFILE_ENABLED as string | undefined) ?? '';
 export const PROFILE_ENABLED = flag === 'true' ? true : flag === 'false' ? false : PROFILE_DEFAULT;
 
