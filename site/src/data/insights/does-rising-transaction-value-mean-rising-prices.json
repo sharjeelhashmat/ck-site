@@ -1,5 +1,5 @@
 {
-  "status": "draft",
+  "status": "published",
   "author": "Sharjeel Hashmat",
   "reviewer": "Sharjeel Hashmat",
   "publishedOn": "2026-09-21",
@@ -25,13 +25,15 @@
     {
       "p": "The Dubai Land Department reported Q1 2026 real estate transactions worth AED 252 billion, up 31% year on year, while the number of real estate transactions rose 6% to 60,303.",
       "src": [
-        1
+        1,
+        3
       ]
     },
     {
       "p": "Value grew about five times as fast as the count. That gap can come from higher prices, from larger or more expensive properties changing hands, or from both. The release does not separate them.",
       "src": [
-        1
+        1,
+        3
       ]
     },
     {
@@ -66,15 +68,22 @@
       "publishedOn": "2026-04-09"
     },
     {
-      "name": "Dubai Land Department: Residential Sales Price Index (DRHPI) overview and disclaimer",
+      "name": "Dubai Land Department: Dubai Residential House Price Index (DRHPI) disclaimer",
       "tier": 1,
       "url": "https://dubailand.gov.ae/en/open-data/residential-properties-price-index-rppi/",
       "verifiedOn": "2026-09-21",
       "undated": true
+    },
+    {
+      "name": "Dubai Media Office: Dubai real estate transactions surge 31% to reach AED252 billion in Q1 2026",
+      "tier": 1,
+      "url": "https://www.mediaoffice.ae/en/news/2026/april/09-04/dubai-real-estate-transactions-surge-31-to-reach-aed252-billion-in-q1-2026",
+      "verifiedOn": "2026-09-21",
+      "publishedOn": "2026-04-09"
     }
   ],
   "draftNotes": [
-    "The August 2026 figures are removed. They came from one research firm (tier 3), and they could not be checked against DLD (see the notes on the Market View draft). Every number left is from the DLD Q1 release, re-read on 2026-09-21: AED 252 billion, +31%, 60,303 transactions, +6%, released 9 April 2026.",
+    "Every figure is from the DLD Q1 release and the Dubai Media Office copy of it, both re-read on 2026-09-21: AED 252 billion, +31%, 60,303 transactions, +6%, released 9 April 2026.",
     "\"About five times as fast\" is 31% divided by 6%. The release does not define \"transactions\" beyond \"real estate transactions\" and lists 718,160 \"procedures\" separately, so I did not compute an average deal size.",
     "The quote about the price index is from the DLD page's own disclaimer: \"should not be used for any commercial purposes, including pricing and investment decision making or performance measurement.\" The page calls its index the DRHPI."
   ]

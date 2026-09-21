@@ -1,0 +1,141 @@
+{
+  "status": "published",
+  "author": "Sharjeel Hashmat",
+  "reviewer": "Sharjeel Hashmat",
+  "publishedOn": "2026-09-21",
+  "updatedOn": "2026-09-21",
+  "geography": "Dubai",
+  "slug": "dubai-q1-2026-who-is-buying",
+  "series": "Sharjeel's Market View",
+  "title": "Q1 2026 in Dubai: what the official numbers say about who is buying",
+  "description": "The Dubai Land Department's Q1 2026 release: AED 252 billion in transactions, 48,448 investors, and a breakdown by foreign, luxury, GCC, Arab and women investors.",
+  "topic": "Quarterly market update",
+  "confidence": "High",
+  "reviewBy": "2026-11-15",
+  "body": [
+    {
+      "h": "Why this article uses Q1"
+    },
+    {
+      "p": "The latest Dubai Land Department release I can check against the original is the Q1 2026 release of 9 April 2026, and the Dubai Media Office published the same figures. Press reports on the first half of 2026 give different totals with different scopes, and I could not find the original release behind them, so I have not used them. When the Land Department publishes a period I can check, this article will be updated."
+    },
+    {
+      "h": "The headline"
+    },
+    {
+      "p": "The Dubai Land Department reported real estate transactions worth AED 252 billion in Q1 2026, up 31% on a year earlier in value and up 6% in volume. It counted 60,303 real estate transactions and recorded 718,160 real estate procedures in total.",
+      "src": [
+        1,
+        2
+      ]
+    },
+    {
+      "h": "Investments and investors"
+    },
+    {
+      "p": "The release lists 57,744 real estate investments (up 7%) worth AED 173 billion (up 22%).",
+      "src": [
+        1,
+        2
+      ]
+    },
+    {
+      "p": "It counts 48,448 investors (up 8%), of whom 29,312 are new investors (up 14%).",
+      "src": [
+        1,
+        2
+      ]
+    },
+    {
+      "h": "The segments it reports"
+    },
+    {
+      "table": {
+        "head": [
+          "Segment",
+          "Value",
+          "Investments"
+        ],
+        "rows": [
+          [
+            "Foreign investors",
+            "AED 148.35 billion",
+            "48,445"
+          ],
+          [
+            "Luxury real estate",
+            "AED 87.71 billion",
+            "not stated"
+          ],
+          [
+            "Women investors",
+            "AED 32 billion",
+            "15,540"
+          ],
+          [
+            "GCC nationals",
+            "AED 12.23 billion",
+            "3,228"
+          ],
+          [
+            "Arab investors",
+            "AED 12.11 billion",
+            "6,071"
+          ]
+        ]
+      },
+      "src": [
+        1,
+        2
+      ]
+    },
+    {
+      "p": "For growth, the release reports foreign investment value up 26%, foreign investments up 11%, and luxury real estate value up 26%.",
+      "src": [
+        1,
+        2
+      ]
+    },
+    {
+      "p": "These rows describe different cuts of the same activity and overlap. A foreign buyer can also be a luxury buyer, so do not add them together."
+    },
+    {
+      "h": "What this does not tell you"
+    },
+    {
+      "p": "These are totals of registered activity across the emirate. They do not give the price per square foot, the rent, the yield or the supply pipeline for any one area or building. The release does not say how much of the value comes from off-plan sales and how much from completed homes, and it does not separate price growth from a change in the mix of properties sold."
+    },
+    {
+      "h": "How I would use it"
+    },
+    {
+      "ul": [
+        "Read it as context: demand from foreign and first-time investors was strong in Q1.",
+        "Do not treat a citywide total as a reason to buy a specific unit.",
+        "Check recent registered sales and asking rents in the exact building before you form a view.",
+        "Calculate yield after registration fees and service charges, on total cost."
+      ]
+    }
+  ],
+  "sources": [
+    {
+      "name": "Dubai Land Department: Dubai real estate transactions reach AED 252 billion in Q1 2026",
+      "tier": 1,
+      "url": "https://dubailand.gov.ae/en/news-media/dubai-s-real-estate-transactions-surge-31-to-reach-aed-252-billion-in-q1-2026/",
+      "verifiedOn": "2026-09-21",
+      "publishedOn": "2026-04-09"
+    },
+    {
+      "name": "Dubai Media Office: Dubai real estate transactions surge 31% to reach AED252 billion in Q1 2026",
+      "tier": 1,
+      "url": "https://www.mediaoffice.ae/en/news/2026/april/09-04/dubai-real-estate-transactions-surge-31-to-reach-aed252-billion-in-q1-2026",
+      "verifiedOn": "2026-09-21",
+      "publishedOn": "2026-04-09"
+    }
+  ],
+  "draftNotes": [
+    "Every figure was read from both the DLD release and the Dubai Media Office copy on 2026-09-21 and the two agree. No figure is computed by me.",
+    "H1 2026 press figures conflict (Khaleej Times: AED 286.43 billion sales, 79,229; Emirates 24|7: AED 419.94 billion, 112,850; Arabian Business: about 86,000 deals). None links to an original DLD release, so none is used. Replace this article when an official H1 or later release can be fetched.",
+    "The release does not say whether the AED 32 billion and 15,540 for women investors, or the segments generally, are subsets of the AED 173 billion. The article says the rows overlap and does not add or share them."
+  ]
+}

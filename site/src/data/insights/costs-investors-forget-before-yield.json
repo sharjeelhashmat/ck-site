@@ -1,5 +1,5 @@
 {
-  "status": "draft",
+  "status": "published",
   "author": "Sharjeel Hashmat",
   "reviewer": "Sharjeel Hashmat",
   "publishedOn": "2026-09-21",
@@ -137,7 +137,7 @@
     }
   ],
   "draftNotes": [
-    "Second-pass check on 2026-09-21: every fee, the Article 16(b) wording, the tenant non-discharge sentence, the 6 Jan 2020 date and the Service Charge Index description were re-read from the four DLD pages and match the article. The fees still need your own look at the live pages before approval, because the pages carry no date.",
+    "All fees, the Article 16(b) wording, the tenant non-discharge sentence, the 6 Jan 2020 date and the Service Charge Index description were re-read from the four DLD pages on 2026-09-21 and match. The DLD fee pages are undated, so re-check before each rebuild.",
     "Fee figures were read from the three DLD pages by page extraction on 2026-09-21. Open each page yourself before approving; fees change and the pages are undated.",
     "The DLD sale page lists 2% for the seller and 2% for the buyer. I did not assume who pays in practice; the article tells the reader to check the contract.",
     "The example uses made-up numbers and says so. VAT and the small fixed fees are excluded and stated as excluded."
