@@ -11,7 +11,8 @@ The live sitemap (fetched 2026-09-20) lists 19 URLs. All 19 keep the same path o
 | `/areas/{8 slugs}` | same | live but `noindex` until real details exist |
 | `/admin`, `/admin/*` | 301 `/contact` | Firebase admin removed |
 | `/properties`, `/properties/*` | 301 `/buy` | no listings ever published |
-| `/insights/*`, `/new-launches/*` | 301 parent | no articles or launches ever published |
+| `/new-launches/*` | 301 parent | no launches ever published |
+| `/insights/*` | served by the site | no legacy articles existed; the Insights articles live at `/insights/<slug>`, so a wildcard redirect would hide them (found on staging 2026-09-21). Unknown slugs return the 404 page |
 | `/opengraph-image` | 301 `/og.png` | |
 | apex `sharjeelhashmat.com/*` | 301 `https://www.sharjeelhashmat.com/*` | Cloudflare redirect rule, owner step |
 | `/investment-approach` | NEW | linked from 6 approved reply templates |
