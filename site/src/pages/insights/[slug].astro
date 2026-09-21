@@ -7,6 +7,8 @@ export function getStaticPaths() {
   return articles.map((a: any) => ({ params: { slug: a.slug }, props: { a, insightsLive } }));
 }
 const { a, insightsLive } = Astro.props;
+// Each figure-bearing block lists the sources it comes from; they show as [1] [2] links to the numbered Sources table below.
+const cite = (b: any) => (Array.isArray(b.src) ? b.src : []) as number[];
 const propertyAnalysis = ['Would I Buy It?', 'Opportunity vs Risk'].includes(a.series);
 ---
 <Base title={a.title} description={a.description} noindex={!insightsLive}>
@@ -25,13 +27,17 @@ const propertyAnalysis = ['Would I Buy It?', 'Opportunity vs Risk'].includes(a.s
       {a.stale && <p class="stale-banner">This article is past its review date and is being re-checked. Treat the figures as historical until it is updated.</p>}
       {a.body.map((b: any) => {
         if (b.h) return <h2>{b.h}</h2>;
-        if (b.p) return <p>{b.p}</p>;
-        if (b.ul) return <ul>{b.ul.map((x: string) => <li>{x}</li>)}</ul>;
+        if (b.p) return <p>{b.p}{cite(b).map((n) => <sup class="cite"><a href={`#src-${n}`} aria-label={`Source ${n}`}>[{n}]</a></sup>)}</p>;
+        if (b.ul) return <><ul>{b.ul.map((x: string) => <li>{x}</li>)}</ul>{cite(b).length > 0 && <p class="src">Sources: {cite(b).map((n) => <a href={`#src-${n}`}>[{n}]</a>)}</p>}</>;
         if (b.table) return (
-          <div class="table-scroll"><table>
-            <thead><tr>{b.table.head.map((h: string) => <th>{h}</th>)}</tr></thead>
-            <tbody>{b.table.rows.map((r: string[]) => <tr>{r.map((c) => <td>{c}</td>)}</tr>)}</tbody>
-          </table></div>
+          <>
+            <div class="table-scroll"><table>
+              <thead><tr>{b.table.head.map((h: string) => <th>{h}</th>)}</tr></thead>
+              <tbody>{b.table.rows.map((r: string[]) => <tr>{r.map((c) => <td>{c}</td>)}</tr>)}</tbody>
+            </table></div>
+            {b.illustration === true && <p class="src">Illustration with made-up numbers, not a real property.</p>}
+            {cite(b).length > 0 && <p class="src">Sources: {cite(b).map((n) => <a href={`#src-${n}`}>[{n}]</a>)}</p>}
+          </>
         );
         return null;
       })}
@@ -43,8 +49,8 @@ const propertyAnalysis = ['Would I Buy It?', 'Opportunity vs Risk'].includes(a.s
       )}
       <h2>Sources</h2>
       <div class="table-scroll"><table>
-        <thead><tr><th>Source</th><th>Tier</th><th>Published</th><th>Verified</th></tr></thead>
-        <tbody>{a.sources.map((s: any) => <tr><td><a href={s.url} rel="noopener" target="_blank">{s.name}</a></td><td>{s.tier}</td><td>{s.undated ? 'undated page' : s.publishedOn}</td><td>{s.verifiedOn}</td></tr>)}</tbody>
+        <thead><tr><th>#</th><th>Source</th><th>Tier</th><th>Published</th><th>Verified</th></tr></thead>
+        <tbody>{a.sources.map((s: any, i: number) => <tr id={`src-${i + 1}`}><td>{i + 1}</td><td><a href={s.url} rel="noopener" target="_blank">{s.name}</a></td><td>{s.tier}</td><td>{s.undated ? 'undated page' : s.publishedOn}</td><td>{s.verifiedOn}</td></tr>)}</tbody>
       </table></div>
       <p class="fine" style="margin-top:2rem">General information, not financial, tax or legal advice. Reviewed by {a.reviewer}; review by {a.reviewBy}.</p>
     </div>
