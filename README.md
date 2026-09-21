@@ -1,22 +1,31 @@
-# Compass Key: foundation pack, Phase 1 (lead engine + guardrails)
+# Compass Key (sharjeelhashmat.com)
 
-> **Current state (2026-09-20)** — this README's tables below are from 2026-09-19 and partly stale. Now: email provider is **Resend** (not Brevo), `EMAIL_PROVIDER="resend"`, `DAILY_SEND_CAP="45"`, 88 tests (71 unit + 17 workerd), `OUTBOUND` still off. Free hosting for the site is **Cloudflare Workers Static Assets** (not Pages, and not Vercel Hobby, which is non-commercial only). Phase 2 website: `site/` (static Astro), see `site/docs/MIGRATION.md`.
+Personal real estate brand site and lead engine for Sharjeel Hashmat, Real Estate Consultant, UAE. Private repo.
 
-## Verification status
-| Check | Result |
+## State (2026-09-21)
+
+| Part | State |
 |---|---|
-| Unit tests (Node) | 62 pass |
-| **Runtime tests inside workerd (Cloudflare's runtime), real D1 SQLite + KV bindings** | **15 pass** |
-| Typecheck (3 configs), template lint, workflow lint (actionlint), `npm audit` | clean |
-| Bundle (`wrangler deploy --dry-run`) | 30.8 KiB / 9.6 KiB gzip; bindings recognised |
-| Gates broken on purpose (BRN, template approval, CORS, Turnstile, stream guard, subdomain-sender guard) | tests fail, as they should |
-| **Live on Cloudflare** | **Not yet.** Sandbox has no route to Cloudflare or the email provider (blocked hosts). First live run = deploy workflow + `worker/scripts/live-smoke.sh`. |
+| `site/` static Astro site | Built and tested. Staging live on Cloudflare Workers at `ck-site-web.sharjeelhashmat.workers.dev` (noindex). |
+| `worker/` lead API (`ck-lead-worker`) | Live on Cloudflare (D1 `ck-leads`, KV `ck-kv`, email via Resend). Routes `POST /lead` and `POST /profile`. `OUTBOUND` gate still controls sending. |
+| Public launch | **Blocked only by the BRN.** The public build refuses `PUBLIC_INDEXABLE=true` without `PUBLIC_BRN`. |
+| Old site (Next.js on Vercel) | In maintenance mode until cutover. |
+| Real end-to-end enquiry test | Not done. Turnstile and the Worker CORS only allow the real domains, so it happens right after cutover. |
 
-## What it does
-`POST /lead` -> Turnstile -> validation -> firewall -> deterministic score (0-90 at intake) -> lane -> D1 with
-attribution -> one acknowledgment from an approved template -> alert to you. No LLM in this path.
+Tests run in CI on every change (`npm test` in `site/`; `npx vitest run` in `worker/`). Numbers are not repeated here because they drift; the workflow logs are the source.
 
-| Lane | Reply | You |
+## Layout
+
+- `site/` Astro site. `site/src/data/` holds Insights articles and opportunities; `npm run freshness` reports stale records. `site/docs/` holds the migration doc and the approval record.
+- `worker/` Cloudflare Worker: intake, scoring, lanes, D1, acknowledgment templates, investor-profile route.
+- `guardrails/` owner-controlled policy (autonomy boundary, email identity). Claude may not edit `guardrails/` or `.github/`.
+- `.github/workflows/` `ci.yml` (worker checks), `deploy.yml` (worker deploy), `deploy-site.yml` (site build, test, deploy behind the `production` environment approval).
+
+## What the lead engine does
+
+`POST /lead` -> Turnstile -> validation -> firewall -> deterministic score -> lane -> D1 with attribution -> one acknowledgment from an approved template -> alert to the owner. No LLM in this path. Enquiries and investor profiles are not shared with any brokerage.
+
+| Lane | Reply | Owner |
 |---|---|---|
 | Priority 81+ | Acknowledgment + booking link | Instant alert |
 | Qualified 61-80 | Acknowledgment + booking + approach page | Digest |
@@ -29,23 +38,32 @@ attribution -> one acknowledgment from an approved template -> alert to you. No 
 | Spam / duplicate / suspicious | Nothing; quarantined, not deleted | Weekly sample |
 
 ## Gates (enforced in code and tests)
-1. `OUTBOUND` is off by default. 2. Outbound stays blocked until BRN, affiliation, URLs, sender addresses, Reply-To, alert address, email key, unsubscribe secret and `MAILBOX_CONFIRMED=yes` are set. **BRN and the mailbox are pending, so nothing sends.** Automated senders must be on a subdomain, never the root domain. Newsletter-stream templates can never go out through the lead pipeline. 3. A template sends only if its hash is in the approved list; one edited word voids approval. 4. Unsubscribes honored; daily cap 80; failures contained. 5. Lead free text never reaches a model or a reply.
 
-## Free-plan facts (official Cloudflare docs, checked 2026-09-19)
-Workers Free: 100,000 requests/day, **10 ms CPU per invocation** (I/O wait not counted). D1 Free: 5M rows read/day, 100k rows written/day, 5 GB. KV Free: 100k reads/day, 1,000 writes/day (this Worker only reads KV). Turnstile Free: up to 20 widgets, unlimited challenges, 10 hostnames per widget. A lead writes roughly 7 D1 rows, so the write cap allows over 10,000 leads a day. Handler CPU has not been measured on Cloudflare: check the Worker's CPU-time metric after the first live leads.
+1. `OUTBOUND` is off by default. 2. Outbound stays blocked until BRN, affiliation, URLs, sender addresses, Reply-To, alert address, email key, unsubscribe secret and `MAILBOX_CONFIRMED=yes` are set. Automated senders use a subdomain, never the root domain. Newsletter-stream templates can never go out through the lead pipeline. 3. A template sends only if its hash is in the approved list; one edited word voids approval. 4. Unsubscribes honoured; daily cap 45 (Resend free allows 100 a day); failures contained. 5. Lead free text never reaches a model or a reply.
 
-## Run it on Cloudflare (owner steps; DNS, credentials and billing are hard stops)
-1. Create a free Cloudflare account. In Workers & Pages, register your free `workers.dev` subdomain (one-time; CI cannot do it).
-2. Create an API token (custom): Account > Workers Scripts: Edit, Workers KV Storage: Edit, D1: Edit, Account Settings: Read. [Likely sufficient; if a deploy fails on a permission, the log names it.]
-3. GitHub repo (public, `ck-site`, this folder as contents): Settings > Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`. `.github/CODEOWNERS` already names `@sharjeelhashmat`. Turn on branch protection on `main` only AFTER the first successful deploy: require PR, require the `worker` check, require Code Owner review.
-4. Run the **deploy-worker** workflow (Actions > Run workflow). It type-checks, runs all 77 tests, deploys, applies D1 migrations, smoke-tests `/health` at the `WORKER_URL` in `wrangler.toml` (already set to `https://ck-lead-worker.sharjeelhashmat.workers.dev`), and rolls back on failure. If deploy refuses to auto-provision D1/KV, run **bootstrap-cloudflare** and paste the printed IDs into `wrangler.toml`.
-5. Worker secrets (Cloudflare dashboard > Worker > Settings > Variables and Secrets): `TURNSTILE_SECRET`, `RESEND_API_KEY`, `UNSUB_SECRET` (random, 32+ bytes), `ALERT_EMAIL`, optional `SCORING_JSON`.
-6. First live test: follow the header of `worker/scripts/live-smoke.sh` (uses a honeypot lead, so no reply or alert is triggered).
-7. Go-live, in this order: create the mailbox and follow `guardrails/email-identity.md` (DNS, then `MAILBOX_CONFIRMED = "yes"`), approve templates (`TEMPLATES_FOR_APPROVAL.md`, then store hashes in KV key `approved_templates`), set `BOOKING_URL`, share BRN, set `OUTBOUND = "on"`.
+## Site rules enforced by tests
+
+Title "Real Estate Consultant" only. Public email hello@sharjeelhashmat.com only. Royals Field Properties named beside the BRN (`SITE.brokerage`). Seven-factor methodology wording. No trademark symbol. Figure-source rule: every figure in an article carries a numbered source and at least one tier 1 or tier 2 source. Insights is indexable only after 3 non-stale published articles.
+
+## Free-plan facts (Cloudflare docs, checked 2026-09-19)
+
+Workers Free: 100,000 requests/day, 10 ms CPU per invocation (I/O wait not counted). D1 Free: 5M rows read/day, 100k rows written/day, 5 GB. KV Free: 100k reads/day, 1,000 writes/day. Turnstile Free: up to 20 widgets, 10 hostnames per widget. A lead writes roughly 7 D1 rows.
+
+## Release (owner steps; DNS, credentials and billing are hard stops for the system)
+
+1. Worker secrets in the Cloudflare dashboard: `TURNSTILE_SECRET`, `RESEND_API_KEY`, `UNSUB_SECRET` (32+ random bytes), `ALERT_EMAIL`, optional `SCORING_JSON`. Repo secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`.
+2. Staging: Actions > deploy-site > Run workflow with `public` off. The `production` environment approval is the publishing gate.
+3. Public: set repo variable `BRN`, run deploy-site with `public` on, approve `production`.
+4. Cutover: custom domains on Worker `ck-site-web`, Turnstile widget hostnames (`sharjeelhashmat.com`, `www.sharjeelhashmat.com`), submit `sitemap-index.xml` in Search Console, turn on branch protection on `main` (require PR, require checks, require Code Owner review), decide the legacy Firestore leads.
+5. Verify: a real enquiry and a real investor profile end to end, then check the D1 rows. Then take the old Vercel site out of maintenance.
+6. Before every rebuild run `npm run freshness` in `site/` and re-check undated DLD fee pages.
+
+Kill switches: repository variable `AUTONOMY=off` stops maintenance workflows; Worker variable `OUTBOUND=off` stops all outbound messages.
 
 ## Known limits
-- Pause-on-reply arrives with the nurture job (Phase 2). Until then no follow-up exists beyond the single acknowledgment.
-- Brevo free-plan branding and triggered-send behavior unverified (fallback: Resend).
-- Auto-provisioning of D1/KV on deploy is confirmed to parse, not to run.
+
+- Pause-on-reply arrives with the nurture job (later phase). Until then only the single acknowledgment exists.
 - Escalation keywords: English plus four Arabic terms; extend from real messages.
-- `npm` peer-set bug on npm 10 required `legacy-peer-deps=true` (`worker/.npmrc`) and a `sharp` override (patched advisory).
+- `worker/.npmrc` sets `legacy-peer-deps=true` (npm 10 peer-set bug) and a `sharp` override.
+- The Brief PDF is browser print only; no server-generated PDF.
+- Legacy leads in Firebase project `personal-brand-a6154` must be exported to D1 and Firebase retired before the 4 Dec 2026 billing cliff.
