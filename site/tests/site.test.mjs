@@ -101,3 +101,13 @@ test('a production-indexable build refuses to run without a BRN', () => {
   assert.match(r.stdout + r.stderr, /requires PUBLIC_BRN/);
 });
 
+
+test('no wildcard redirect shadows a built page (Cloudflare applies _redirects before static assets)', () => {
+  for (const line of read('_redirects').split('\n')) {
+    const m = line.trim().match(/^(\/\S*)\/\*\s/);
+    if (!m) continue;
+    const prefix = m[1].slice(1);
+    const shadowed = htmlFiles.map((f) => f.slice(dist.length + 1)).filter((f) => f.startsWith(prefix + '/'));
+    assert.deepEqual(shadowed, [], `redirect ${m[1]}/* hides built pages`);
+  }
+});
