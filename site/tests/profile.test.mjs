@@ -19,8 +19,8 @@ function build(flag) {
 }
 const html = (out, p) => readFileSync(join(out, p), 'utf8');
 
-test('the profile switch ships OFF', () => {
-  assert.match(read('src/lib/profile.ts'), /const PROFILE_DEFAULT = false;/);
+test('the profile switch is ON by default (Worker route deployed, owner approved 2026-09-21)', () => {
+  assert.match(read('src/lib/profile.ts'), /const PROFILE_DEFAULT = true;/);
 });
 
 test('switch OFF: no link after an enquiry, no Privacy line, page still built but noindex and out of the sitemap', () => {
