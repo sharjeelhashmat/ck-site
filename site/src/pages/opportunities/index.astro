@@ -1,0 +1,38 @@
+---
+import Base from '../../layouts/Base.astro';
+import { loadPublic } from '../../lib/intel-data.mjs';
+import { waLink } from '../../lib/site';
+const { opportunities } = loadPublic();
+// Empty until the first opportunity clears verification and the owner approves it. No placeholder listings, no sample data.
+const noindex = opportunities.length === 0;
+---
+<Base title="Opportunities" description="Selected UAE property opportunities, each with its thesis, risks and dated sources." noindex={noindex}>
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow">Opportunities</p>
+      <h1 style="max-width:20ch">Selected, verified, <em>and dated.</em></h1>
+      <p class="lede">An opportunity appears here only when every figure in it has a named source and a verification date.</p>
+      {opportunities.length === 0 ? (
+        <div class="card empty" style="margin-top:2.5rem">
+          <p>No opportunity has passed verification yet. In the meantime, see how I assess a property, or ask me directly.</p>
+          <div class="actions" style="justify-content:center">
+            <a class="btn" href="/investment-approach">The investment approach</a>
+            <a class="btn btn--ghost" href={waLink('Hi Sharjeel, what opportunities are you looking at right now?')} target="_blank" rel="noopener">Ask Sharjeel →</a>
+          </div>
+        </div>
+      ) : (
+        <div class="grid grid--2" style="margin-top:2.5rem">
+          {opportunities.map((o: any) => (
+            <a class="card" href={`/opportunities/${o.slug}`}>
+              <p class="kicker" style="margin:0">{o.location} · {o.propertyType}</p>
+              <h2>{o.project}</h2>
+              <p><span class={o.verdict === 'BUY' ? 'verdict verdict--buy' : o.verdict === 'PASS' ? 'verdict verdict--pass' : 'verdict'}>{o.verdict}</span></p>
+              <p>{o.thesis}</p>
+              <p class="src">Last verified {o.lastVerified} · review by {o.reviewBy}</p>
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  </section>
+</Base>

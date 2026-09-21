@@ -1,0 +1,22 @@
+---
+import Base from '../../layouts/Base.astro';
+import Brief from '../../components/Brief.astro';
+import { loadPublic } from '../../lib/intel-data.mjs';
+
+export function getStaticPaths() {
+  // Only published, valid, non-stale records are built. A record past its review window disappears until re-verified.
+  return loadPublic().opportunities.map((o: any) => ({ params: { slug: o.slug }, props: { o } }));
+}
+const { o } = Astro.props;
+---
+<Base title={`${o.project} · Property Brief`} description={String(o.thesis).slice(0, 155)}>
+  <section class="section">
+    <div class="wrap" style="max-width:56rem">
+      <Brief o={o} />
+      <div class="actions noprint"><button class="btn btn--ghost" type="button" id="print-btn">Save as PDF</button></div>
+    </div>
+  </section>
+</Base>
+<script>
+  document.getElementById('print-btn')?.addEventListener('click', () => window.print());
+</script>
