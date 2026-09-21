@@ -167,3 +167,27 @@ form.card { padding: 1.75rem; }
 
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } * { transition: none !important; } }
 @media print { .site-nav, .site-footer, .mobile-menu { display: none; } main { padding-top: 0; } }
+
+/* Investment Intelligence System: Brief, opportunity and snapshot blocks */
+.figure { font-family: var(--serif); font-size: 1.75rem; color: var(--ink); margin: .35rem 0 0; line-height: 1.2; }
+.src { font-size: .78rem; color: var(--muted); margin-top: .5rem; }
+.src a { color: var(--navy); text-underline-offset: 3px; }
+.verdict { display: inline-block; font-size: .72rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; padding: .35rem .8rem; border: 1px solid var(--navy); color: var(--navy); background: var(--paper); }
+.verdict--buy { background: var(--navy); color: var(--ivory); }
+.verdict--pass { border-color: var(--err); color: var(--err); }
+.badge { display: inline-block; font-size: .7rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; padding: .2rem .55rem; border: 1px solid var(--line); color: var(--muted); background: var(--ivory); }
+.brief h2 { font-size: 1.6rem; margin-top: 2.5rem; padding-top: 1.25rem; border-top: 1px solid var(--line); }
+.brief ul { padding-left: 1.2rem; color: var(--muted); }
+.brief li { margin: .35rem 0; }
+.brief table { width: 100%; border-collapse: collapse; font-size: .92rem; margin-top: 1rem; }
+.brief th, .brief td { text-align: left; padding: .6rem .75rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+.brief th { font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; color: var(--navy); font-weight: 600; }
+.brief .meta { font-size: .8rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; margin-top: 1rem; }
+.stale-banner { border: 1px solid var(--gold); background: #fbf5e8; padding: 1rem 1.25rem; margin-top: 1.5rem; font-size: .9rem; color: var(--ink); }
+.table-scroll { overflow-x: auto; }
+@media print {
+  .site-nav, .mobile-menu, footer, .skip, .actions, .noprint { display: none !important; }
+  body { background: #fff; }
+  .brief h2 { break-after: avoid; }
+  .brief table, .card { break-inside: avoid; }
+}
