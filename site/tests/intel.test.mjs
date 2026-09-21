@@ -230,3 +230,72 @@ test('build: on a non-public (staging) build every intelligence page is noindex'
     assert.match(html(r.out, p), /<meta name="robots" content="noindex,nofollow">/, p);
   }
 });
+
+// ---------- public copy ----------
+test('public methodology copy describes seven factors, from the same list the Brief uses', () => {
+  const src = (p) => readFileSync(new URL(`../src/${p}`, import.meta.url), 'utf8');
+  assert.match(src('lib/method.ts'), /from '\.\/intel\.mjs'/);
+  for (const p of ['pages/index.astro', 'pages/about.astro', 'pages/invest.astro', 'pages/investment-approach.astro']) {
+    const t = src(p);
+    assert.doesNotMatch(t, /\bsix (factors|-factor)|six-factor|payment structure and (potential )?exit|rental demand/i, p);
+  }
+  assert.match(src('pages/invest.astro'), /seven factors/);
+  assert.match(src('pages/investment-approach.astro'), /seven factors/);
+  assert.match(src('pages/about.astro'), /seven factors/);
+});
+
+// ---------- every number carries its source (owner rule 2026-09-21) ----------
+const src = (tier, n) => ({ name: `Source ${n}`, tier, url: `https://example.com/${n}`, publishedOn: '2026-09-01', verifiedOn: '2026-09-20' });
+const withBody = (body, sources) => validArticle('fig', { body, sources });
+
+test('a paragraph, list or table that states a figure must name its source', () => {
+  const s = [src(1, 'a')];
+  for (const blk of [{ p: 'Sales rose 31% last quarter.' }, { p: 'Fees are AED 4,000.' }, { p: 'Value reached 252 billion.' }, { ul: ['Up 6%'] }, { table: { head: ['Item', 'Figure'], rows: [['Fee', '2%']] } }]) {
+    assert.ok(checkArticle(withBody([blk], s), TODAY).errors.some((e) => /names no source/.test(e)), JSON.stringify(blk));
+    assert.equal(checkArticle(withBody([{ ...blk, src: [1] }], s), TODAY).publishable, true, JSON.stringify(blk));
+  }
+  assert.equal(checkArticle(withBody([{ p: 'No numbers in this one.' }], s), TODAY).publishable, true);
+  assert.equal(checkArticle(withBody([{ p: 'In Q1 of 2026 the market moved.' }], s), TODAY).publishable, true); // a date is not a figure
+});
+
+test('a figure cannot rest on tier 3 sources alone, even when the article has a tier 1 source elsewhere', () => {
+  const s = [src(3, 'press'), src(1, 'official')];
+  const r = checkArticle(withBody([{ p: 'Sales fell 35%.', src: [1] }], s), TODAY);
+  assert.ok(r.errors.some((e) => /tier 3 sources only/.test(e)));
+  assert.equal(checkArticle(withBody([{ p: 'Sales fell 35%.', src: [1, 2] }], s), TODAY).publishable, true);
+  assert.equal(checkArticle(withBody([{ p: 'Sales fell 35%.', src: [2] }], s), TODAY).publishable, true);
+});
+
+test('a src number that matches no listed source is rejected', () => {
+  const s = [src(1, 'a')];
+  for (const bad of [[2], [0], ['1'], [1.5]]) assert.ok(checkArticle(withBody([{ p: 'Up 6%.', src: bad }], s), TODAY).errors.some((e) => /does not match a listed source/.test(e)), JSON.stringify(bad));
+});
+
+test('a made-up worked example is exempt only when it is marked illustration', () => {
+  const s = [src(1, 'a')];
+  const table = { table: { head: ['Step', 'Yield'], rows: [['Gross', '7.00%']] } };
+  assert.equal(checkArticle(withBody([table], s), TODAY).publishable, false);
+  assert.equal(checkArticle(withBody([{ ...table, illustration: true }], s), TODAY).publishable, true);
+});
+
+test('the shipped drafts: the two verified ones would pass, the August Market View is blocked by the rule', async () => {
+  const { loadIntel } = await import('../src/lib/intel-data.mjs');
+  const prev = process.env.INTEL_DATA_DIR; delete process.env.INTEL_DATA_DIR;
+  const arts = loadIntel().articles;
+  if (prev) process.env.INTEL_DATA_DIR = prev;
+  const as = (slug) => ({ ...arts.find((x) => x.record.slug === slug).record, status: 'published' });
+  assert.equal(checkArticle(as('costs-investors-forget-before-yield'), TODAY).errors.length, 0);
+  assert.equal(checkArticle(as('does-rising-transaction-value-mean-rising-prices'), TODAY).errors.length, 0);
+  assert.ok(checkArticle(as('dubai-august-2026-market-view'), TODAY).errors.some((e) => /tier 3 sources only/.test(e)));
+});
+
+test('build: figure markers link to the numbered Sources table', () => {
+  const data = mkdtempSync(join(tmpdir(), 'ck-intel-data-'));
+  const art = (slug) => validArticle(slug, { body: [{ h: 'H' }, { p: 'Sales rose 31%.', src: [1] }], sources: [src(1, 'official')] });
+  writeData(data, { articles: [art('a'), art('b'), art('c')] });
+  const r = build(data);
+  assert.equal(r.status, 0, r.log);
+  const page = html(r.out, 'insights/a.html');
+  assert.match(page, /<sup class="cite"><a href="#src-1" aria-label="Source 1">\[1\]<\/a><\/sup>/);
+  assert.match(page, /<tr id="src-1"><td>1<\/td>/);
+});
