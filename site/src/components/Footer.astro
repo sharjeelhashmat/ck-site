@@ -1,10 +1,12 @@
 ---
 import Mark from './Mark.astro';
+import NewsletterSignup from './NewsletterSignup.astro';
 import { SITE } from '../lib/site';
 const year = new Date().getFullYear();
 ---
 <footer class="site-footer">
   <div class="wrap">
+    <NewsletterSignup source="footer" />
     <div class="foot-row">
       <div class="brand" style="font-size:1.05rem">
         <Mark />

@@ -1,10 +1,11 @@
 import { readConfig } from './config';
 import { sha256Hex } from './hash';
+import { subscribe, type NewsletterDeps } from './newsletter';
 import { processLead, type AlertPayload, type Deps, type LeadRow } from './pipeline';
 import { sendEmail } from './send';
 import templatesJson from '../templates/lead-replies.v1.json';
 import type { Template } from './templates';
-import { verifyUnsubToken } from './unsub';
+import { verifyNewsletterToken, verifyUnsubToken } from './unsub';
 
 export interface Env {
   DB: D1Database;
@@ -54,6 +55,58 @@ function json(body: unknown, status: number, origin?: string): Response {
     headers['vary'] = 'origin';
   }
   return new Response(JSON.stringify(body), { status, headers });
+}
+
+function preflight(corsOrigin: string | undefined): Response {
+  return new Response(null, {
+    status: 204,
+    headers: corsOrigin
+      ? { 'access-control-allow-origin': corsOrigin, 'access-control-allow-methods': 'POST', 'access-control-allow-headers': 'content-type', 'access-control-max-age': '86400', vary: 'origin' }
+      : {},
+  });
+}
+
+function page(status: number, title: string, message: string): Response {
+  return new Response(`<!doctype html><meta charset="utf-8"><title>${title}</title><p style="font:16px system-ui;margin:3rem auto;max-width:28rem">${message}</p>`, {
+    status,
+    headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
+  });
+}
+
+function makeNewsletterDeps(env: Env): NewsletterDeps {
+  const cfg = readConfig(env as unknown as Record<string, string | undefined>);
+  const keys = { resend: env.RESEND_API_KEY, brevo: env.BREVO_API_KEY };
+  return {
+    now: () => new Date(),
+    uuid: () => crypto.randomUUID(),
+    async upsertSubscriber(row) {
+      const existing = await env.DB.prepare('SELECT id, unsubscribed_at FROM newsletter_subscribers WHERE email = ?1')
+        .bind(row.email).first<{ id: string; unsubscribed_at: string | null }>();
+      if (!existing) {
+        const r = await env.DB.prepare('INSERT INTO newsletter_subscribers (id, email, subscribed_at, source) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(email) DO NOTHING')
+          .bind(row.id, row.email, row.subscribed_at, row.source).run();
+        return { id: row.id, confirm: (r.meta.changes ?? 0) > 0 };
+      }
+      if (existing.unsubscribed_at === null) return { id: existing.id, confirm: false };
+      // Came back after unsubscribing: a fresh, explicit opt-in.
+      await env.DB.prepare('UPDATE newsletter_subscribers SET unsubscribed_at = NULL, subscribed_at = ?1, source = ?2 WHERE id = ?3')
+        .bind(row.subscribed_at, row.source, existing.id).run();
+      return { id: existing.id, confirm: true };
+    },
+    async countSentSince(sinceIso) {
+      const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM messages WHERE outcome = 'sent' AND created_at >= ?1").bind(sinceIso).first<{ n: number }>();
+      return r?.n ?? 0;
+    },
+    async logMessage(m) {
+      await env.DB.prepare('INSERT INTO messages (id, lead_id, created_at, template_id, template_hash, provider_id, outcome) VALUES (?1,?2,?3,?4,?5,?6,?7)')
+        .bind(m.id, m.lead_id, m.created_at, m.template_id, m.template_hash, m.provider_id, m.outcome).run();
+    },
+    async send(msg) {
+      const sender = cfg.senders.news;
+      if (!sender.email || !cfg.replyTo) throw new Error('no_sender');
+      return sendEmail(cfg.emailProvider, keys, sender, cfg.replyTo, msg);
+    },
+  };
 }
 
 async function verifyTurnstile(secret: string, token: unknown, ip: string | null): Promise<boolean> {
@@ -141,14 +194,7 @@ export default {
     if (url.pathname === '/health') return json({ ok: true }, 200);
 
     if (url.pathname === '/lead') {
-      if (req.method === 'OPTIONS') {
-        return new Response(null, {
-          status: 204,
-          headers: corsOrigin
-            ? { 'access-control-allow-origin': corsOrigin, 'access-control-allow-methods': 'POST', 'access-control-allow-headers': 'content-type', 'access-control-max-age': '86400', vary: 'origin' }
-            : {},
-        });
-      }
+      if (req.method === 'OPTIONS') return preflight(corsOrigin);
       if (req.method !== 'POST') return json({ ok: false }, 405);
       if (!corsOrigin) return json({ ok: false, error: 'forbidden' }, 403);
 
@@ -174,10 +220,34 @@ export default {
       }
       const hash = await sha256Hex(email);
       await env.DB.prepare('INSERT OR IGNORE INTO suppression (email_hash, created_at, reason) VALUES (?1, ?2, ?3)').bind(hash, new Date().toISOString(), 'unsubscribe').run();
-      return new Response('<!doctype html><meta charset="utf-8"><title>Unsubscribed</title><p style="font:16px system-ui;margin:3rem auto;max-width:28rem">You are unsubscribed. No further messages will be sent.</p>', {
-        status: 200,
-        headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
-      });
+      return page(200, 'Unsubscribed', 'You are unsubscribed. No further messages will be sent.');
+    }
+
+    if (url.pathname === '/api/newsletter/subscribe') {
+      if (req.method === 'OPTIONS') return preflight(corsOrigin);
+      if (req.method !== 'POST') return json({ ok: false }, 405);
+      if (!corsOrigin) return json({ ok: false, error: 'forbidden' }, 403);
+
+      const text = await req.text();
+      if (text.length > MAX_BODY) return json({ ok: false, error: 'too_large' }, 413);
+      let raw: unknown;
+      try { raw = JSON.parse(text); } catch { return json({ ok: false, error: 'invalid_input', field: 'body' }, 400, corsOrigin); }
+
+      const token = (raw as Record<string, unknown> | null)?.turnstile_token;
+      const human = await verifyTurnstile(env.TURNSTILE_SECRET, token, req.headers.get('cf-connecting-ip'));
+      if (!human) return json({ ok: false, error: 'verification_failed' }, 403, corsOrigin);
+
+      const approved = ((await env.KV.get('approved_templates', 'json')) ?? {}) as Record<string, string>;
+      const result = await subscribe(raw, { config: cfg, templates: TEMPLATES, approved, unsubSecret: env.UNSUB_SECRET }, makeNewsletterDeps(env));
+      return json(result.body, result.status, corsOrigin);
+    }
+
+    if (url.pathname === '/api/newsletter/unsubscribe' && req.method === 'GET') {
+      const email = env.UNSUB_SECRET ? await verifyNewsletterToken(url.searchParams.get('token') ?? '', env.UNSUB_SECRET) : null;
+      if (!email) return new Response('Invalid link.', { status: 400, headers: { 'content-type': 'text/plain' } });
+      await env.DB.prepare('UPDATE newsletter_subscribers SET unsubscribed_at = ?1 WHERE email = ?2 AND unsubscribed_at IS NULL')
+        .bind(new Date().toISOString(), email).run();
+      return page(200, 'Unsubscribed', "You are unsubscribed from The Investor's Brief. No further issues will be sent.");
     }
 
     return json({ ok: false }, 404);

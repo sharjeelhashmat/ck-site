@@ -126,6 +126,20 @@
         "first_name",
         "sla_hours"
       ]
+    },
+    {
+      "id": "NEWS-WELCOME",
+      "version": 1,
+      "lane": "NEWSLETTER",
+      "channel": "email",
+      "stream": "news",
+      "marketing": true,
+      "subject": "Subscribed · The Investor's Brief",
+      "body": "Thank you for subscribing to The Investor's Brief.\n\nWhat to expect: an occasional note on the UAE property market. Sourced figures, the analysis that matters, nothing else.\n\nStop whenever you like: {{unsubscribe_url}}\n\nSharjeel Hashmat\nReal Estate Consultant · UAE\n{{affiliation_line}}\n\nAutomated message. You receive it because you subscribed on sharjeelhashmat.com.",
+      "slots": [
+        "affiliation_line",
+        "unsubscribe_url"
+      ]
     }
   ]
 }

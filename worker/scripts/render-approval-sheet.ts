@@ -10,6 +10,7 @@ const WHEN: Record<string, string> = {
   'ACK-ABROAD': 'Any overseas-buyer enquiry.',
   'ACK-ROUTED': 'Partner, media, broker or other enquiries. Routed to you.',
   'ACK-ESCALATED': 'Message mentions a complaint, legal wording, a guarantee, negotiation, another broker or urgency. You are alerted instantly.',
+  'NEWS-WELCOME': 'Someone subscribes to the newsletter (site footer or end of an article). Single opt-in; sent once per new or returning subscriber, from brief@news.',
 };
 
 const tpls = (JSON.parse(readFileSync(new URL('../templates/lead-replies.v1.json', import.meta.url), 'utf8')) as { templates: Template[] }).templates;

@@ -1,0 +1,133 @@
+---
+// Compact newsletter signup (single opt-in). Posts to the lead Worker at /api/newsletter/subscribe with a Turnstile token.
+// Turnstile is rendered explicitly on first interaction, so pages without the enquiry form only load it when someone
+// starts to subscribe, and pages with the enquiry form reuse the script that is already there.
+import { SITE } from '../lib/site';
+interface Props { source: string; variant?: 'footer' | 'article' }
+const { source, variant = 'footer' } = Astro.props;
+const id = `nl-${variant}`;
+---
+<div class={`nl nl--${variant} noprint`}>
+  <p class="kicker">The Investor's Brief</p>
+  <p class="nl-lede">An occasional note on the UAE property market. Sourced figures, the analysis that matters, nothing else.</p>
+  <form class="nl-form" novalidate data-worker={SITE.workerUrl} data-sitekey={SITE.turnstileSiteKey} data-source={source}>
+    <label class="nl-label" for={`${id}-email`}>Email</label>
+    <div class="nl-row">
+      <input id={`${id}-email`} name="email" type="email" autocomplete="email" required maxlength="254" placeholder="you@example.com" />
+      <button class="btn" type="submit">Subscribe</button>
+    </div>
+    <div class="hp" aria-hidden="true"><label>Website <input type="text" name="company_website" tabindex="-1" autocomplete="off" /></label></div>
+    <div class="nl-turnstile"></div>
+    <p class="status" role="status" aria-live="polite"></p>
+    <p class="fine">Unsubscribe at any time. <a href="/privacy">Privacy</a></p>
+  </form>
+  <p class="nl-done status ok" hidden tabindex="-1">You're subscribed. Thank you.</p>
+</div>
+
+<style>
+  .nl { max-width: 34rem; }
+  .nl--article { max-width: none; margin-top: 3rem; padding: 1.75rem; background: var(--paper); border: 1px solid var(--line); border-top: 2px solid var(--gold); }
+  .nl--footer { padding-bottom: 1.5rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--line); }
+  .nl .kicker { margin: 0; }
+  .nl-lede { margin-top: .4rem; font-size: .95rem; color: var(--muted); }
+  .nl-form { margin-top: .9rem; }
+  .nl-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .nl-row { display: flex; flex-wrap: wrap; gap: .6rem; }
+  .nl-row input {
+    flex: 1 1 14rem; min-width: 0; font: 400 1rem var(--sans); color: var(--ink); background: #fff;
+    border: 1px solid #b9b3a3; border-radius: 2px; padding: .75rem .8rem;
+  }
+  .nl-row input:focus { border-color: var(--navy); outline: 3px solid rgba(12, 59, 110, .25); outline-offset: 0; }
+  .nl-row .btn { flex: none; }
+  .nl-form .status { margin-top: .6rem; min-height: 1.2em; font-size: .9rem; }
+  .nl-form .status:empty { display: none; }
+  .nl-form .fine { margin-top: .6rem; }
+  .nl-done { margin-top: .9rem; font-size: 1rem; }
+</style>
+
+<script>
+  type Turnstile = {
+    render: (el: HTMLElement, o: Record<string, unknown>) => string;
+    getResponse: (id: string) => string | undefined;
+    reset: (id: string) => void;
+  };
+  const w = window as unknown as { turnstile?: Turnstile };
+  const SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
+
+  let loading: Promise<Turnstile> | null = null;
+  function loadTurnstile(): Promise<Turnstile> {
+    if (w.turnstile) return Promise.resolve(w.turnstile);
+    loading ??= new Promise((resolve, reject) => {
+      let s = document.querySelector<HTMLScriptElement>(`script[src^="${SRC}"]`);
+      if (!s) {
+        s = document.createElement('script');
+        s.src = `${SRC}?render=explicit`;
+        s.async = true;
+        document.head.appendChild(s);
+      }
+      s.addEventListener('load', () => (w.turnstile ? resolve(w.turnstile) : reject(new Error('turnstile'))));
+      s.addEventListener('error', () => reject(new Error('turnstile')));
+    });
+    return loading;
+  }
+
+  document.querySelectorAll<HTMLFormElement>('.nl-form').forEach((form) => {
+    const box = form.closest('.nl')!;
+    const status = form.querySelector<HTMLElement>('.status')!;
+    const btn = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
+    const email = form.querySelector<HTMLInputElement>('input[name="email"]')!;
+    const say = (msg: string, ok: boolean) => { status.textContent = msg; status.className = 'status ' + (ok ? 'ok' : 'bad'); };
+    let widget: Promise<{ t: Turnstile; id: string }> | null = null;
+
+    const ensureWidget = () => {
+      widget ??= loadTurnstile().then((t) => ({
+        t,
+        id: t.render(form.querySelector<HTMLElement>('.nl-turnstile')!, { sitekey: form.dataset.sitekey, appearance: 'interaction-only', theme: 'light' }),
+      }));
+      return widget;
+    };
+    form.addEventListener('focusin', () => { ensureWidget().catch(() => {}); }, { once: true });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      status.textContent = '';
+      const value = email.value.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value)) { say('Enter a valid email address.', false); email.focus(); return; }
+
+      let ts: { t: Turnstile; id: string };
+      try { ts = await ensureWidget(); } catch { say('The security check could not load. Reload the page and try again.', false); return; }
+      const token = ts.t.getResponse(ts.id) ?? '';
+      if (!token) { say('Please wait for the security check to finish, then subscribe again.', false); return; }
+
+      btn.disabled = true; say('Subscribing…', true);
+      try {
+        const res = await fetch(`${form.dataset.worker}/api/newsletter/subscribe`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            email: value,
+            source: form.dataset.source,
+            company_website: (form.elements.namedItem('company_website') as HTMLInputElement).value,
+            turnstile_token: token,
+          }),
+        });
+        const body = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+        if (res.ok && body.ok) {
+          form.hidden = true;
+          const done = box.querySelector<HTMLElement>('.nl-done')!;
+          done.hidden = false;
+          done.focus();
+          return;
+        }
+        if (body.error === 'invalid_input') say('Enter a valid email address.', false);
+        else if (body.error === 'verification_failed') say('The security check failed. Reload the page and try again.', false);
+        else say('Something went wrong on my side. Please try again later.', false);
+      } catch {
+        say('Connection problem. Please try again.', false);
+      } finally {
+        btn.disabled = false;
+        ts.t.reset(ts.id);
+      }
+    });
+  });
+</script>
