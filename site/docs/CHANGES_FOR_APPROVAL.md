@@ -59,3 +59,12 @@ Worker route deployed (deploy-worker run #9, 114 of 114 tests). The switch is ON
 | `/investor-profile` page | "Help me match the right property." / "Five short questions. They tell me what would suit you, so a recommendation fits you and not just a budget. You can skip this and I will still reply to your enquiry." / "Stored with your enquiry and used only to match properties to you." | New page. Noindex, not in the sitemap, not in navigation. |
 | Risk tolerance options | "Low: protect the capital" / "Moderate: some ups and downs" / "High: accept risk of loss" | Plain-language labels for the three values. |
 
+## H. Unsubscribe reason disclosure: PROPOSED, pending owner approval (added by PR #9)
+Not yet approved. PR #9 added this sentence to the Privacy page text without logging it here first; this entry records it for the owner's decision.
+| Where | Wording | Why it is here |
+|---|---|---|
+| Privacy §2 ("What I collect", own paragraph after the investor-profile line; always shown, not behind a switch) | "If you unsubscribe from the newsletter, you may optionally tell us why. If you do, we store that reason against your subscriber record to help us improve the newsletter; it is never shared externally." | Legal/privacy wording, so it needs your explicit OK. It was added to the Privacy page text in PR #9 without first being logged here. |
+
+Open items (left for the owner to decide separately):
+- The Privacy "last updated" date was not changed by PR #9.
+- The Privacy page still does not mention newsletter sign-up itself, only this unsubscribe detail.
