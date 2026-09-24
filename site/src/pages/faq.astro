@@ -1,0 +1,32 @@
+---
+import Base from '../layouts/Base.astro';
+import { FAQS, segments } from '../lib/faq';
+import { SITE } from '../lib/site';
+
+const ld = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: FAQS.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+};
+---
+<Base title="Frequently asked questions" description="How to start, who I work with, areas covered, off-plan versus secondary, non-resident mortgages and response times.">
+  <script type="application/ld+json" set:html={JSON.stringify(ld)} />
+  <section class="section">
+    <div class="narrow">
+      <p class="eyebrow">FAQ</p>
+      <h1>Frequently asked <em>questions</em></h1>
+      <div class="faq">
+        {FAQS.map((f) => (
+          <details>
+            <summary>{f.q}</summary>
+            <div class="answer">
+              <p>{segments(f).map((s) => (s.href ? <a href={s.href}>{s.text}</a> : s.text))}</p>
+            </div>
+          </details>
+        ))}
+      </div>
+      <p class="fine" style="margin-top:2.5rem">General information, not financial, tax or legal advice. Working with {SITE.brokerage} · BRN {SITE.brn || 'pending'}</p>
+      <div class="actions"><a class="btn" href="/contact">Get in touch</a></div>
+    </div>
+  </section>
+</Base>

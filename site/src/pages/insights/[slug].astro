@@ -1,5 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
+import ReadingProgress from '../../components/ReadingProgress.astro';
 import { loadPublic } from '../../lib/intel-data.mjs';
 
 export function getStaticPaths() {
@@ -12,6 +13,7 @@ const cite = (b: any) => (Array.isArray(b.src) ? b.src : []) as number[];
 const propertyAnalysis = ['Would I Buy It?', 'Opportunity vs Risk'].includes(a.series);
 ---
 <Base title={a.title} description={a.description} noindex={!insightsLive}>
+  <ReadingProgress />
   <section class="section">
     <div class="narrow brief">
       <p class="eyebrow">{a.series}</p>
