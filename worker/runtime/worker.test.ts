@@ -352,4 +352,63 @@ describe('newsletter on workerd', () => {
     expect(await rows('SELECT source, unsubscribed_at FROM newsletter_subscribers')).toEqual([{ source: 'insights/dubai-q1-2026-who-is-buying', unsubscribed_at: null }]);
     expect(brevo()).toHaveLength(2);
   });
+
+  describe('unsubscribe feedback', () => {
+    const feedback = (fields: Record<string, string>, e: Env) =>
+      worker.fetch(new Request('https://api.test/api/newsletter/unsubscribe/feedback', {
+        method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(fields).toString(),
+      }), e);
+    const setup = async () => {
+      const e = baseEnv({ ...LIVE, ...NEWS });
+      await approveAllInKv(e);
+      await sub(signup(), e);
+      const link = (brevo()[0]!.body as { headers: Record<string, string> }).headers['List-Unsubscribe']!.slice(1, -1);
+      return { e, link, token: new URL(link).searchParams.get('token')! };
+    };
+    const fb = () => rows('SELECT unsubscribe_reason AS reason, unsubscribe_reason_detail AS detail, unsubscribe_feedback_at IS NOT NULL AS at FROM newsletter_subscribers');
+
+    it('the unsubscribe happens on the GET itself; the page then offers the optional form with Skip beside Send', async () => {
+      const { e, link, token } = await setup();
+      const res = await unsubscribe(link, e);
+      expect(res.status).toBe(200);
+      // Already unsubscribed before anyone sees or touches the form.
+      expect((await rows('SELECT unsubscribed_at FROM newsletter_subscribers'))[0]!.unsubscribed_at).not.toBeNull();
+      const html = await res.text();
+      expect(html).toContain('You are unsubscribed');
+      expect(html).toContain('action="/api/newsletter/unsubscribe/feedback"');
+      expect(html).toContain(`name="token" value="${token}"`);
+      expect(html).toMatch(/value="send"[^>]*>Send<\/button><button type="submit" name="action" value="skip"/);
+    });
+
+    it('a reason is stored against the subscriber using the same token; the token still works afterwards', async () => {
+      const { e, link, token } = await setup();
+      await unsubscribe(link, e);
+      const res = await feedback({ token, action: 'send', reason: 'other', detail: 'Moved abroad' }, e);
+      expect(res.status).toBe(200);
+      expect(await res.text()).toContain('Thank you');
+      expect(await fb()).toEqual([{ reason: 'other', detail: 'Moved abroad', at: 1 }]);
+      // Not single-use: clicking the email link again is still a harmless, successful unsubscribe.
+      expect((await unsubscribe(link, e)).status).toBe(200);
+    });
+
+    it('Skip, or Send with nothing chosen, stores nothing and leaves the subscriber unsubscribed', async () => {
+      const { e, link, token } = await setup();
+      await unsubscribe(link, e);
+      for (const f of [{ token, action: 'skip', reason: 'too_frequent' }, { token, action: 'send' }] as Record<string, string>[]) {
+        const res = await feedback(f, e);
+        expect(res.status).toBe(200);
+        expect(await res.text()).toContain('You are unsubscribed');
+      }
+      expect(await fb()).toEqual([{ reason: null, detail: null, at: 0 }]);
+      expect((await rows('SELECT unsubscribed_at FROM newsletter_subscribers'))[0]!.unsubscribed_at).not.toBeNull();
+    });
+
+    it('a forged token is refused; an active subscriber (never unsubscribed) gets nothing recorded', async () => {
+      const { e, token } = await setup();
+      expect((await feedback({ token: 'forged.00', action: 'send', reason: 'too_frequent' }, e)).status).toBe(400);
+      expect((await feedback({ token, action: 'send', reason: 'too_frequent' }, e)).status).toBe(200);
+      expect(await fb()).toEqual([{ reason: null, detail: null, at: 0 }]);
+      expect((await rows('SELECT unsubscribed_at FROM newsletter_subscribers'))[0]!.unsubscribed_at).toBeNull();
+    });
+  });
 });
