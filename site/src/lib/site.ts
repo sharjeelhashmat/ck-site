@@ -23,7 +23,14 @@ export const SITE = {
   turnstileSiteKey: (env.PUBLIC_TURNSTILE_SITE_KEY as string | undefined) ?? '0x4AAAAAAE9Ndhe9on1juQ_h',
   brn: ((env.PUBLIC_BRN as string | undefined) ?? '').trim(),
   indexable: env.PUBLIC_INDEXABLE === 'true',
+  // Cloudflare Web Analytics (cookieless). Set by the owner as repo variable CF_ANALYTICS_TOKEN; the build receives it as
+  // PUBLIC_CF_ANALYTICS_TOKEN (same pattern as BRN). Public by design: the beacon token is embedded in every page.
+  cfAnalyticsToken: ((env.PUBLIC_CF_ANALYTICS_TOKEN as string | undefined) ?? '').trim(),
 } as const;
+
+// The beacon is emitted only on the public (indexable) build and only with a well-formed token, so an unset
+// variable never blocks a build and staging traffic never pollutes the production numbers.
+export const ANALYTICS_TOKEN = SITE.indexable && /^[A-Za-z0-9]{16,64}$/.test(SITE.cfAnalyticsToken) ? SITE.cfAnalyticsToken : '';
 
 export function waLink(message: string): string {
   return `https://wa.me/${SITE.phoneE164}?text=${encodeURIComponent(message)}`;

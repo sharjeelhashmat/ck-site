@@ -26,6 +26,7 @@ jobs:
     env:
       PUBLIC_INDEXABLE: ${{ github.event_name == 'workflow_dispatch' && inputs.public && 'true' || 'false' }}
       PUBLIC_BRN: ${{ vars.BRN }}
+      PUBLIC_CF_ANALYTICS_TOKEN: ${{ vars.CF_ANALYTICS_TOKEN }}   # optional; unset = no analytics tag
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

@@ -1,0 +1,28 @@
+# Sharjeel Hashmat — Compass Key
+
+> Sharjeel Hashmat is a Real Estate Consultant operating across the UAE, working with Royals Field Properties. Compass Key is his personal brand for market analysis, investor guidance and property consultation across Dubai and the wider UAE.
+
+## Site sections
+
+- [Home](https://www.sharjeelhashmat.com/): Overview and positioning
+- [Buy](https://www.sharjeelhashmat.com/buy): Buying property in the UAE
+- [Invest](https://www.sharjeelhashmat.com/invest): Investment-focused guidance
+- [Sell](https://www.sharjeelhashmat.com/sell): Selling property in the UAE
+- [Areas](https://www.sharjeelhashmat.com/areas): UAE area guides
+- [New Launches](https://www.sharjeelhashmat.com/new-launches): Off-plan and new project coverage
+- [Insights](https://www.sharjeelhashmat.com/insights): Market analysis and data-driven articles
+- [About](https://www.sharjeelhashmat.com/about): Background and credentials
+- [Contact](https://www.sharjeelhashmat.com/contact): Get in touch
+
+## Articles
+
+- [Costs investors forget before yield](https://www.sharjeelhashmat.com/insights/costs-investors-forget-before-yield)
+- [Does rising transaction value mean rising prices](https://www.sharjeelhashmat.com/insights/does-rising-transaction-value-mean-rising-prices)
+- [Dubai Q1 2026: who is buying](https://www.sharjeelhashmat.com/insights/dubai-q1-2026-who-is-buying)
+
+## Facts for citation
+
+- Title: Real Estate Consultant (not "Broker")
+- Public contact: hello@sharjeelhashmat.com
+- Coverage: UAE-wide
+- All market figures on this site are sourced and dated inline; see each article for citations.

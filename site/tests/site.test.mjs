@@ -95,6 +95,51 @@ test('CSP: no unsafe-inline for scripts, and every inline script is hash-covered
   }
 });
 
+test('llms.txt lists every published article, no drafts, and every link resolves to a built page', () => {
+  const llms = read('llms.txt');
+  const urls = [...llms.matchAll(/\]\((https:\/\/[^)]+)\)/g)].map((m) => new URL(m[1]));
+  for (const u of urls) assert.equal(u.origin, 'https://www.sharjeelhashmat.com', `llms.txt link ${u.href} must use the canonical www origin`);
+  const links = urls.map((u) => u.pathname);
+  assert.ok(links.length > 0);
+  // The Investor Profile works only from the link shown after an enquiry, so it is never offered as a page to visit.
+  assert.ok(!links.includes('/investor-profile'), 'llms.txt must not list /investor-profile');
+  for (const p of links) {
+    const f = p === '/' ? 'index.html' : p.slice(1) + '.html';
+    assert.ok(existsSync(join(dist, f)), `llms.txt links to ${p}, which is not a built page`);
+  }
+  const dataDir = join(root, 'src/data/insights');
+  for (const f of readdirSync(dataDir).filter((n) => n.endsWith('.json'))) {
+    const a = JSON.parse(readFileSync(join(dataDir, f), 'utf8'));
+    const listed = links.includes(`/insights/${a.slug}`);
+    if (a.status === 'published') assert.ok(listed, `llms.txt is missing published article ${a.slug}`);
+    else assert.ok(!listed, `llms.txt lists unpublished article ${a.slug}`);
+  }
+});
+
+test('analytics: a default build has no beacon and the CSP does not allow Cloudflare Insights', () => {
+  for (const f of htmlFiles) assert.doesNotMatch(readFileSync(f, 'utf8'), /cloudflareinsights/, f);
+  assert.doesNotMatch(read('_headers'), /cloudflareinsights/);
+});
+
+test('analytics: the beacon ships only on a public build with a token, and the CSP then allows exactly its origins', () => {
+  const build = (outDir, env) => spawnSync('npx', ['astro', 'build', '--outDir', outDir], { cwd: root, env: { ...process.env, ...env }, encoding: 'utf8' });
+  const token = 'abcdef0123456789abcdef0123456789';
+
+  const pub = '/tmp/ck-site-analytics-public';
+  assert.equal(build(pub, { PUBLIC_INDEXABLE: 'true', PUBLIC_BRN: 'TEST-123', PUBLIC_CF_ANALYTICS_TOKEN: token }).status, 0);
+  for (const f of walk(pub).filter((p) => p.endsWith('.html'))) {
+    assert.match(readFileSync(f, 'utf8'), new RegExp(`data-cf-beacon="\\{(&#34;|&quot;)token\\1:\\1${token}\\1\\}"`), `${f}: beacon`);
+  }
+  assert.equal(spawnSync('node', ['scripts/postbuild.mjs', pub], { cwd: root, encoding: 'utf8' }).status, 0);
+  const headers = readFileSync(join(pub, '_headers'), 'utf8');
+  assert.match(headers.match(/script-src ([^;]+);/)[1], / https:\/\/static\.cloudflareinsights\.com$/);
+  assert.match(headers.match(/connect-src ([^;]+);/)[1], / https:\/\/cloudflareinsights\.com$/);
+
+  const staging = '/tmp/ck-site-analytics-staging';
+  assert.equal(build(staging, { PUBLIC_INDEXABLE: 'false', PUBLIC_CF_ANALYTICS_TOKEN: token }).status, 0);
+  for (const f of walk(staging).filter((p) => p.endsWith('.html'))) assert.doesNotMatch(readFileSync(f, 'utf8'), /cloudflareinsights/, f);
+});
+
 test('a production-indexable build refuses to run without a BRN', () => {
   const r = spawnSync('npx', ['astro', 'build', '--outDir', '/tmp/ck-site-brn-test'], { cwd: root, env: { ...process.env, PUBLIC_INDEXABLE: 'true', PUBLIC_BRN: '' }, encoding: 'utf8' });
   assert.notEqual(r.status, 0);
