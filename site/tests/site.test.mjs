@@ -124,6 +124,8 @@ test('FAQ: six approved questions, FAQPage data matches the visible copy, and th
     assert.ok(text.includes(q.acceptedAnswer.text), `visible answer: ${q.name}`);
   }
   assert.doesNotMatch(text, /golden visa|transfer fee|\bDLD\b/i, 'fee and Golden Visa answers need a cited figure first');
+  // The Investor Profile works only from the link shown after an enquiry, so the FAQ must never link to it.
+  assert.doesNotMatch(h, /href="\/investor-profile/, 'FAQ must not link to /investor-profile');
   assert.match(read('index.html'), /<a href="\/faq">FAQ<\/a>/, 'footer links to the FAQ');
 });
 

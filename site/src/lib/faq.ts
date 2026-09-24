@@ -13,7 +13,8 @@ export interface Faq {
 export const FAQS: Faq[] = [
   {
     q: 'How do I start working with you?',
-    a: 'Book a call or fill out the contact form; investors can start with the Investor Profile page for a more tailored intake.',
+    // Owner-approved rewording 2026-09-24: the Investor Profile is reached only from the link shown after an enquiry.
+    a: 'Book a call or fill out the contact form. Investors can then add a short Investor Profile for a more tailored match.',
     links: { 'contact form': '/contact' },
   },
   {
