@@ -197,4 +197,27 @@ Hash: `13403984358a`
 
 ---
 
+## NEWS-WELCOME (v1)
+**Sent when:** Someone subscribes to the newsletter (site footer or end of an article). Single opt-in; sent once per new or returning subscriber, from brief@news.
+
+**Subject:** Subscribed · The Investor's Brief
+
+```
+Thank you for subscribing to The Investor's Brief.
+
+What to expect: an occasional note on the UAE property market. Sourced figures, the analysis that matters, nothing else.
+
+Stop whenever you like: {{unsubscribe_url}}
+
+Sharjeel Hashmat
+Real Estate Consultant · UAE
+{{affiliation_line}}
+
+Automated message. You receive it because you subscribed on sharjeelhashmat.com.
+```
+
+Hash: `c8dd8ca2d0b0`
+
+---
+
 Reply per template: APPROVED, or the exact edit you want.

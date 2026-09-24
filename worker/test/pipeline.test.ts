@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { processLead } from '../src/pipeline';
 import { sha256Hex } from '../src/hash';
+import { TEMPLATE_IDS } from '../src/lanes';
 import { templateHash } from '../src/templates';
 import { approveAll, baseLead, ctx, goodEnv, makeFake, TEMPLATES } from './helpers';
 
@@ -135,7 +136,10 @@ describe('pipeline', () => {
   });
 
   it('every lane template is on the leads stream and the message says so', async () => {
-    expect(TEMPLATES.every((t) => t.stream === 'leads')).toBe(true);
+    // Lane templates only: the file also holds the newsletter welcome, which is on the news stream by design.
+    const lane = TEMPLATES.filter((t) => (TEMPLATE_IDS as readonly string[]).includes(t.id));
+    expect(lane).toHaveLength(TEMPLATE_IDS.length);
+    expect(lane.every((t) => t.stream === 'leads')).toBe(true);
     const f = makeFake();
     await processLead(baseLead(), await ctx(), f.deps);
     expect(f.sent[0]!.stream).toBe('leads');

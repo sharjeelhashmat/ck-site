@@ -1,6 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
 import { loadPublic } from '../../lib/intel-data.mjs';
+import NewsletterSignup from '../../components/NewsletterSignup.astro';
 
 export function getStaticPaths() {
   const { articles, insightsLive } = loadPublic();
@@ -53,6 +54,7 @@ const propertyAnalysis = ['Would I Buy It?', 'Opportunity vs Risk'].includes(a.s
         <tbody>{a.sources.map((s: any, i: number) => <tr id={`src-${i + 1}`}><td>{i + 1}</td><td><a href={s.url} rel="noopener" target="_blank">{s.name}</a></td><td>{s.tier}</td><td>{s.undated ? 'undated page' : s.publishedOn}</td><td>{s.verifiedOn}</td></tr>)}</tbody>
       </table></div>
       <p class="fine" style="margin-top:2rem">General information, not financial, tax or legal advice. Reviewed by {a.reviewer}; review by {a.reviewBy}.</p>
+      <NewsletterSignup source={`insights/${a.slug}`} variant="article" />
     </div>
   </section>
 </Base>

@@ -63,6 +63,7 @@ beforeEach(async () => {
   await cf.DB.exec('DELETE FROM messages');
   await cf.DB.exec('DELETE FROM events');
   await cf.DB.exec('DELETE FROM suppression');
+  await cf.DB.exec('DELETE FROM newsletter_subscribers');
   await cf.KV.delete('approved_templates');
   vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
@@ -285,5 +286,70 @@ describe('worker on workerd', () => {
     expect(brevo()).toHaveLength(0);
     expect(await rows('SELECT id FROM leads')).toHaveLength(1);
     expect((await rows("SELECT detail FROM events WHERE type = 'outbound'"))[0]!.detail).toBe('skipped:blocked');
+  });
+});
+
+describe('newsletter on workerd', () => {
+  const NEWS = { FROM_NEWS_EMAIL: 'brief@news.sharjeelhashmat.com' };
+  const sub = (body: Record<string, unknown>, e: Env, origin: string | null = ORIGIN) => {
+    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    if (origin) headers.origin = origin;
+    return worker.fetch(new Request('https://api.test/api/newsletter/subscribe', { method: 'POST', headers, body: JSON.stringify(body) }), e);
+  };
+  const signup = (over: Record<string, unknown> = {}) => ({ email: 'reader@example.com', source: 'footer', company_website: '', turnstile_token: 'ok', ...over });
+  const unsubscribe = (url: string, e: Env) => worker.fetch(new Request(url.replace('https://ck-lead-worker.example.workers.dev', 'https://api.test')), e);
+
+  it('CORS, Turnstile and validation match the enquiry route', async () => {
+    const pre = await worker.fetch(new Request('https://api.test/api/newsletter/subscribe', { method: 'OPTIONS', headers: { origin: 'https://www.sharjeelhashmat.com' } }), baseEnv());
+    expect(pre.status).toBe(204);
+    expect(pre.headers.get('access-control-allow-origin')).toBe('https://www.sharjeelhashmat.com');
+    expect((await sub(signup(), baseEnv(), 'https://evil.example')).status).toBe(403);
+    expect((await sub(signup({ turnstile_token: 'bad' }), baseEnv())).status).toBe(403);
+    const bad = await sub(signup({ email: 'nope' }), baseEnv());
+    expect(bad.status).toBe(400);
+    expect(await bad.json()).toEqual({ ok: false, error: 'invalid_input', field: 'email' });
+    expect(await rows('SELECT id FROM newsletter_subscribers')).toHaveLength(0);
+  });
+
+  it('default config: the subscriber is stored with its source, nothing is sent', async () => {
+    const res = await sub(signup(), baseEnv(NEWS));
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({ ok: true });
+    const r = await rows('SELECT email, source, unsubscribed_at FROM newsletter_subscribers');
+    expect(r).toEqual([{ email: 'reader@example.com', source: 'footer', unsubscribed_at: null }]);
+    expect(brevo()).toHaveLength(0);
+  });
+
+  it('live and approved: one welcome from the news sender; a repeat signup stores nothing new and sends nothing', async () => {
+    const e = baseEnv({ ...LIVE, ...NEWS });
+    await approveAllInKv(e);
+    expect((await sub(signup(), e)).status).toBe(200);
+    expect((await sub(signup({ email: 'READER@example.com' }), e)).status).toBe(200);
+    expect(await rows('SELECT id FROM newsletter_subscribers')).toHaveLength(1);
+    expect(brevo()).toHaveLength(1);
+    const mail = brevo()[0]!.body as { sender: { email: string }; subject: string; textContent: string; headers: Record<string, string> };
+    expect(mail.sender.email).toBe('brief@news.sharjeelhashmat.com');
+    expect(mail.subject).toBe("Subscribed · The Investor's Brief");
+    expect(mail.headers['List-Unsubscribe']).toMatch(/\/api\/newsletter\/unsubscribe\?token=/);
+    expect(await rows("SELECT template_id FROM messages WHERE outcome = 'sent'")).toEqual([{ template_id: 'NEWS-WELCOME' }]);
+  });
+
+  it('unsubscribe link sets unsubscribed_at; a forged token is refused; signing up again re-activates and welcomes', async () => {
+    const e = baseEnv({ ...LIVE, ...NEWS });
+    await approveAllInKv(e);
+    await sub(signup(), e);
+    const link = (brevo()[0]!.body as { headers: Record<string, string> }).headers['List-Unsubscribe']!.slice(1, -1);
+
+    expect((await worker.fetch(new Request('https://api.test/api/newsletter/unsubscribe?token=forged.00'), e)).status).toBe(400);
+    const res = await unsubscribe(link, e);
+    expect(res.status).toBe(200);
+    expect(await res.text()).toContain('unsubscribed');
+    expect((await rows('SELECT unsubscribed_at FROM newsletter_subscribers'))[0]!.unsubscribed_at).not.toBeNull();
+    // Newsletter opt-out does not suppress lead replies.
+    expect(await rows('SELECT email_hash FROM suppression')).toHaveLength(0);
+
+    await sub(signup({ source: 'insights/dubai-q1-2026-who-is-buying' }), e);
+    expect(await rows('SELECT source, unsubscribed_at FROM newsletter_subscribers')).toEqual([{ source: 'insights/dubai-q1-2026-who-is-buying', unsubscribed_at: null }]);
+    expect(brevo()).toHaveLength(2);
   });
 });
