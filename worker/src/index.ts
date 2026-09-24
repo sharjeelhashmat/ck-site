@@ -1,6 +1,6 @@
 import { readConfig } from './config';
 import { sha256Hex } from './hash';
-import { subscribe, type NewsletterDeps } from './newsletter';
+import { subscribe, unsubscribeFeedbackForm, validateFeedback, type NewsletterDeps } from './newsletter';
 import { processLead, type AlertPayload, type Deps, type LeadRow } from './pipeline';
 import { sendEmail } from './send';
 import templatesJson from '../templates/lead-replies.v1.json';
@@ -66,8 +66,8 @@ function preflight(corsOrigin: string | undefined): Response {
   });
 }
 
-function page(status: number, title: string, message: string): Response {
-  return new Response(`<!doctype html><meta charset="utf-8"><title>${title}</title><p style="font:16px system-ui;margin:3rem auto;max-width:28rem">${message}</p>`, {
+function page(status: number, title: string, message: string, extra = ''): Response {
+  return new Response(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><main style="font:16px system-ui;margin:3rem auto;max-width:28rem;padding:0 1rem"><p>${message}</p>${extra}</main>`, {
     status,
     headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
   });
@@ -247,7 +247,26 @@ export default {
       if (!email) return new Response('Invalid link.', { status: 400, headers: { 'content-type': 'text/plain' } });
       await env.DB.prepare('UPDATE newsletter_subscribers SET unsubscribed_at = ?1 WHERE email = ?2 AND unsubscribed_at IS NULL')
         .bind(new Date().toISOString(), email).run();
-      return page(200, 'Unsubscribed', "You are unsubscribed from The Investor's Brief. No further issues will be sent.");
+      return page(200, 'Unsubscribed', "You are unsubscribed from The Investor's Brief. No further issues will be sent.", unsubscribeFeedbackForm(url.searchParams.get('token')!));
+    }
+
+    // Optional feedback, posted from the page above. The same signed token identifies the subscriber; it is not
+    // consumed by the unsubscribe, so no second token is needed. Only a row that is actually unsubscribed is updated.
+    if (url.pathname === '/api/newsletter/unsubscribe/feedback' && req.method === 'POST') {
+      const body = await req.arrayBuffer();
+      if (body.byteLength > MAX_BODY) return new Response('Too large.', { status: 413, headers: { 'content-type': 'text/plain' } });
+      const form = new URLSearchParams(new TextDecoder().decode(body));
+      const email = env.UNSUB_SECRET ? await verifyNewsletterToken(form.get('token') ?? '', env.UNSUB_SECRET) : null;
+      if (!email) return new Response('Invalid link.', { status: 400, headers: { 'content-type': 'text/plain' } });
+      const fb = validateFeedback(form);
+      if (fb.kind === 'skip') return page(200, 'Unsubscribed', 'You are unsubscribed. Nothing else to do.');
+      try {
+        await env.DB.prepare('UPDATE newsletter_subscribers SET unsubscribe_reason = ?1, unsubscribe_reason_detail = ?2, unsubscribe_feedback_at = ?3 WHERE email = ?4 AND unsubscribed_at IS NOT NULL')
+          .bind(fb.reason, fb.detail, new Date().toISOString(), email).run();
+      } catch {
+        return page(200, 'Unsubscribed', 'You are unsubscribed. Your feedback could not be saved, but nothing else is needed.');
+      }
+      return page(200, 'Unsubscribed', 'Thank you. You are unsubscribed.');
     }
 
     return json({ ok: false }, 404);

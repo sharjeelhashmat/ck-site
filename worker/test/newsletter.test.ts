@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { readConfig } from '../src/config';
-import { NEWS_WELCOME_ID, newsletterBlockers, subscribe, validateSubscribe, type NewsletterCtx, type NewsletterDeps } from '../src/newsletter';
+import { FEEDBACK_DETAIL_MAX, NEWS_WELCOME_ID, UNSUBSCRIBE_REASONS, newsletterBlockers, subscribe, unsubscribeFeedbackForm, validateFeedback, validateSubscribe, type NewsletterCtx, type NewsletterDeps } from '../src/newsletter';
 import type { OutboundMessage } from '../src/pipeline';
 import { templateHash } from '../src/templates';
 import { newsletterToken, unsubToken, verifyNewsletterToken } from '../src/unsub';
@@ -133,5 +133,42 @@ describe('newsletter: unsubscribe token', () => {
     expect(await verifyNewsletterToken(`${otherEnc}.${sig}`, 's')).toBeNull();
     expect(await verifyNewsletterToken(`${enc}.${await unsubToken('amira@example.com', 's')}`, 's')).toBeNull();
     for (const bad of ['', 'x', 'a.b', `${enc}.`, `.${sig}`, `${enc}.${sig}.x`]) expect(await verifyNewsletterToken(bad, 's')).toBeNull();
+  });
+});
+
+describe('newsletter: unsubscribe feedback', () => {
+  const f = (o: Record<string, string>) => validateFeedback(new URLSearchParams(o));
+
+  it('offers exactly the five agreed reasons', () => {
+    expect(UNSUBSCRIBE_REASONS.map(([, label]) => label)).toEqual([
+      'Too frequent', "Content isn't relevant to me", "Didn't mean to subscribe / don't recognize this", 'Just decluttering my inbox', 'Other',
+    ]);
+  });
+
+  it('accepts a listed reason with optional free text, collapsed and capped', () => {
+    expect(f({ action: 'send', reason: 'too_frequent' })).toEqual({ kind: 'answer', reason: 'too_frequent', detail: null });
+    expect(f({ action: 'send', reason: 'other', detail: '  weekly\n is  a lot ' })).toEqual({ kind: 'answer', reason: 'other', detail: 'weekly is a lot' });
+    const long = f({ action: 'send', reason: 'other', detail: 'x'.repeat(2000) });
+    expect(long.kind === 'answer' && long.detail!.length).toBe(FEEDBACK_DETAIL_MAX);
+  });
+
+  it('free text alone counts as Other; nothing chosen, an unknown reason, or Skip is a skip', () => {
+    expect(f({ action: 'send', detail: 'moved abroad' })).toEqual({ kind: 'answer', reason: 'other', detail: 'moved abroad' });
+    expect(f({ action: 'send' })).toEqual({ kind: 'skip' });
+    expect(f({ action: 'send', reason: 'hacked' })).toEqual({ kind: 'skip' });
+    expect(f({ action: 'skip', reason: 'too_frequent', detail: 'x' })).toEqual({ kind: 'skip' });
+  });
+
+  it('Skip and Send are identical buttons, side by side; no field is required', () => {
+    const html = unsubscribeFeedbackForm('abc.def');
+    const buttons = [...html.matchAll(/<button type="submit" name="action" value="(send|skip)" style="([^"]+)">/g)];
+    expect(buttons.map((b) => b[1])).toEqual(['send', 'skip']);
+    expect(buttons[0]![2]).toBe(buttons[1]![2]);
+    expect(html).not.toContain('required');
+    expect(html).toContain('already unsubscribed');
+  });
+
+  it('escapes the token into the form', () => {
+    expect(unsubscribeFeedbackForm('"><script>')).toContain('value="&quot;&gt;&lt;script&gt;"');
   });
 });

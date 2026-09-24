@@ -106,3 +106,43 @@ export async function subscribe(raw: unknown, ctx: NewsletterCtx, deps: Newslett
   const outbound = row.confirm ? await sendWelcome(email, row.id, ctx, deps) : 'skipped:already_subscribed';
   return { status: 200, body: { ok: true }, internal: { confirm: row.confirm, outbound } };
 }
+
+// Optional feedback after a newsletter unsubscribe. The unsubscribe has already happened by the time this form is
+// shown; nothing here can undo, delay or gate it. Skipping is a button identical to "Send", side by side.
+export const UNSUBSCRIBE_REASONS = [
+  ['too_frequent', 'Too frequent'],
+  ['not_relevant', "Content isn't relevant to me"],
+  ['did_not_subscribe', "Didn't mean to subscribe / don't recognize this"],
+  ['decluttering', 'Just decluttering my inbox'],
+  ['other', 'Other'],
+] as const;
+export type UnsubscribeReason = (typeof UNSUBSCRIBE_REASONS)[number][0];
+const REASON_IDS = new Set<string>(UNSUBSCRIBE_REASONS.map(([id]) => id));
+export const FEEDBACK_DETAIL_MAX = 500;
+
+export type FeedbackInput = { kind: 'skip' } | { kind: 'answer'; reason: UnsubscribeReason; detail: string | null };
+
+// Anything that is not a clear answer counts as a skip: no field is required, and an empty "Send" is never an error.
+export function validateFeedback(form: URLSearchParams): FeedbackInput {
+  if (form.get('action') === 'skip') return { kind: 'skip' };
+  const raw = form.get('reason') ?? '';
+  const detail = (form.get('detail') ?? '').replace(/\s+/g, ' ').trim().slice(0, FEEDBACK_DETAIL_MAX) || null;
+  if (REASON_IDS.has(raw)) return { kind: 'answer', reason: raw as UnsubscribeReason, detail };
+  if (detail) return { kind: 'answer', reason: 'other', detail };
+  return { kind: 'skip' };
+}
+
+const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+export function unsubscribeFeedbackForm(token: string): string {
+  const options = UNSUBSCRIBE_REASONS.map(([id, label]) => `<label style="display:block;margin:.35rem 0"><input type="radio" name="reason" value="${id}"> ${esc(label)}</label>`).join('');
+  const button = 'font:inherit;padding:.5rem 1.25rem;border:1px solid #333;border-radius:4px;background:#fff;color:#111;cursor:pointer';
+  return `<form method="post" action="/api/newsletter/unsubscribe/feedback" style="margin-top:2rem">`
+    + `<input type="hidden" name="token" value="${esc(token)}">`
+    + `<fieldset style="border:0;padding:0;margin:0"><legend style="padding:0;margin-bottom:.5rem">Optional: why did you leave? You are already unsubscribed; answering or skipping changes nothing.</legend>`
+    + options
+    + `<label style="display:block;margin-top:.75rem">In your own words (optional)<textarea name="detail" maxlength="${FEEDBACK_DETAIL_MAX}" rows="3" style="display:block;width:100%;font:inherit;margin-top:.25rem"></textarea></label>`
+    + `</fieldset>`
+    + `<p style="display:flex;gap:.75rem;margin-top:1rem"><button type="submit" name="action" value="send" style="${button}">Send</button><button type="submit" name="action" value="skip" style="${button}">Skip</button></p>`
+    + `</form>`;
+}
