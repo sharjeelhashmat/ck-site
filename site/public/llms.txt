@@ -12,7 +12,6 @@
 - [New Launches](https://www.sharjeelhashmat.com/new-launches): Off-plan and new project coverage
 - [Insights](https://www.sharjeelhashmat.com/insights): Market analysis and data-driven articles
 - [About](https://www.sharjeelhashmat.com/about): Background and credentials
-- [Investor Profile](https://www.sharjeelhashmat.com/investor-profile): Investor intake
 - [Contact](https://www.sharjeelhashmat.com/contact): Get in touch
 
 ## Articles

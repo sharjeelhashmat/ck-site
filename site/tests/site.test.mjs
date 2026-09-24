@@ -101,6 +101,8 @@ test('llms.txt lists every published article, no drafts, and every link resolves
   for (const u of urls) assert.equal(u.origin, 'https://www.sharjeelhashmat.com', `llms.txt link ${u.href} must use the canonical www origin`);
   const links = urls.map((u) => u.pathname);
   assert.ok(links.length > 0);
+  // The Investor Profile works only from the link shown after an enquiry, so it is never offered as a page to visit.
+  assert.ok(!links.includes('/investor-profile'), 'llms.txt must not list /investor-profile');
   for (const p of links) {
     const f = p === '/' ? 'index.html' : p.slice(1) + '.html';
     assert.ok(existsSync(join(dist, f)), `llms.txt links to ${p}, which is not a built page`);
