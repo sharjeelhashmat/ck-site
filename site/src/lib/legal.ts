@@ -22,6 +22,7 @@ export const PRIVACY: LegalSection[] = [
     p: [
       `Contact and enquiry details you submit through the site's forms (name, email, phone, country, budget range, timeline, message, and, for sell enquiries, property details); ROI Calculator inputs, which are processed in your browser and are not stored unless you separately submit them via an enquiry form; and standard technical data (such as IP address and browser information) collected automatically by the hosting and security infrastructure described below, including a bot check (Cloudflare Turnstile) on the enquiry forms. I do not knowingly collect any special category (sensitive) personal data through this site.`,
       ...(PROFILE_ENABLED ? [PROFILE_PRIVACY_LINE] : []),
+      `If you unsubscribe from the newsletter, you may optionally tell us why. If you do, we store that reason against your subscriber record to help us improve the newsletter; it is never shared externally.`,
     ],
   },
   {
