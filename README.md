@@ -67,3 +67,4 @@ Kill switches: repository variable `AUTONOMY=off` stops maintenance workflows; W
 - `worker/.npmrc` sets `legacy-peer-deps=true` (npm 10 peer-set bug) and a `sharp` override.
 - The Brief PDF is browser print only; no server-generated PDF.
 - Legacy leads in Firebase project `personal-brand-a6154` must be exported to D1 and Firebase retired before the 4 Dec 2026 billing cliff.
+<!-- pipeline verification 2026-09-24 -->
