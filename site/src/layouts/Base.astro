@@ -1,6 +1,8 @@
 ---
 import '../styles/global.css';
 import Nav from '../components/Nav.astro';
+import FloatingActions from '../components/FloatingActions.astro';
+import PrintFrame from '../components/PrintFrame.astro';
 import Footer from '../components/Footer.astro';
 import { ANALYTICS_TOKEN, SITE } from '../lib/site';
 
@@ -62,7 +64,10 @@ const ld = {
   <body>
     <a class="skip" href="#main">Skip to content</a>
     <Nav />
+    <PrintFrame position="head" />
     <main id="main"><slot /></main>
+    <PrintFrame position="foot" />
+    <FloatingActions />
     <Footer />
     {ANALYTICS_TOKEN && (
       <script is:inline defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon={JSON.stringify({ token: ANALYTICS_TOKEN })}></script>

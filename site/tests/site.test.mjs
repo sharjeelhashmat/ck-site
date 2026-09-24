@@ -156,3 +156,38 @@ test('no wildcard redirect shadows a built page (Cloudflare applies _redirects b
     assert.deepEqual(shadowed, [], `redirect ${m[1]}/* hides built pages`);
   }
 });
+
+test('FAQ: six approved questions, FAQPage data matches the visible copy, and the held-back figure questions are absent', () => {
+  const h = read('faq.html');
+  const summaries = [...h.matchAll(/<summary>([\s\S]*?)<\/summary>/g)].map((m) => m[1]);
+  assert.equal(summaries.length, 6);
+  const ld = JSON.parse(h.match(/<script type="application\/ld\+json">(\{"@context":"https:\/\/schema.org","@type":"FAQPage"[\s\S]*?)<\/script>/)[1]);
+  assert.equal(ld.mainEntity.length, 6);
+  const text = h.replace(/<[^>]+>/g, '').replace(/&#39;/g, "'");
+  for (const q of ld.mainEntity) {
+    assert.ok(text.includes(q.name), `visible question: ${q.name}`);
+    assert.ok(text.includes(q.acceptedAnswer.text), `visible answer: ${q.name}`);
+  }
+  assert.doesNotMatch(text, /golden visa|transfer fee|\bDLD\b/i, 'fee and Golden Visa answers need a cited figure first');
+  // The Investor Profile works only from the link shown after an enquiry, so the FAQ must never link to it.
+  assert.doesNotMatch(h, /href="\/investor-profile/, 'FAQ must not link to /investor-profile');
+  assert.match(read('index.html'), /<a href="\/faq">FAQ<\/a>/, 'footer links to the FAQ');
+});
+
+test('floating actions on every page: WhatsApp link uses the site number, scroll-to-top starts hidden; progress bar only on articles', () => {
+  for (const f of htmlFiles) {
+    const h = readFileSync(f, 'utf8');
+    assert.match(h, /class="fab-stack noprint"[\s\S]*?href="https:\/\/wa\.me\/971555414468\?text=/, `${f}: WhatsApp button`);
+    assert.match(h, /<button class="fab fab--top" type="button" id="to-top" aria-label="Back to top" hidden>/, `${f}: scroll-to-top`);
+    const article = /[\\/]insights[\\/][^\\/]+\.html$/.test(f);
+    assert.equal(h.includes('class="read-progress noprint"'), article, `${f}: progress bar only on article pages`);
+  }
+});
+
+test('print: every page carries the print-only mark header and a contact + brokerage footer', () => {
+  for (const f of htmlFiles) {
+    const h = readFileSync(f, 'utf8');
+    assert.match(h, /class="print-only print-head"[^>]*>\s*<svg/, `${f}: print header with mark`);
+    assert.match(h, /class="print-only print-foot"[^>]*>\s*<p>\+971 55 541 4468 · hello@sharjeelhashmat\.com · sharjeelhashmat\.com<\/p>\s*<p>Working with Royals Field Properties · BRN /, `${f}: print footer`);
+  }
+});

@@ -1,0 +1,19 @@
+---
+// Thin gold bar at the top of the viewport that fills as the article is read. Used on /insights/* article pages only.
+---
+<div class="read-progress noprint" aria-hidden="true"><span id="read-progress-bar"></span></div>
+<script>
+  const bar = document.getElementById('read-progress-bar');
+  if (bar) {
+    let queued = false;
+    const update = () => {
+      queued = false;
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      bar.style.transform = `scaleX(${max > 0 ? Math.min(1, window.scrollY / max) : 0})`;
+    };
+    const onScroll = () => { if (!queued) { queued = true; requestAnimationFrame(update); } };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    update();
+  }
+</script>
