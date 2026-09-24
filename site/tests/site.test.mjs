@@ -97,7 +97,9 @@ test('CSP: no unsafe-inline for scripts, and every inline script is hash-covered
 
 test('llms.txt lists every published article, no drafts, and every link resolves to a built page', () => {
   const llms = read('llms.txt');
-  const links = [...llms.matchAll(/\]\((https:\/\/[^)]+)\)/g)].map((m) => new URL(m[1]).pathname);
+  const urls = [...llms.matchAll(/\]\((https:\/\/[^)]+)\)/g)].map((m) => new URL(m[1]));
+  for (const u of urls) assert.equal(u.origin, 'https://www.sharjeelhashmat.com', `llms.txt link ${u.href} must use the canonical www origin`);
+  const links = urls.map((u) => u.pathname);
   assert.ok(links.length > 0);
   for (const p of links) {
     const f = p === '/' ? 'index.html' : p.slice(1) + '.html';
