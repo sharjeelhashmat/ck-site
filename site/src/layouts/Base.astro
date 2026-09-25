@@ -14,6 +14,9 @@ const fullTitle = title ? `${title} — ${SITE.name}` : `${SITE.name} — ${SITE
 const pathname = Astro.url.pathname.replace(/\/$/, '') || '/';
 const canonical = SITE.origin + (pathname === '/' ? '' : pathname);
 // Only a production-indexable build (which requires a BRN) may be indexed, and only for pages with real content.
+// Google Search Console ownership token. Set by the owner as repo variable GSC_VERIFICATION; the build receives it as
+// PUBLIC_GSC_VERIFICATION (same pattern as BRN). Unset or empty = no tag.
+const gscVerification = ((import.meta.env.PUBLIC_GSC_VERIFICATION as string | undefined) ?? '').trim();
 const robots = SITE.indexable && !noindex ? 'index,follow,max-image-preview:large' : 'noindex,nofollow';
 const ld = {
   '@context': 'https://schema.org',
@@ -38,6 +41,7 @@ const ld = {
     <meta name="description" content={description} />
     <meta name="robots" content={robots} />
     <meta name="theme-color" content="#F7F5F0" />
+    {gscVerification && <meta name="google-site-verification" content={gscVerification} />}
     <link rel="canonical" href={canonical} />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <meta property="og:type" content="website" />
