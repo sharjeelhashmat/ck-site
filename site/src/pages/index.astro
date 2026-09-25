@@ -1,6 +1,5 @@
 ---
 import Base from '../layouts/Base.astro';
-import { AREAS } from '../lib/areas';
 import { BLURBS, INTENTS, waLink } from '../lib/site';
 const intents = INTENTS.filter((i) => i.value !== 'other');
 ---
@@ -56,12 +55,6 @@ const intents = INTENTS.filter((i) => i.value !== 'other');
         <h2>Buying in the UAE <em>from abroad.</em></h2>
         <p>You don't need to be in the UAE to make a well-informed property decision. Briefing, virtual shortlist, remote viewings, due diligence, negotiation, transaction coordination and handover — all managed on your behalf.</p>
         <div class="actions"><a class="btn btn--ghost" href="/contact?intent=abroad">Start the conversation →</a></div>
-      </div>
-      <div class="card">
-        <p class="kicker" style="margin:0">Where I operate</p>
-        <ul class="list-plain">
-          {AREAS.map((a) => <li><a href={`/areas/${a.slug}`}>{a.name}</a></li>)}
-        </ul>
       </div>
     </div>
   </section>
