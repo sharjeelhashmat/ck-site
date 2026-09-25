@@ -6,12 +6,13 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, readdi
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   checkClaim, checkOpportunity, checkArticle, insightsLive, areaSnapshotState,
   FACTORS, FRESHNESS_DAYS, INSIGHTS_MIN, VERDICTS,
 } from '../src/lib/intel.mjs';
 
-const root = new URL('../', import.meta.url).pathname;
+const root = fileURLToPath(new URL('../', import.meta.url));
 const TODAY = '2026-09-21';
 import { claim, validOpp, validArticle } from './helpers/fixtures.mjs';
 
