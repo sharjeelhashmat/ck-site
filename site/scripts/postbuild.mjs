@@ -2,9 +2,10 @@
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // Optional argument: another build directory (tests build into a temp dir).
-const dist = process.argv[2] ?? new URL('../dist/', import.meta.url).pathname;
+const dist = process.argv[2] ?? fileURLToPath(new URL('../dist/', import.meta.url));
 const hashes = new Set();
 let analytics = false;
 const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]));
