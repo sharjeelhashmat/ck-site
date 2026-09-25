@@ -13,7 +13,7 @@ const { position } = Astro.props as { position: 'head' | 'foot' };
 ) : (
   <div class="print-only print-foot" aria-hidden="true">
     <p>{SITE.phoneDisplay} · {SITE.email} · sharjeelhashmat.com</p>
-    <p>Working with {SITE.brokerage} · BRN {SITE.brn || 'pending'}</p>
+    <p>In UAE real estate since 2018 · Working with {SITE.brokerage} · BRN {SITE.brn || 'pending'}</p>
   </div>
 )}
 {position === 'foot' && (
