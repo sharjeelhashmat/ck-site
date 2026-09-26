@@ -8,7 +8,7 @@ import { ANALYTICS_TOKEN, SITE } from '../lib/site';
 
 interface Props { title?: string; description?: string; noindex?: boolean; path?: string }
 const DEFAULT_DESC =
-  'UAE real estate, better decisions. Buy, invest or sell with a consultant who evaluates every property on price, yield, risk and exit before recommending it.';
+  'Clarity before commitment. UAE property analysis for investors: price, yield, costs and exit, before anyone asks you to sign.';
 const { title, description = DEFAULT_DESC, noindex = false } = Astro.props;
 const fullTitle = title ? `${title} — ${SITE.name}` : `${SITE.name} — ${SITE.title}`;
 const pathname = Astro.url.pathname.replace(/\/$/, '') || '/';
