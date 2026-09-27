@@ -29,7 +29,7 @@ test('switch OFF: no link after an enquiry, no Privacy line, page still built bu
   assert.equal(r.status, 0, r.log);
   assert.doesNotMatch(html(r.out, 'contact.html'), /id="lead-next"|data-profile=/);
   assert.doesNotMatch(html(r.out, 'privacy.html'), /investor profile/i);
-  assert.match(html(r.out, 'privacy.html'), /20 September 2026/);
+  assert.match(html(r.out, 'privacy.html'), /27 September 2026/);
   assert.match(html(r.out, 'investor-profile.html'), /<meta name="robots" content="noindex,nofollow">/);
   assert.ok(!/investor-profile/.test(readFileSync(join(r.out, 'sitemap-0.xml'), 'utf8')));
 });
@@ -43,7 +43,7 @@ test('switch ON: link after an enquiry for buy, invest and abroad only; Privacy 
   const priv = html(r.out, 'privacy.html');
   assert.match(priv, /optional investor profile/);
   assert.match(priv, /never published or sent to social media or advertising tools/);
-  assert.match(priv, /21 September 2026/);
+  assert.match(priv, /27 September 2026/);
   assert.match(html(r.out, 'investor-profile.html'), /<meta name="robots" content="noindex,nofollow">/);
   assert.ok(!/investor-profile/.test(readFileSync(join(r.out, 'sitemap-0.xml'), 'utf8')));
 });
