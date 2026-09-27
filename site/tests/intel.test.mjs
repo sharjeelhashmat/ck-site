@@ -233,16 +233,16 @@ test('build: on a non-public (staging) build every intelligence page is noindex'
 });
 
 // ---------- public copy ----------
-test('public methodology copy describes seven factors, from the same list the Brief uses', () => {
+test('public methodology copy describes the five checks (owner decision M5, 2026-09-26)', () => {
   const src = (p) => readFileSync(new URL(`../src/${p}`, import.meta.url), 'utf8');
   assert.match(src('lib/method.ts'), /from '\.\/intel\.mjs'/);
   for (const p of ['pages/index.astro', 'pages/about.astro', 'pages/invest.astro', 'pages/investment-approach.astro']) {
     const t = src(p);
     assert.doesNotMatch(t, /\bsix (factors|-factor)|six-factor|payment structure and (potential )?exit|rental demand/i, p);
   }
-  assert.match(src('pages/invest.astro'), /seven factors/);
-  assert.match(src('pages/investment-approach.astro'), /seven factors/);
-  assert.match(src('pages/about.astro'), /seven factors/);
+  assert.match(src('pages/invest.astro'), /five checks/);
+  assert.match(src('pages/investment-approach.astro'), /five checks/);
+  assert.match(src('pages/about.astro'), /five checks/);
 });
 
 // ---------- every number carries its source (owner rule 2026-09-21) ----------

@@ -1,19 +1,20 @@
 ---
 import Base from '../layouts/Base.astro';
 import ROICalc from '../components/ROICalc.astro';
-import { METHOD } from '../lib/method';
 ---
-<Base title="Invest in UAE Real Estate" description="Evaluate UAE property investments on location, entry, fundamentals, yield, supply, liquidity and risk — not on brochure promises.">
+<Base title="Invest in UAE Real Estate" description="Evaluate UAE property investments through five checks: price, returns, risk, exit, and my view. Not brochure promises.">
   <section class="section">
     <div class="wrap">
       <p class="eyebrow">Invest</p>
       <h1 style="max-width:18ch">Evaluate the opportunity. <em>Then decide.</em></h1>
-      <p class="lede">UAE real estate can offer strong returns — but not every listing is a good investment, and blanket numbers you see quoted elsewhere rarely apply to your specific property. Every recommendation I make is qualified against seven factors. <a href="/investment-approach">See how I work through them.</a></p>
+      <p class="lede">UAE real estate can offer strong returns — but not every listing is a good investment, and blanket numbers you see quoted elsewhere rarely apply to your specific property. Every recommendation I make goes through the same five checks. <a href="/investment-approach">See how I work through them.</a></p>
 
       <div class="grid grid--2" style="margin-top:2.5rem">
-        {METHOD.map((m) => (
-          <div class="card"><h2 style="font-size:1.25rem;font-family:var(--sans);font-weight:600">{m.title}</h2><p>{m.desc}</p></div>
-        ))}
+        <div class="card"><h2 style="font-size:1.25rem;font-family:var(--sans);font-weight:600">Price</h2><p>What comparable units actually sold for, per Dubai Land Department records, not the asking price.</p></div>
+        <div class="card"><h2 style="font-size:1.25rem;font-family:var(--sans);font-weight:600">Returns</h2><p>Net yield after service charges, vacancy and management. For off-plan, the payment plan set against your cash flow.</p></div>
+        <div class="card"><h2 style="font-size:1.25rem;font-family:var(--sans);font-weight:600">Risk</h2><p>The developer's delivery record, the project's escrow status, and the supply arriving in the same area.</p></div>
+        <div class="card"><h2 style="font-size:1.25rem;font-family:var(--sans);font-weight:600">Exit</h2><p>Who buys this unit from you in five years, and at what realistic price.</p></div>
+        <div class="card"><h2 style="font-size:1.25rem;font-family:var(--sans);font-weight:600">My view</h2><p>Buy, watch, or pass. If the numbers don't work, I'll tell you not to buy.</p></div>
       </div>
 
       <div style="margin-top:2.5rem"><ROICalc /></div>
