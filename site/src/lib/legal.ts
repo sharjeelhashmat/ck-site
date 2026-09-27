@@ -2,14 +2,21 @@
 // Privacy is the live text with ONLY the sections that describe infrastructure changed (2, 4, 5, 7) so they stay true
 // after the move off Firebase. Every changed sentence is listed in CHANGES_FOR_APPROVAL.md. Owner approval required
 // before publishing (legal wording is a claim in the owner's name).
-import { SITE } from './site';
+import { ANALYTICS_TOKEN, SITE } from './site';
 import { PROFILE_ENABLED, PROFILE_PRIVACY_LINE } from './profile';
 
 export interface LegalSection { h: string; p: string[]; list?: string[]; after?: string }
 const mail = `<a href="mailto:${SITE.email}">${SITE.email}</a>`;
 
-// The date moves only when the text does: the investor profile line appears with the feature (owner approval required).
-export const PRIVACY_UPDATED = PROFILE_ENABLED ? '21 September 2026' : '20 September 2026';
+// Move this date whenever the published Privacy text changes (owner approval required for every change).
+// 27 September 2026: newsletter disclosures in sections 2, 4 and 5, and the analytics sentence in section 5.
+export const PRIVACY_UPDATED = '27 September 2026';
+
+// Section 5 analytics sentence follows the build: it names Cloudflare Web Analytics only when the beacon is actually on
+// (ANALYTICS_TOKEN is set), so the policy is true before and after CF_ANALYTICS_TOKEN is configured.
+const ANALYTICS_LINE = ANALYTICS_TOKEN
+  ? `I use Cloudflare Web Analytics to count visits to this site. It does not use cookies and does not build a profile of you; Cloudflare processes basic technical data (such as the page visited, the referring page and the browser type) as a data processor on my behalf. No advertising cookies are used on this site.`
+  : `No separate analytics or advertising cookies are currently in use on this site.`;
 export const PRIVACY: LegalSection[] = [
   {
     h: '1. Who this policy covers',
@@ -22,7 +29,8 @@ export const PRIVACY: LegalSection[] = [
     p: [
       `Contact and enquiry details you submit through the site's forms (name, email, phone, country, budget range, timeline, message, and, for sell enquiries, property details); ROI Calculator inputs, which are processed in your browser and are not stored unless you separately submit them via an enquiry form; and standard technical data (such as IP address and browser information) collected automatically by the hosting and security infrastructure described below, including a bot check (Cloudflare Turnstile) on the enquiry forms. I do not knowingly collect any special category (sensitive) personal data through this site.`,
       ...(PROFILE_ENABLED ? [PROFILE_PRIVACY_LINE] : []),
-      `If you unsubscribe from the newsletter, you may optionally tell us why. If you do, we store that reason against your subscriber record to help us improve the newsletter; it is never shared externally.`,
+      `If you subscribe to the newsletter, I collect your email address, the date you subscribed and the page you subscribed from.`,
+      `If you unsubscribe from the newsletter, you may optionally tell me why. If you do, I store that reason against your subscriber record to help me improve the newsletter; it is never shared externally.`,
     ],
   },
   {
@@ -35,12 +43,14 @@ export const PRIVACY: LegalSection[] = [
     h: '4. How data is used',
     p: [
       `To respond to your enquiry, provide the property information, valuation, or investment analysis you requested, and — where you've agreed — to follow up about opportunities that match what you're looking for. When you submit a form, your enquiry is sorted by a fixed set of rules (for example, what you're looking to do and your timeline) to decide which short automated acknowledgement email you receive and how quickly I'm alerted; any follow-up beyond that acknowledgement is written by me. Data is not sold to third parties, and is not used for automated decision-making that produces legal or similarly significant effects on you.`,
+      `If you subscribe to the newsletter, I use your email address only to send you a welcome email and the newsletter itself, until you unsubscribe. Every newsletter email includes an unsubscribe link. When you unsubscribe, I record that and add a coded (hashed) copy of your email address to a suppression list, so that no further newsletter emails are sent to you.`,
     ],
   },
   {
     h: '5. Third parties and where data is stored',
     p: [
-      `Enquiry data is stored using Cloudflare (Workers and the D1 database, with Turnstile for bot protection), which acts as a data processor on my behalf. Emails to you (the acknowledgement described above) are delivered through Resend, and my own mailbox is hosted by Zoho Mail; each acts as a data processor for that purpose. These providers maintain their own contractual and technical safeguards for data they process, and data may be held on servers outside the UAE, including in Europe, as part of their standard infrastructure — a cross-border transfer the PDPL permits provided appropriate safeguards are in place, which I consider these providers' standing data-processing terms and security certifications to satisfy. Data is not otherwise shared with third parties except where required by UAE law or regulatory authority (for example DLD/RERA in connection with a specific transaction). No separate analytics or advertising cookies are currently in use on this site.`,
+      `Enquiry data and newsletter subscriber records are stored using Cloudflare (Workers and the D1 database, with Turnstile for bot protection), which acts as a data processor on my behalf. Emails to you (the acknowledgement described above, and the newsletter if you subscribe) are delivered through Resend, and my own mailbox is hosted by Zoho Mail; each acts as a data processor for that purpose. These providers maintain their own contractual and technical safeguards for data they process, and data may be held on servers outside the UAE, including in Europe, as part of their standard infrastructure — a cross-border transfer the PDPL permits provided appropriate safeguards are in place, which I consider these providers' standing data-processing terms and security certifications to satisfy. Data is not otherwise shared with third parties except where required by UAE law or regulatory authority (for example DLD/RERA in connection with a specific transaction).`,
+      ANALYTICS_LINE,
     ],
   },
   {

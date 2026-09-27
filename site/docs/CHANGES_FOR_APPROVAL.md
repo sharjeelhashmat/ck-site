@@ -68,3 +68,13 @@ Not yet approved. PR #9 added this sentence to the Privacy page text without log
 Open items (left for the owner to decide separately):
 - The Privacy "last updated" date was not changed by PR #9.
 - The Privacy page still does not mention newsletter sign-up itself, only this unsubscribe detail.
+
+## I. Privacy newsletter and analytics disclosures: PROPOSED 27 September 2026, pending owner approval in the PR
+Owner compliance check, 27 September 2026. Privacy date becomes 27 September 2026 (it now moves whenever the published text changes). Section H's sentence is kept, reworded from "us/we" to "me/I".
+| Where | Wording | Why it is here |
+|---|---|---|
+| Privacy section 2 (new line) | "If you subscribe to the newsletter, I collect your email address, the date you subscribed and the page you subscribed from." | The policy did not mention newsletter sign-up itself (open item under H). |
+| Privacy section 2 (Section H line, reworded) | "If you unsubscribe from the newsletter, you may optionally tell me why. If you do, I store that reason against your subscriber record to help me improve the newsletter; it is never shared externally." | First person, to match the rest of the policy. |
+| Privacy section 4 (new line) | "If you subscribe to the newsletter, I use your email address only to send you a welcome email and the newsletter itself, until you unsubscribe. Every newsletter email includes an unsubscribe link. When you unsubscribe, I record that and add a coded (hashed) copy of your email address to a suppression list, so that no further newsletter emails are sent to you." | Describes the purpose and the suppression list the worker actually keeps. |
+| Privacy section 5 | "Enquiry data and newsletter subscriber records are stored using Cloudflare ..." and "Emails to you (the acknowledgement described above, and the newsletter if you subscribe) are delivered through Resend ..." | Resend is the only sending service. Brevo is retired (its DNS records were not carried to Cloudflare) and is not named. |
+| Privacy section 5 (analytics, switches with the build) | Token not set: "No separate analytics or advertising cookies are currently in use on this site." Token set: "I use Cloudflare Web Analytics to count visits to this site. It does not use cookies and does not build a profile of you; Cloudflare processes basic technical data (such as the page visited, the referring page and the browser type) as a data processor on my behalf. No advertising cookies are used on this site." | Keeps the policy true before and after CF_ANALYTICS_TOKEN is set. |
