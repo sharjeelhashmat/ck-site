@@ -34,18 +34,19 @@ export interface Env {
   MAILBOX_CONFIRMED?: string;
   ALERT_EMAIL?: string;
   DAILY_SEND_CAP?: string;
+  EXTRA_ORIGINS?: string;
 }
 
 const TEMPLATES = (templatesJson as { templates: Template[] }).templates;
 const MAX_BODY = 8 * 1024;
 
-function allowedOrigins(siteUrl: string): string[] {
+function allowedOrigins(siteUrl: string, extra: string[] = []): string[] {
   try {
     const u = new URL(siteUrl);
     const bare = u.hostname.replace(/^www\./, '');
-    return [`https://${bare}`, `https://www.${bare}`];
+    return [`https://${bare}`, `https://www.${bare}`, ...extra];
   } catch {
-    return [];
+    return [...extra];
   }
 }
 
@@ -216,7 +217,7 @@ export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
     const cfg = readConfig(env as unknown as Record<string, string | undefined>);
-    const origins = allowedOrigins(cfg.siteUrl);
+    const origins = allowedOrigins(cfg.siteUrl, cfg.extraOrigins);
     const origin = req.headers.get('origin') ?? '';
     const corsOrigin = origins.includes(origin) ? origin : undefined;
 

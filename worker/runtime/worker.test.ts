@@ -104,6 +104,15 @@ describe('worker on workerd', () => {
     expect((await post(lead(), baseEnv(), null)).status).toBe(403);
   });
 
+  it('CORS: EXTRA_ORIGINS admits the staging site, and removing it shuts staging out', async () => {
+    const STAGING = 'https://ck-site-web.sharjeelhashmat.workers.dev';
+    const on = await worker.fetch(new Request('https://api.test/lead', { method: 'OPTIONS', headers: { origin: STAGING } }), baseEnv({ EXTRA_ORIGINS: STAGING }));
+    expect(on.headers.get('access-control-allow-origin')).toBe(STAGING);
+    const off = await worker.fetch(new Request('https://api.test/lead', { method: 'OPTIONS', headers: { origin: STAGING } }), baseEnv({ EXTRA_ORIGINS: '' }));
+    expect(off.headers.get('access-control-allow-origin')).toBeNull();
+    expect((await post(lead(), baseEnv({ EXTRA_ORIGINS: '' }), STAGING)).status).toBe(403);
+  });
+
   it('rejects wrong methods, oversized and malformed bodies', async () => {
     expect((await worker.fetch(new Request('https://api.test/lead', { headers: { origin: ORIGIN } }), baseEnv())).status).toBe(405);
     expect((await post('x'.repeat(9000), baseEnv())).status).toBe(413);

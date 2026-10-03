@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { outboundBlockers, readConfig } from '../src/config';
+import { outboundBlockers, parseExtraOrigins, readConfig } from '../src/config';
 import { goodEnv } from './helpers';
 
 describe('outbound gate', () => {
@@ -40,5 +40,16 @@ describe('outbound gate', () => {
   });
   it('an unknown provider value blocks outbound', () => {
     expect(outboundBlockers(readConfig({ ...goodEnv, EMAIL_PROVIDER: 'mailgun' }))).toContain('EMAIL_PROVIDER must be resend or brevo');
+  });
+});
+
+describe('extra CORS origins', () => {
+  it('defaults to none', () => expect(readConfig(goodEnv).extraOrigins).toEqual([]));
+  it('accepts bare https origins, comma-separated', () => {
+    expect(parseExtraOrigins(' https://ck-site-web.sharjeelhashmat.workers.dev , https://Staging.Example.com'))
+      .toEqual(['https://ck-site-web.sharjeelhashmat.workers.dev', 'https://staging.example.com']);
+  });
+  it('ignores http, paths, wildcards and junk', () => {
+    expect(parseExtraOrigins('http://a.com,https://b.com/path,https://*.c.com,*,https://d.com/,,')).toEqual([]);
   });
 });

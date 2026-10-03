@@ -12,6 +12,7 @@ export interface Config {
   affiliation: string;
   bookingUrl: string;
   siteUrl: string;
+  extraOrigins: string[];
   workerUrl: string;
   slaHours: string;
   senders: { leads: Sender; alerts: Sender; news: Sender };
@@ -36,6 +37,7 @@ export function readConfig(env: Record<string, string | undefined>): Config {
     affiliation: (env.AFFILIATION ?? '').trim(),
     bookingUrl: (env.BOOKING_URL ?? '').trim(),
     siteUrl: (env.SITE_URL ?? '').trim().replace(/\/$/, ''),
+    extraOrigins: parseExtraOrigins(env.EXTRA_ORIGINS),
     workerUrl: (env.WORKER_URL ?? '').trim().replace(/\/$/, ''),
     slaHours: (env.SLA_HOURS ?? '24').trim(),
     senders: {
@@ -53,6 +55,15 @@ export function readConfig(env: Record<string, string | undefined>): Config {
     hasUnsubSecret: Boolean(env.UNSUB_SECRET),
     weights: parseWeights(env.SCORING_JSON),
   };
+}
+
+// Extra browser origins allowed to POST to the Worker (e.g. the staging site before cutover).
+// Comma-separated; each entry must be a bare https origin (no path, no wildcard). Anything else is ignored.
+export function parseExtraOrigins(raw: string | undefined): string[] {
+  return (raw ?? '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter((s) => /^https:\/\/[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(s));
 }
 
 function rootHost(siteUrl: string): string {
