@@ -23,7 +23,6 @@ EMAIL_PROVIDER = "resend"             # "resend" (default choice) or "brevo"; se
 BRN = ""                              # pending: owner to supply before go-live
 AFFILIATION = "Royals Field Properties"
 SITE_URL = "https://sharjeelhashmat.com"
-EXTRA_ORIGINS = "https://ck-site-web.sharjeelhashmat.workers.dev"
 WORKER_URL = "https://ck-lead-worker.sharjeelhashmat.workers.dev"   # workers.dev subdomain registered 2026-09-19
 BOOKING_URL = ""
 # Automated senders live on subdomains only. The root domain is for human mail.
