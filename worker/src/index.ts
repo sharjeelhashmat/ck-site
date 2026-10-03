@@ -2,6 +2,7 @@ import { readConfig } from './config';
 import { sha256Hex } from './hash';
 import { subscribe, unsubscribeFeedbackForm, validateFeedback, type NewsletterDeps } from './newsletter';
 import { processLead, type AlertPayload, type Deps, type LeadRow } from './pipeline';
+import { MAX_PROFILE_BODY, saveProfile, type ProfileDeps } from './profile';
 import { sendEmail } from './send';
 import templatesJson from '../templates/lead-replies.v1.json';
 import type { Template } from './templates';
@@ -183,6 +184,34 @@ function makeDeps(env: Env): Deps {
   };
 }
 
+function makeProfileDeps(env: Env): ProfileDeps {
+  const cfg = readConfig(env as unknown as Record<string, string | undefined>);
+  const keys = { resend: env.RESEND_API_KEY, brevo: env.BREVO_API_KEY };
+  return {
+    now: () => new Date(),
+    async findLead(id) {
+      return env.DB.prepare('SELECT created_at, quarantined, name, email, intent, lane FROM leads WHERE id = ?1').bind(id).first();
+    },
+    async upsertProfile(leadId, p, nowIso) {
+      const existing = await env.DB.prepare('SELECT 1 AS x FROM investor_profiles WHERE lead_id = ?1').bind(leadId).first();
+      await env.DB.prepare(
+        `INSERT INTO investor_profiles (lead_id, created_at, updated_at, objective, property_type, risk_tolerance, holding_period, areas)
+         VALUES (?1,?2,?2,?3,?4,?5,?6,?7)
+         ON CONFLICT(lead_id) DO UPDATE SET updated_at = ?2, objective = ?3, property_type = ?4, risk_tolerance = ?5, holding_period = ?6, areas = ?7`,
+      ).bind(leadId, nowIso, p.objective, p.property_type, p.risk_tolerance, p.holding_period, JSON.stringify(p.areas)).run();
+      return existing ? 'updated' : 'created';
+    },
+    async logEvent(type, leadId, detail) {
+      await env.DB.prepare('INSERT INTO events (id, created_at, type, lead_id, detail) VALUES (?1,?2,?3,?4,?5)')
+        .bind(crypto.randomUUID(), new Date().toISOString(), type, leadId, detail).run();
+    },
+    async notifyOwner(subject, text) {
+      if (!cfg.hasEmailKey || !cfg.alertEmail || !cfg.senders.alerts.email) return;
+      await sendEmail(cfg.emailProvider, keys, cfg.senders.alerts, cfg.alertEmail, { stream: 'leads', to: cfg.alertEmail, toName: 'Sharjeel Hashmat', subject, text });
+    },
+  };
+}
+
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
@@ -209,6 +238,18 @@ export default {
 
       const approved = ((await env.KV.get('approved_templates', 'json')) ?? {}) as Record<string, string>;
       const result = await processLead(raw, { config: cfg, templates: TEMPLATES, approved, unsubSecret: env.UNSUB_SECRET }, makeDeps(env));
+      return json(result.body, result.status, corsOrigin);
+    }
+
+    if (url.pathname === '/profile') {
+      if (req.method === 'OPTIONS') return preflight(corsOrigin);
+      if (req.method !== 'POST') return json({ ok: false }, 405);
+      if (!corsOrigin) return json({ ok: false, error: 'forbidden' }, 403);
+      const text = await req.text();
+      if (text.length > MAX_PROFILE_BODY) return json({ ok: false, error: 'too_large' }, 413, corsOrigin);
+      let raw: unknown;
+      try { raw = JSON.parse(text); } catch { return json({ ok: false, error: 'invalid_input', field: 'body' }, 400, corsOrigin); }
+      const result = await saveProfile(raw, makeProfileDeps(env));
       return json(result.body, result.status, corsOrigin);
     }
 
