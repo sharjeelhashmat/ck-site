@@ -1,4 +1,4 @@
-import { readConfig } from './config';
+import { outboundBlockers, readConfig } from './config';
 import { sha256Hex } from './hash';
 import { subscribe, unsubscribeFeedbackForm, validateFeedback, type NewsletterDeps } from './newsletter';
 import { processLead, type AlertPayload, type Deps, type LeadRow } from './pipeline';
@@ -220,7 +220,8 @@ export default {
     const origin = req.headers.get('origin') ?? '';
     const corsOrigin = origins.includes(origin) ? origin : undefined;
 
-    if (url.pathname === '/health') return json({ ok: true }, 200);
+    // outbound = automated lead replies would actually send now (OUTBOUND on and no blocker). Read daily by Housekeeping from launch.
+    if (url.pathname === '/health') return json({ ok: true, outbound: outboundBlockers(cfg).length === 0 }, 200);
 
     if (url.pathname === '/lead') {
       if (req.method === 'OPTIONS') return preflight(corsOrigin);

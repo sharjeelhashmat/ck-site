@@ -94,6 +94,15 @@ describe('worker on workerd', () => {
     expect((await worker.fetch(new Request('https://api.test/nope'), baseEnv())).status).toBe(404);
   });
 
+  it('/health reports whether automated replies would actually send', async () => {
+    const off = await (await worker.fetch(new Request('https://api.test/health'), baseEnv({ OUTBOUND: 'off' }))).json();
+    expect(off).toEqual({ ok: true, outbound: false });
+    const blocked = await (await worker.fetch(new Request('https://api.test/health'), baseEnv({ OUTBOUND: 'on', BRN: '' }))).json();
+    expect(blocked).toEqual({ ok: true, outbound: false });
+    const live = await (await worker.fetch(new Request('https://api.test/health'), baseEnv(LIVE))).json();
+    expect(live).toEqual({ ok: true, outbound: true });
+  });
+
   it('CORS: allows only the site origins', async () => {
     const ok = await worker.fetch(new Request('https://api.test/lead', { method: 'OPTIONS', headers: { origin: 'https://www.sharjeelhashmat.com' } }), baseEnv());
     expect(ok.status).toBe(204);
