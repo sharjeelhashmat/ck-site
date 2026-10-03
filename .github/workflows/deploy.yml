@@ -10,7 +10,17 @@ concurrency:
   group: deploy-worker
   cancel-in-progress: false
 jobs:
+  # Phase 0B-2 (CK-002): manual owner approval before any production Worker deploy.
+  # Approval-only job: no checkout, no secrets, no Cloudflare credentials. The deploy job keeps its repository secrets unchanged.
+  production-approval:
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.AUTONOMY != 'off' }}
+    runs-on: ubuntu-latest
+    environment: production
+    permissions: {}
+    steps:
+      - run: echo "Production Worker deployment approved by the owner."
   deploy:
+    needs: production-approval
     # Kill switch: set repository variable AUTONOMY=off to stop automatic deploys. Manual runs still work.
     if: ${{ github.event_name == 'workflow_dispatch' || vars.AUTONOMY != 'off' }}
     runs-on: ubuntu-latest
