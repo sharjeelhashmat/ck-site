@@ -27,6 +27,18 @@ jobs:
         shell: bash
         working-directory: worker
     steps:
+      # Fail loudly on a mistyped target: otherwise the deploy job is only skipped and the run does not show as failed.
+      # Runs before checkout, so it uses the workspace root instead of the job default (worker/ does not exist yet).
+      - name: Confirm target
+        working-directory: .
+        env:
+          CONFIRM_TARGET: ${{ inputs.confirm_target }}
+        run: |
+          if [ "$CONFIRM_TARGET" != "ck-lead-worker" ]; then
+            echo "::error title=Wrong confirm_target::confirm_target must be exactly ck-lead-worker. Nothing was deployed; re-run the workflow and type ck-lead-worker."
+            exit 1
+          fi
+          echo "confirm_target ok: ck-lead-worker"
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
