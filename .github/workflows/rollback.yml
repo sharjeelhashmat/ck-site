@@ -100,9 +100,16 @@ jobs:
       - name: Record AFTER
         id: after
         run: |
-          id=$(npx --no-install wrangler deployments status --name ck-lead-worker --json | jq -r '.versions[0].version_id // empty')
+          # Cloudflare can report the previous version for a short while after the rollback; re-read until it catches up.
+          id=""
+          for i in $(seq 1 12); do
+            id=$(npx --no-install wrangler deployments status --name ck-lead-worker --json | jq -r '.versions[0].version_id // empty') || id=""
+            echo "attempt $i/12: live version '${id:-none}'"
+            [ "$id" = "$VERSION_ID" ] && break
+            [ "$i" = 12 ] || sleep 5
+          done
           echo "version_id=$id" >> "$GITHUB_OUTPUT"
-          [ "$id" = "$VERSION_ID" ] || { echo "live version after rollback is '${id:-unknown}', expected $VERSION_ID"; exit 1; }
+          [ "$id" = "$VERSION_ID" ] || { echo "live version after rollback is '${id:-unknown}', expected $VERSION_ID (checked 12 times over 60 s)"; exit 1; }
           echo "live version is now $id"
 
       # Smoke: GET/OPTIONS only, against the reviewed constant URL (same routes and expectations as deploy.yml).
@@ -263,9 +270,16 @@ jobs:
       - name: Record AFTER
         id: after
         run: |
-          id=$(npx --no-install wrangler deployments status --name ck-site-web --json | jq -r '.versions[0].version_id // empty')
+          # Cloudflare can report the previous version for a short while after the rollback; re-read until it catches up.
+          id=""
+          for i in $(seq 1 12); do
+            id=$(npx --no-install wrangler deployments status --name ck-site-web --json | jq -r '.versions[0].version_id // empty') || id=""
+            echo "attempt $i/12: live version '${id:-none}'"
+            [ "$id" = "$VERSION_ID" ] && break
+            [ "$i" = 12 ] || sleep 5
+          done
           echo "version_id=$id" >> "$GITHUB_OUTPUT"
-          [ "$id" = "$VERSION_ID" ] || { echo "live version after rollback is '${id:-unknown}', expected $VERSION_ID"; exit 1; }
+          [ "$id" = "$VERSION_ID" ] || { echo "live version after rollback is '${id:-unknown}', expected $VERSION_ID (checked 12 times over 60 s)"; exit 1; }
           echo "live version is now $id"
 
       # Smoke: GET only, against the reviewed constant URL.
