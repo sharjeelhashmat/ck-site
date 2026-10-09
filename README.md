@@ -43,7 +43,7 @@ Tests run in CI on every change (`npm test` in `site/`; `npx vitest run` in `wor
 
 ## Site rules enforced by tests
 
-Title "Real Estate Consultant" only. Public email hello@sharjeelhashmat.com only. Royals Field Properties named beside the BRN (`SITE.brokerage`). Seven-factor methodology wording. No trademark symbol. Figure-source rule: every figure in an article carries a numbered source and at least one tier 1 or tier 2 source. Insights is indexable only after 3 non-stale published articles.
+Title "Real Estate Consultant" only. Public email hello@sharjeelhashmat.com only. The agency is named beside the BRN (`SITE.brokerage`) only when both are set; the agency is to be confirmed by the owner, so today no agency or BRN line is shown. Seven-factor methodology wording. No trademark symbol. Figure-source rule: every figure in an article carries a numbered source and at least one tier 1 or tier 2 source. Insights is indexable only after 3 non-stale published articles.
 
 ## Free-plan facts (Cloudflare docs, checked 2026-09-19)
 

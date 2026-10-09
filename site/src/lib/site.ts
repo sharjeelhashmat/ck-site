@@ -1,6 +1,8 @@
 // Central brand + contact facts. Every value here is either from the live site (owner-approved copy)
 // or from an owner decision recorded in the Project memory. Nothing invented.
 
+import { affiliationLine } from './affiliation.mjs';
+
 const env = import.meta.env;
 
 export const SITE = {
@@ -8,8 +10,9 @@ export const SITE = {
   // Owner decision 2026-09-20: title is "Real Estate Consultant" only (SCA regulates investment advisers).
   title: 'Real Estate Consultant',
   origin: 'https://www.sharjeelhashmat.com',
-  // Owner decision 2026-09-21: the site names the brokerage next to the BRN. Single source of truth: change it here if the brokerage changes.
-  brokerage: 'Royals Field Properties',
+  // Owner decision 2026-10-10: no agency is named until the owner confirms the new one. Single source of truth: set it here
+  // once confirmed. The "Working with … · BRN …" line renders only when both this and the BRN are set (AFFILIATION_LINE).
+  brokerage: '',
   phoneDisplay: '+971 55 541 4468',
   phoneE164: '971555414468',
   // Owner decision 2026-09-19: hello@ replaces the Gmail address publicly.
@@ -27,6 +30,9 @@ export const SITE = {
   // PUBLIC_CF_ANALYTICS_TOKEN (same pattern as BRN). Public by design: the beacon token is embedded in every page.
   cfAnalyticsToken: ((env.PUBLIC_CF_ANALYTICS_TOKEN as string | undefined) ?? '').trim(),
 } as const;
+
+// Rendered wherever the agency + BRN line appears; '' (render nothing) unless both are set.
+export const AFFILIATION_LINE = affiliationLine(SITE.brokerage, SITE.brn);
 
 // The beacon is emitted only on the public (indexable) build and only with a well-formed token, so an unset
 // variable never blocks a build and staging traffic never pollutes the production numbers.

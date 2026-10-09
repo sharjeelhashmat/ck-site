@@ -17,7 +17,7 @@ const baseEnv = (over: Record<string, string> = {}): Env =>
     SITE_URL: ORIGIN,
     WORKER_URL: 'https://ck-lead-worker.example.workers.dev',
     BOOKING_URL: 'https://cal.example.com/sh',
-    AFFILIATION: 'Royals Field Properties',
+    AFFILIATION: 'Example Brokerage',
     FROM_LEADS_EMAIL: 'hello@mail.sharjeelhashmat.com',
     FROM_ALERTS_EMAIL: 'alerts@mail.sharjeelhashmat.com',
     REPLY_TO: 'hello@sharjeelhashmat.com',
@@ -155,7 +155,7 @@ describe('worker on workerd', () => {
     expect(ack.to[0]!.email).toBe('amira@example.com');
     expect(ack.sender.email).toBe('hello@mail.sharjeelhashmat.com');
     expect(ack.replyTo.email).toBe('hello@sharjeelhashmat.com');
-    expect(ack.textContent).toContain('Royals Field Properties · BRN 12345');
+    expect(ack.textContent).toContain('Example Brokerage · BRN 12345');
     expect(ack.textContent).toContain('within 24 hours');
     const alert = sent[1]!.body as { subject: string; to: { email: string }[]; sender: { email: string } };
     expect(alert.to[0]!.email).toBe('owner@example.com');
@@ -278,7 +278,7 @@ describe('worker on workerd', () => {
     expect(ack.from).toBe('Sharjeel Hashmat <hello@mail.sharjeelhashmat.com>');
     expect(ack.to).toEqual(['amira@example.com']);
     expect(ack.reply_to).toBe('hello@sharjeelhashmat.com');
-    expect(ack.text).toContain('Royals Field Properties · BRN 12345');
+    expect(ack.text).toContain('Example Brokerage · BRN 12345');
     const alert = sent[1]!.body as { from: string; to: string[]; subject: string };
     expect(alert.from).toBe('Lead desk <alerts@mail.sharjeelhashmat.com>');
     expect(alert.to).toEqual(['owner@example.com']);

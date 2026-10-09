@@ -38,7 +38,7 @@ Paid fallbacks: Zoho Mail Lite (about $1/user/month, restores IMAP), Google Work
 - [ ] LinkedIn contact info
 - [ ] Instagram contact info
 - [ ] Google Business Profile, if any
-- [ ] DLD/RERA broker registration and Royals Field records (ask them to update)
+- [ ] DLD/RERA broker registration and agency records (agency to be confirmed by the owner; ask them to update)
 - [ ] Property portals, if any
 - [ ] Email signature, business card, proposal headers
 - [ ] WhatsApp Business profile email

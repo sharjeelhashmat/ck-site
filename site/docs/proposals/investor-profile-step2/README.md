@@ -44,4 +44,4 @@ Checked locally on a copy of the Worker: `tsc` clean on all three tsconfigs; 114
 "If you choose to complete the optional investor profile, I also collect your investment objective, preferred property type, preferred areas, risk tolerance and intended holding period. It is stored with your enquiry, used only to match properties to you, and is never published or sent to social media or advertising tools."
 
 ## Not decided by me
-Whether profiles are shared with Royals Field Properties. The line above does not say either way. It stays consistent with your open question on whether enquiries are shared with the brokerage.
+Whether profiles are shared with the agency (agency to be confirmed by the owner). The line above does not say either way. It stays consistent with your open question on whether enquiries are shared with the brokerage.

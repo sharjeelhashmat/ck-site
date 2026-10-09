@@ -3,7 +3,7 @@
 The system can send ONLY these texts, and only after you approve them. It fills the {{slots}} and writes nothing else.
 Any wording change creates a new hash and voids the approval until you approve again.
 
-{{slots}}: first_name = lead first name. sla_hours = your promised reply window (default 24). booking_url = your booking link. resource_url = your Investment Approach page. affiliation_line = "Royals Field Properties · BRN (pending)". unsubscribe_url = one-click opt-out.
+{{slots}}: first_name = lead first name. sla_hours = your promised reply window (default 24). booking_url = your booking link. resource_url = your Investment Approach page. affiliation_line = "<agency to be confirmed by the owner> · BRN (pending)". unsubscribe_url = one-click opt-out.
 
 ---
 
