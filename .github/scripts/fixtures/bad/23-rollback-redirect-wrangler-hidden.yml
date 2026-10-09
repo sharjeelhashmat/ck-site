@@ -1,0 +1,352 @@
+# as: rollback.yml
+# expect: R11
+# Copy of the real rollback.yml plus one step: `wrangler>/dev/null rollback x` hides a wrangler call behind a
+# redirect with no space and has no --name. R11 must be the only rule hit.
+name: rollback
+# P1β CS-4. Owner-dispatched, target-specific rollback to an existing Worker version. Manual dispatch only, from
+# phase2-site, through the "production" environment (owner approval). Exactly one job runs, selected by the target
+# input; each job shares its concurrency group with the matching deploy workflow. Worker code only: databases are
+# never touched here. Inputs reach shell steps only through env, never inside run: text.
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Which Worker to roll back.'
+        type: choice
+        required: true
+        options: [ck-lead-worker, ck-site-web]
+      version_id:
+        description: 'Version ID to make live again (the LAST_GOOD from the deploy run summary).'
+        type: string
+        required: true
+      reason:
+        description: 'Why this rollback is happening (recorded in the rollback message and the run summary).'
+        type: string
+        required: true
+permissions:
+  contents: read
+jobs:
+  rollback-worker:
+    if: github.ref == 'refs/heads/phase2-site' && inputs.target == 'ck-lead-worker'
+    runs-on: ubuntu-24.04
+    environment: production
+    concurrency:
+      group: prod-ck-lead-worker
+      cancel-in-progress: false
+    defaults:
+      run:
+        shell: bash
+        working-directory: worker
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      WRANGLER_SEND_METRICS: 'false'
+      TARGET: ck-lead-worker
+      VERSION_ID: ${{ inputs.version_id }}
+      REASON: ${{ inputs.reason }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+      - name: Assert location
+        run: |
+          test "$PWD" = "$GITHUB_WORKSPACE/worker"
+          test -f package-lock.json
+          test -f wrangler.toml
+          grep -qx 'name = "ck-lead-worker"' wrangler.toml
+      - run: npm ci --no-audit --no-fund
+      - name: Assert wrangler 4.124.0
+        run: |
+          v=$(npx --no-install wrangler --version | tr -d '[:space:]')
+          [ "$v" = "4.124.0" ] || { echo "expected CLI version 4.124.0, got: $v"; exit 1; }
+          echo "CLI version $v"
+
+      # Preflight: fail closed, never print secret values.
+      - name: Preflight
+        run: |
+          [ -n "$CLOUDFLARE_API_TOKEN" ] || { echo "CLOUDFLARE_API_TOKEN is not set"; exit 1; }
+          [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || { echo "CLOUDFLARE_ACCOUNT_ID is not set"; exit 1; }
+          [ "$CLOUDFLARE_ACCOUNT_ID" = "6ae55501743fe5c0e6dc33be902cbace" ] || { echo "CLOUDFLARE_ACCOUNT_ID is not the reviewed account"; exit 1; }
+          test "$TARGET" = "ck-lead-worker"
+          echo "preflight ok"
+      - name: Validate inputs
+        run: |
+          [[ "$VERSION_ID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || { echo "version_id is not a valid version id"; exit 1; }
+          REASON_SAFE=$(printf '%s' "$REASON" | tr -cd '[:alnum:] ._-' | cut -c1-200)
+          [ -n "${REASON_SAFE// /}" ] || { echo "reason is empty after sanitising"; exit 1; }
+          echo "REASON_SAFE=$REASON_SAFE" >> "$GITHUB_ENV"
+          echo "inputs ok"
+
+      - name: Record BEFORE
+        id: before
+        run: |
+          id=$(npx --no-install wrangler deployments status --name ck-lead-worker --json | jq -r '.versions[0].version_id // empty')
+          [[ "$id" =~ ^[A-Za-z0-9-]+$ ]] || { echo "could not read the live version id"; exit 1; }
+          echo "version_id=$id" >> "$GITHUB_OUTPUT"
+      - name: Check version exists
+        run: |
+          npx --no-install wrangler versions list --name ck-lead-worker --json > "$RUNNER_TEMP/versions.json"
+          jq -e --arg v "$VERSION_ID" 'any(.[]; .id == $v)' "$RUNNER_TEMP/versions.json" > /dev/null || { echo "version not found for ck-lead-worker"; exit 1; }
+          echo "version $VERSION_ID exists"
+      - name: Check not already active
+        env:
+          BEFORE: ${{ steps.before.outputs.version_id }}
+        run: |
+          [ "$VERSION_ID" != "$BEFORE" ] || { echo "already active: $VERSION_ID is the live version"; exit 1; }
+          echo "live version is $BEFORE; rolling back to $VERSION_ID"
+
+      - name: Rollback
+        id: rollback
+        run: npx --no-install wrangler rollback "$VERSION_ID" --name ck-lead-worker --message "owner rollback run=$GITHUB_RUN_ID reason=$REASON_SAFE" --yes
+      - name: Hidden second call (redirect, no space, no --name)
+        run: wrangler>/dev/null rollback x
+      - name: Record AFTER
+        id: after
+        run: |
+          id=$(npx --no-install wrangler deployments status --name ck-lead-worker --json | jq -r '.versions[0].version_id // empty')
+          echo "version_id=$id" >> "$GITHUB_OUTPUT"
+          [ "$id" = "$VERSION_ID" ] || { echo "live version after rollback is '${id:-unknown}', expected $VERSION_ID"; exit 1; }
+          echo "live version is now $id"
+
+      # Smoke: GET/OPTIONS only, against the reviewed constant URL (same routes and expectations as deploy.yml).
+      - name: Smoke test
+        id: smoke
+        run: |
+          WORKER_URL=https://ck-lead-worker.sharjeelhashmat.workers.dev
+          host=${WORKER_URL#https://}; host=${host%%/*}
+          [ "$host" = "ck-lead-worker.sharjeelhashmat.workers.dev" ] && [ "$WORKER_URL" = "https://$host" ] || { echo "unexpected smoke host"; exit 1; }
+          SITE=https://sharjeelhashmat.com
+          out="$RUNNER_TEMP/smoke.tsv"
+          check() { # label method path origin want_status want_acao(value|none|-) body_needle
+            local label=$1 method=$2 path=$3 origin=$4 want=$5 acao_want=$6 needle=$7 h b code acao ok=PASS
+            h=$(mktemp); b=$(mktemp)
+            if [ -n "$origin" ]; then
+              code=$(curl -sS -o "$b" -D "$h" -w '%{http_code}' --max-time 10 -X "$method" -H "Origin: $origin" "$WORKER_URL$path") || code=000
+            else
+              code=$(curl -sS -o "$b" -D "$h" -w '%{http_code}' --max-time 10 -X "$method" "$WORKER_URL$path") || code=000
+            fi
+            acao=$(grep -i '^access-control-allow-origin:' "$h" | tail -n1 | cut -d: -f2- | tr -d '\r' | sed 's/^ *//;s/ *$//' || true)
+            [ "$code" = "$want" ] || ok=FAIL
+            case "$acao_want" in
+              none) [ -z "$acao" ] || ok=FAIL ;;
+              -) ;;
+              *) [ "$acao" = "$acao_want" ] || ok=FAIL ;;
+            esac
+            if [ -n "$needle" ]; then grep -qF -- "$needle" "$b" || ok=FAIL; fi
+            printf '%s\t%s\t%s\t%s\n' "$label" "$want" "$code ($([ -n "$acao" ] && echo "ACAO $acao" || echo "no ACAO"))" "$ok" >> "$out"
+            [ "$ok" = PASS ]
+          }
+          for i in 1 2 3 4 5 6; do
+            : > "$out"
+            all=0
+            check 'GET /health' GET /health '' 200 - '"ok":true' || all=1
+            check 'OPTIONS /lead (site origin)' OPTIONS /lead "$SITE" 204 "$SITE" '' || all=1
+            check 'OPTIONS /lead (foreign origin)' OPTIONS /lead https://example.invalid 204 none '' || all=1
+            check 'GET /unsubscribe' GET /unsubscribe '' 400 - '' || all=1
+            check 'OPTIONS /api/newsletter/subscribe (site origin)' OPTIONS /api/newsletter/subscribe "$SITE" 204 "$SITE" '' || all=1
+            if [ "$all" = 0 ]; then echo "smoke passed on attempt $i"; break; fi
+            echo "smoke attempt $i failed"; cat "$out"
+            [ "$i" = 6 ] || sleep 5
+          done
+          [ "$all" = 0 ] || { echo "smoke test failed after 6 attempts"; exit 1; }
+
+      # Evidence only: no deploy tooling, changes nothing.
+      - name: Evidence
+        if: always()
+        env:
+          BEFORE: ${{ steps.before.outputs.version_id }}
+          AFTER: ${{ steps.after.outputs.version_id }}
+          ROLLBACK_OUTCOME: ${{ steps.rollback.outcome }}
+          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          REASON_SAFE=$(printf '%s' "$REASON" | tr -cd '[:alnum:] ._-' | cut -c1-200)
+          REQUESTED=$(printf '%s' "$VERSION_ID" | tr -cd '0-9a-f-' | cut -c1-36)
+          {
+            echo "## rollback run summary ($TARGET)"
+            if [ "$JOB_STATUS" != success ]; then
+              echo ""
+              echo "**No automatic action taken.** Rollback step outcome: ${ROLLBACK_OUTCOME:-not run}; smoke: ${SMOKE_OUTCOME:-not run}."
+              echo ""
+            fi
+            echo '| field | value |'
+            echo '|---|---|'
+            echo "| target | $TARGET |"
+            echo "| BEFORE | \`${BEFORE:-not recorded}\` |"
+            echo "| requested | \`${REQUESTED:-invalid}\` |"
+            echo "| AFTER | \`${AFTER:-not recorded}\` |"
+            echo "| actor | $GITHUB_ACTOR |"
+            echo "| reason | ${REASON_SAFE:-none} |"
+            echo "| run id | $GITHUB_RUN_ID |"
+            echo "| commit | \`$GITHUB_SHA\` |"
+            echo "| rollback | ${ROLLBACK_OUTCOME:-not run} |"
+            echo "| smoke | ${SMOKE_OUTCOME:-not run} |"
+            echo "| verdict | ${JOB_STATUS} |"
+            if [ -s "$RUNNER_TEMP/smoke.tsv" ]; then
+              echo ""; echo '### Smoke per route'; echo '| route | expected | got | result |'; echo '|---|---|---|---|'
+              while IFS=$'\t' read -r l w c r; do echo "| $l | $w | $c | $r |"; done < "$RUNNER_TEMP/smoke.tsv"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  rollback-site:
+    if: github.ref == 'refs/heads/phase2-site' && inputs.target == 'ck-site-web'
+    runs-on: ubuntu-24.04
+    environment: production
+    concurrency:
+      group: prod-ck-site-web
+      cancel-in-progress: false
+    defaults:
+      run:
+        shell: bash
+        working-directory: site
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      WRANGLER_SEND_METRICS: 'false'
+      TARGET: ck-site-web
+      VERSION_ID: ${{ inputs.version_id }}
+      REASON: ${{ inputs.reason }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - name: Assert location
+        run: |
+          test "$PWD" = "$GITHUB_WORKSPACE/site"
+          test -f package-lock.json
+          test -f wrangler.jsonc
+          grep -q '"name": "ck-site-web"' wrangler.jsonc
+      - run: npm ci --no-audit --no-fund
+      - name: Assert wrangler 4.124.0
+        run: |
+          v=$(npx --no-install wrangler --version | tr -d '[:space:]')
+          [ "$v" = "4.124.0" ] || { echo "expected CLI version 4.124.0, got: $v"; exit 1; }
+          echo "CLI version $v"
+
+      # Preflight: fail closed, never print secret values.
+      - name: Preflight
+        run: |
+          [ -n "$CLOUDFLARE_API_TOKEN" ] || { echo "CLOUDFLARE_API_TOKEN is not set"; exit 1; }
+          [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || { echo "CLOUDFLARE_ACCOUNT_ID is not set"; exit 1; }
+          [ "$CLOUDFLARE_ACCOUNT_ID" = "6ae55501743fe5c0e6dc33be902cbace" ] || { echo "CLOUDFLARE_ACCOUNT_ID is not the reviewed account"; exit 1; }
+          test "$TARGET" = "ck-site-web"
+          echo "preflight ok"
+      - name: Validate inputs
+        run: |
+          [[ "$VERSION_ID" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]] || { echo "version_id is not a valid version id"; exit 1; }
+          REASON_SAFE=$(printf '%s' "$REASON" | tr -cd '[:alnum:] ._-' | cut -c1-200)
+          [ -n "${REASON_SAFE// /}" ] || { echo "reason is empty after sanitising"; exit 1; }
+          echo "REASON_SAFE=$REASON_SAFE" >> "$GITHUB_ENV"
+          echo "inputs ok"
+
+      - name: Record BEFORE
+        id: before
+        run: |
+          id=$(npx --no-install wrangler deployments status --name ck-site-web --json | jq -r '.versions[0].version_id // empty')
+          [[ "$id" =~ ^[A-Za-z0-9-]+$ ]] || { echo "could not read the live version id"; exit 1; }
+          echo "version_id=$id" >> "$GITHUB_OUTPUT"
+      - name: Check version exists
+        run: |
+          npx --no-install wrangler versions list --name ck-site-web --json > "$RUNNER_TEMP/versions.json"
+          jq -e --arg v "$VERSION_ID" 'any(.[]; .id == $v)' "$RUNNER_TEMP/versions.json" > /dev/null || { echo "version not found for ck-site-web"; exit 1; }
+          echo "version $VERSION_ID exists"
+      - name: Check not already active
+        env:
+          BEFORE: ${{ steps.before.outputs.version_id }}
+        run: |
+          [ "$VERSION_ID" != "$BEFORE" ] || { echo "already active: $VERSION_ID is the live version"; exit 1; }
+          echo "live version is $BEFORE; rolling back to $VERSION_ID"
+
+      - name: Rollback
+        id: rollback
+        run: npx --no-install wrangler rollback "$VERSION_ID" --name ck-site-web --message "owner rollback run=$GITHUB_RUN_ID reason=$REASON_SAFE" --yes
+      - name: Record AFTER
+        id: after
+        run: |
+          id=$(npx --no-install wrangler deployments status --name ck-site-web --json | jq -r '.versions[0].version_id // empty')
+          echo "version_id=$id" >> "$GITHUB_OUTPUT"
+          [ "$id" = "$VERSION_ID" ] || { echo "live version after rollback is '${id:-unknown}', expected $VERSION_ID"; exit 1; }
+          echo "live version is now $id"
+
+      # Smoke: GET only, against the reviewed constant URL.
+      - name: Smoke test
+        id: smoke
+        run: |
+          SITE_URL=https://ck-site-web.sharjeelhashmat.workers.dev
+          host=${SITE_URL#https://}; host=${host%%/*}
+          [ "$host" = "ck-site-web.sharjeelhashmat.workers.dev" ] && [ "$SITE_URL" = "https://$host" ] || { echo "unexpected smoke host"; exit 1; }
+          out="$RUNNER_TEMP/smoke.tsv"
+          fetch() { # path -> sets code, body file
+            b=$(mktemp)
+            code=$(curl -sS -o "$b" -w '%{http_code}' --max-time 10 "$SITE_URL$1") || code=000
+          }
+          page() { # path
+            local title ok=PASS
+            fetch "$1"
+            title=$(grep -o '<title>[^<]*</title>' "$b" | head -n1 | sed -e 's/<[^>]*>//g' || true)
+            [ "$code" = 200 ] || ok=FAIL
+            [[ "$title" == *"Sharjeel Hashmat"* ]] || ok=FAIL
+            printf '%s\t%s\t%s\t%s\n' "GET $1" "200, title contains Sharjeel Hashmat" "$code, title match: $([[ "$title" == *"Sharjeel Hashmat"* ]] && echo yes || echo no)" "$ok" >> "$out"
+            [ "$ok" = PASS ]
+          }
+          robots() {
+            local ok=PASS
+            fetch /robots.txt
+            [ "$code" = 200 ] || ok=FAIL
+            printf '%s\t%s\t%s\t%s\n' "GET /robots.txt" "200" "$code" "$ok" >> "$out"
+            [ "$ok" = PASS ]
+          }
+          for i in 1 2 3 4 5 6; do
+            : > "$out"
+            all=0
+            for p in / /investment-approach /contact /privacy /terms /investor-profile /insights; do page "$p" || all=1; done
+            robots || all=1
+            if [ "$all" = 0 ]; then echo "smoke passed on attempt $i"; break; fi
+            echo "smoke attempt $i failed"; cat "$out"
+            [ "$i" = 6 ] || sleep 5
+          done
+          [ "$all" = 0 ] || { echo "smoke test failed after 6 attempts"; exit 1; }
+
+      # Evidence only: no deploy tooling, changes nothing.
+      - name: Evidence
+        if: always()
+        env:
+          BEFORE: ${{ steps.before.outputs.version_id }}
+          AFTER: ${{ steps.after.outputs.version_id }}
+          ROLLBACK_OUTCOME: ${{ steps.rollback.outcome }}
+          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          REASON_SAFE=$(printf '%s' "$REASON" | tr -cd '[:alnum:] ._-' | cut -c1-200)
+          REQUESTED=$(printf '%s' "$VERSION_ID" | tr -cd '0-9a-f-' | cut -c1-36)
+          {
+            echo "## rollback run summary ($TARGET)"
+            if [ "$JOB_STATUS" != success ]; then
+              echo ""
+              echo "**No automatic action taken.** Rollback step outcome: ${ROLLBACK_OUTCOME:-not run}; smoke: ${SMOKE_OUTCOME:-not run}."
+              echo ""
+            fi
+            echo '| field | value |'
+            echo '|---|---|'
+            echo "| target | $TARGET |"
+            echo "| BEFORE | \`${BEFORE:-not recorded}\` |"
+            echo "| requested | \`${REQUESTED:-invalid}\` |"
+            echo "| AFTER | \`${AFTER:-not recorded}\` |"
+            echo "| actor | $GITHUB_ACTOR |"
+            echo "| reason | ${REASON_SAFE:-none} |"
+            echo "| run id | $GITHUB_RUN_ID |"
+            echo "| commit | \`$GITHUB_SHA\` |"
+            echo "| rollback | ${ROLLBACK_OUTCOME:-not run} |"
+            echo "| smoke | ${SMOKE_OUTCOME:-not run} |"
+            echo "| verdict | ${JOB_STATUS} |"
+            if [ -s "$RUNNER_TEMP/smoke.tsv" ]; then
+              echo ""; echo '### Smoke per route'; echo '| route | expected | got | result |'; echo '|---|---|---|---|'
+              while IFS=$'\t' read -r l w c r; do echo "| $l | $w | $c | $r |"; done < "$RUNNER_TEMP/smoke.tsv"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

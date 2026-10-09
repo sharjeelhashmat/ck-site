@@ -68,4 +68,4 @@ jobs:
       # A self-test failure fails the job in any mode.
       - run: node .github/scripts/workflow-guard.mjs --self-test
       # AUDIT mode: violations go to the job summary and log; this step always exits 0.
-      - run: node .github/scripts/workflow-guard.mjs --mode=audit
+      - run: node .github/scripts/workflow-guard.mjs --mode=enforce
