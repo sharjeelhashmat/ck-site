@@ -1,41 +1,48 @@
 name: deploy-worker
+# P1β CS-2. Manual dispatch only, from phase2-site, through the "production" environment (owner approval).
+# No automatic rollback: on a failed smoke test this workflow only records evidence; rolling back is a separate,
+# owner-dispatched workflow (rollback.yml). Inputs reach shell steps only through env, never inside run: text.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths: ['worker/**']
+    inputs:
+      reason:
+        description: 'Why this deploy is happening (recorded in the Worker version message and the run summary).'
+        type: string
+        required: true
+      confirm_target:
+        description: 'Type ck-lead-worker to confirm the target Worker.'
+        type: string
+        required: true
 permissions:
   contents: read
 concurrency:
-  group: deploy-worker
+  group: prod-ck-lead-worker
   cancel-in-progress: false
 jobs:
-  # Phase 0B-2 (CK-002): manual owner approval before any production Worker deploy.
-  # Approval-only job: no checkout, no secrets, no Cloudflare credentials. The deploy job keeps its repository secrets unchanged.
-  production-approval:
-    if: ${{ github.event_name == 'workflow_dispatch' || vars.AUTONOMY != 'off' }}
-    runs-on: ubuntu-latest
-    environment: production
-    permissions: {}
-    steps:
-      - run: echo "Production Worker deployment approved by the owner."
-  deploy:
-    needs: production-approval
-    # Kill switch: set repository variable AUTONOMY=off to stop automatic deploys. Manual runs still work.
-    if: ${{ github.event_name == 'workflow_dispatch' || vars.AUTONOMY != 'off' }}
-    runs-on: ubuntu-latest
+  verify:
+    if: github.ref == 'refs/heads/phase2-site'
+    runs-on: ubuntu-24.04
     defaults:
       run:
+        shell: bash
         working-directory: worker
-    env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      WRANGLER_SEND_METRICS: 'false'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # Fail loudly on a mistyped target: otherwise the deploy job is only skipped and the run does not show as failed.
+      # Runs before checkout, so it uses the workspace root instead of the job default (worker/ does not exist yet).
+      - name: Confirm target
+        working-directory: .
+        env:
+          CONFIRM_TARGET: ${{ inputs.confirm_target }}
+        run: |
+          if [ "$CONFIRM_TARGET" != "ck-lead-worker" ]; then
+            echo "::error title=Wrong confirm_target::confirm_target must be exactly ck-lead-worker. Nothing was deployed; re-run the workflow and type ck-lead-worker."
+            exit 1
+          fi
+          echo "confirm_target ok: ck-lead-worker"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 22
+          node-version-file: .node-version
           cache: npm
           cache-dependency-path: worker/package-lock.json
       - run: npm ci
@@ -45,27 +52,208 @@ jobs:
       - run: npx tsc -p tsconfig.runtime.json --noEmit
       - run: npx vitest run
       - run: npx tsx scripts/lint-templates.ts
-      - name: Require Cloudflare credentials
+      - name: Additive-only migration lint (all files, push mode)
         run: |
-          test -n "$CLOUDFLARE_API_TOKEN" || { echo "CLOUDFLARE_API_TOKEN is not set"; exit 1; }
-          test -n "$CLOUDFLARE_ACCOUNT_ID" || { echo "CLOUDFLARE_ACCOUNT_ID is not set"; exit 1; }
+          env -u GITHUB_BASE_REF node ../.github/scripts/migrations-lint.mjs | tee "$RUNNER_TEMP/migrations-lint.txt"
+          grep -q '^push mode:' "$RUNNER_TEMP/migrations-lint.txt" || { echo "migrations-lint did not run in push mode"; exit 1; }
+      - name: Bundle check
+        run: npx --no-install wrangler deploy --dry-run --outdir dist
+
+  deploy:
+    needs: verify
+    if: github.ref == 'refs/heads/phase2-site' && inputs.confirm_target == 'ck-lead-worker'
+    runs-on: ubuntu-24.04
+    environment: production
+    defaults:
+      run:
+        shell: bash
+        working-directory: worker
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      WRANGLER_SEND_METRICS: 'false'
+      REASON: ${{ inputs.reason }}
+    steps:
+      # a. Toolchain
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Assert wrangler 4.124.0
+        run: |
+          v=$(npx --no-install wrangler --version | tr -d '[:space:]')
+          [ "$v" = "4.124.0" ] || { echo "expected wrangler 4.124.0, got: $v"; exit 1; }
+          echo "wrangler $v"
+
+      # b. Preflight: fail closed, never print secret values.
+      - name: Preflight
+        run: |
+          REASON_SAFE=$(printf '%s' "$REASON" | tr -cd '[:alnum:] ._-' | cut -c1-200)
+          [ -n "${REASON_SAFE// /}" ] || { echo "reason is empty after sanitising"; exit 1; }
+          echo "REASON_SAFE=$REASON_SAFE" >> "$GITHUB_ENV"
+          [ -n "$CLOUDFLARE_API_TOKEN" ] || { echo "CLOUDFLARE_API_TOKEN is not set"; exit 1; }
+          [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || { echo "CLOUDFLARE_ACCOUNT_ID is not set"; exit 1; }
+          [ "$CLOUDFLARE_ACCOUNT_ID" = "6ae55501743fe5c0e6dc33be902cbace" ] || { echo "CLOUDFLARE_ACCOUNT_ID is not the reviewed account"; exit 1; }
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/phase2-site || { echo "$GITHUB_SHA is not on origin/phase2-site"; exit 1; }
+          for line in 'name = "ck-lead-worker"' 'database_name = "ck-leads"' 'database_id = "20b1180d-b390-4d59-9334-cb536a378147"'; do
+            [ "$(grep -cFx -- "$line" wrangler.toml)" = "1" ] || { echo "wrangler.toml must contain exactly once: $line"; exit 1; }
+          done
+          if grep -nE '\[\[routes\]\]|^[[:space:]]*routes?[[:space:]]*=|custom_domain' wrangler.toml; then
+            echo "wrangler.toml must not declare routes or custom domains"; exit 1
+          fi
+          echo "preflight ok"
+
+      # c. Version currently live, recorded before anything changes.
+      - name: Record LAST_GOOD
+        id: lastgood
+        run: |
+          id=$(npx --no-install wrangler deployments status --name ck-lead-worker --json | jq -r '.versions[0].version_id // empty')
+          [[ "$id" =~ ^[A-Za-z0-9-]+$ ]] || { echo "could not read the live version id"; exit 1; }
+          echo "version_id=$id" >> "$GITHUB_OUTPUT"
+          echo "LAST_GOOD (live before deploy): \`$id\`" >> "$GITHUB_STEP_SUMMARY"
+
+      # d. D1 bookmark, before any migration.
+      - name: Record D1 bookmark
+        id: bookmark
+        run: |
+          b=$(npx --no-install wrangler d1 time-travel info ck-leads --json | jq -r '.bookmark // empty')
+          [[ "$b" =~ ^[A-Za-z0-9-]+$ ]] || { echo "could not read the D1 bookmark"; exit 1; }
+          echo "bookmark=$b" >> "$GITHUB_OUTPUT"
+          echo "D1 bookmark (before migrations): \`$b\`" >> "$GITHUB_STEP_SUMMARY"
+
+      # e. Pending migrations, verbatim (text output; the command has no --json).
+      - name: List pending migrations
+        run: |
+          npx --no-install wrangler d1 migrations list ck-leads --remote | tee "$RUNNER_TEMP/migrations-pending.txt"
+          { echo '### Pending D1 migrations'; echo '```text'; cat "$RUNNER_TEMP/migrations-pending.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      # f. Defence in depth: additive-only lint over every migration file again.
+      - name: Additive-only migration lint (all files, push mode)
+        run: |
+          env -u GITHUB_BASE_REF node ../.github/scripts/migrations-lint.mjs | tee "$RUNNER_TEMP/migrations-lint.txt"
+          grep -q '^push mode:' "$RUNNER_TEMP/migrations-lint.txt" || { echo "migrations-lint did not run in push mode"; exit 1; }
+
+      # g. Apply. On failure the job stops: Worker not deployed, nothing rolled back.
+      - name: Apply D1 migrations
+        id: apply
+        run: npx --no-install wrangler d1 migrations apply ck-leads --remote | tee "$RUNNER_TEMP/migrations-apply.txt"
+
+      # h. Deploy.
       - name: Deploy Worker
         id: deploy
-        run: npx wrangler deploy
-      - name: Apply D1 migrations (additive only)
-        run: npx wrangler d1 migrations apply ck-leads --remote
-      - name: Post-deploy smoke test
+        run: npx --no-install wrangler deploy --message "sha=$GITHUB_SHA run=$GITHUB_RUN_ID reason=$REASON_SAFE"
+      - name: Record new version
+        id: newversion
+        env:
+          LAST_GOOD: ${{ steps.lastgood.outputs.version_id }}
         run: |
-          URL=$(grep -E '^WORKER_URL' wrangler.toml | sed -E 's/^WORKER_URL[[:space:]]*=[[:space:]]*"([^"]+)".*/\1/')
-          test -n "$URL" || { echo "WORKER_URL is empty in wrangler.toml; a smoke test is required"; exit 1; }
-          echo "Smoke testing $URL"
+          id=$(npx --no-install wrangler deployments status --name ck-lead-worker --json | jq -r '.versions[0].version_id // empty')
+          [[ "$id" =~ ^[A-Za-z0-9-]+$ ]] || { echo "could not read the new version id"; exit 1; }
+          echo "version_id=$id" >> "$GITHUB_OUTPUT"
+          echo "New live version: \`$id\`" >> "$GITHUB_STEP_SUMMARY"
+          [ "$id" != "$LAST_GOOD" ] || { echo "live version did not change after deploy"; exit 1; }
+
+      # i. Smoke: GET/OPTIONS only, against the reviewed constant URL.
+      - name: Smoke test
+        id: smoke
+        run: |
+          WORKER_URL=https://ck-lead-worker.sharjeelhashmat.workers.dev
+          host=${WORKER_URL#https://}; host=${host%%/*}
+          [ "$host" = "ck-lead-worker.sharjeelhashmat.workers.dev" ] && [ "$WORKER_URL" = "https://$host" ] || { echo "unexpected smoke host"; exit 1; }
+          SITE=https://sharjeelhashmat.com
+          out="$RUNNER_TEMP/smoke.tsv"
+          check() { # label method path origin want_status want_acao(value|none|-) body_needle
+            local label=$1 method=$2 path=$3 origin=$4 want=$5 acao_want=$6 needle=$7 h b code acao ok=PASS
+            h=$(mktemp); b=$(mktemp)
+            if [ -n "$origin" ]; then
+              code=$(curl -sS -o "$b" -D "$h" -w '%{http_code}' --max-time 10 -X "$method" -H "Origin: $origin" "$WORKER_URL$path") || code=000
+            else
+              code=$(curl -sS -o "$b" -D "$h" -w '%{http_code}' --max-time 10 -X "$method" "$WORKER_URL$path") || code=000
+            fi
+            acao=$(grep -i '^access-control-allow-origin:' "$h" | tail -n1 | cut -d: -f2- | tr -d '\r' | sed 's/^ *//;s/ *$//' || true)
+            [ "$code" = "$want" ] || ok=FAIL
+            case "$acao_want" in
+              none) [ -z "$acao" ] || ok=FAIL ;;
+              -) ;;
+              *) [ "$acao" = "$acao_want" ] || ok=FAIL ;;
+            esac
+            if [ -n "$needle" ]; then grep -qF -- "$needle" "$b" || ok=FAIL; fi
+            printf '%s\t%s\t%s\t%s\t%s\n' "$label" "$want" "$code" "${acao:-none}" "$ok" >> "$out"
+            [ "$ok" = PASS ]
+          }
           for i in 1 2 3 4 5 6; do
-            code=$(curl -s -o /tmp/health.json -w '%{http_code}' "$URL/health" || true)
-            if [ "$code" = "200" ] && grep -q '"ok":true' /tmp/health.json; then echo "healthy"; exit 0; fi
-            sleep 5
+            : > "$out"
+            all=0
+            check 'GET /health' GET /health '' 200 - '"ok":true' || all=1
+            check 'OPTIONS /lead (site origin)' OPTIONS /lead "$SITE" 204 "$SITE" '' || all=1
+            check 'OPTIONS /lead (foreign origin)' OPTIONS /lead https://example.invalid 204 none '' || all=1
+            check 'GET /unsubscribe' GET /unsubscribe '' 400 - '' || all=1
+            check 'OPTIONS /api/newsletter/subscribe (site origin)' OPTIONS /api/newsletter/subscribe "$SITE" 204 "$SITE" '' || all=1
+            if [ "$all" = 0 ]; then echo "smoke passed on attempt $i"; break; fi
+            echo "smoke attempt $i failed"; cat "$out"
+            [ "$i" = 6 ] || sleep 5
           done
-          echo "smoke test failed"; exit 1
-      - name: Roll back if the smoke test failed
-        if: ${{ failure() && steps.deploy.outcome == 'success' }}
+          { echo '### Smoke test'; echo '| route | expected | status | access-control-allow-origin | result |'; echo '|---|---|---|---|---|'
+            while IFS=$'\t' read -r l w c a r; do echo "| $l | $w | $c | $a | $r |"; done < "$out"; } >> "$GITHUB_STEP_SUMMARY"
+          [ "$all" = 0 ] || { echo "smoke test failed after 6 attempts"; exit 1; }
+
+      # j. Evidence only: no deploy tooling, changes nothing.
+      - name: Rollback evidence (no action taken)
+        if: failure() && steps.deploy.outcome == 'success'
+        env:
+          NEW_VERSION: ${{ steps.newversion.outputs.version_id }}
+          LAST_GOOD: ${{ steps.lastgood.outputs.version_id }}
+          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
         run: |
-          npx wrangler rollback --message "auto-rollback after failed smoke test" || true
+          {
+            echo '### Action needed'
+            echo "Smoke failed. Live version: ${NEW_VERSION:-unknown}. LAST_GOOD: ${LAST_GOOD:-unknown}. To roll back: Actions -> rollback -> target=ck-lead-worker, version_id=${LAST_GOOD:-unknown}, reason=..."
+            echo ""
+            echo "Smoke step outcome: ${SMOKE_OUTCOME:-not run}. Nothing was rolled back automatically."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # k. Run summary: no deploy tooling.
+      - name: Run summary
+        if: always()
+        env:
+          LAST_GOOD: ${{ steps.lastgood.outputs.version_id }}
+          NEW_VERSION: ${{ steps.newversion.outputs.version_id }}
+          BOOKMARK: ${{ steps.bookmark.outputs.bookmark }}
+          APPLY_OUTCOME: ${{ steps.apply.outcome }}
+          DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
+          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          REASON_SAFE=$(printf '%s' "$REASON" | tr -cd '[:alnum:] ._-' | cut -c1-200)
+          {
+            echo '## deploy-worker run summary'
+            echo '| field | value |'
+            echo '|---|---|'
+            echo "| commit | \`$GITHUB_SHA\` |"
+            echo "| run id | $GITHUB_RUN_ID |"
+            echo "| actor | $GITHUB_ACTOR |"
+            echo "| reason | ${REASON_SAFE:-none} |"
+            echo "| LAST_GOOD | \`${LAST_GOOD:-not recorded}\` |"
+            echo "| new version | \`${NEW_VERSION:-not deployed}\` |"
+            echo "| D1 bookmark (before migrations) | \`${BOOKMARK:-not recorded}\` |"
+            echo "| migrations apply | ${APPLY_OUTCOME:-not run} |"
+            echo "| Worker deploy | ${DEPLOY_OUTCOME:-not run} |"
+            echo "| smoke | ${SMOKE_OUTCOME:-not run} |"
+            echo "| overall verdict | ${JOB_STATUS} |"
+            if [ "$APPLY_OUTCOME" = failure ]; then
+              echo ""
+              echo "**D1 migration apply FAILED.** The Worker was NOT deployed and nothing was rolled back. D1 bookmark before the apply: \`${BOOKMARK:-not recorded}\`."
+            fi
+            if [ -s "$RUNNER_TEMP/migrations-apply.txt" ]; then
+              echo ""; echo '### Migrations applied (output)'; echo '```text'; cat "$RUNNER_TEMP/migrations-apply.txt"; echo '```'
+            fi
+            if [ -s "$RUNNER_TEMP/smoke.tsv" ]; then
+              echo ""; echo '### Smoke per route'; echo '| route | expected | status | access-control-allow-origin | result |'; echo '|---|---|---|---|---|'
+              while IFS=$'\t' read -r l w c a r; do echo "| $l | $w | $c | $a | $r |"; done < "$RUNNER_TEMP/smoke.tsv"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
