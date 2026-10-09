@@ -1,0 +1,41 @@
+# as: rollback.yml
+# expect: R11
+# wrangler after ; without --name.
+name: rollback
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        type: choice
+        options: [ck-lead-worker, ck-site-web]
+permissions:
+  contents: read
+jobs:
+  rollback-worker:
+    if: github.ref == 'refs/heads/phase2-site' && inputs.target == 'ck-lead-worker'
+    runs-on: ubuntu-24.04
+    environment: production
+    concurrency:
+      group: prod-ck-lead-worker
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: worker
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - run: cd worker;wrangler rollback x
+  rollback-site:
+    if: github.ref == 'refs/heads/phase2-site' && inputs.target == 'ck-site-web'
+    runs-on: ubuntu-24.04
+    environment: production
+    concurrency:
+      group: prod-ck-site-web
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: site
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - run: npx --no-install wrangler rollback x --name ck-site-web --yes

@@ -1,0 +1,46 @@
+# as: rollback.yml
+# wrangler.toml / wrangler.jsonc file names are not wrangler invocations.
+name: rollback
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        type: choice
+        options: [ck-lead-worker, ck-site-web]
+permissions:
+  contents: read
+jobs:
+  rollback-worker:
+    if: github.ref == 'refs/heads/phase2-site' && inputs.target == 'ck-lead-worker'
+    runs-on: ubuntu-24.04
+    environment: production
+    concurrency:
+      group: prod-ck-lead-worker
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: worker
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - run: test -f wrangler.toml
+      - run: grep -qx 'name = "ck-lead-worker"' wrangler.toml
+      - run: v=$(npx --no-install wrangler --version | tr -d '[:space:]')
+      - run: npx --no-install wrangler rollback x --name ck-lead-worker --yes
+  rollback-site:
+    if: github.ref == 'refs/heads/phase2-site' && inputs.target == 'ck-site-web'
+    runs-on: ubuntu-24.04
+    environment: production
+    concurrency:
+      group: prod-ck-site-web
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: site
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - run: test -f wrangler.jsonc
+      - run: |
+          grep -q '"name": "ck-site-web"' wrangler.jsonc
+      - run: npx --no-install wrangler rollback x --name=ck-site-web --yes

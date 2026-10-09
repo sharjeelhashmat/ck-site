@@ -288,7 +288,8 @@ export function analyse(fileName, src) {
       if (typeof step.if === 'string' && /\b(failure|always)\s*\(/i.test(step.if) && /\b(wrangler|npx)\b/i.test(flat)) {
         add('R8', id, 'a failure()/always() step must not run wrangler or npx', S('if'));
       }
-      for (const c of commands) if (/\bwrangler\b/i.test(c)) wranglerCommands.push({ c, path: R });
+      // R11 matcher: wrangler as an invoked command word (bare, after a path, or after ; && | ( $( ), not wrangler.toml etc.
+      for (const c of commands) if (/(^|[^\w.\-])wrangler(?=\s|$|[;&|)])/i.test(c)) wranglerCommands.push({ c, path: R });
     });
 
     // R11 (per rollback job)
