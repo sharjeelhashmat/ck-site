@@ -1,0 +1,33 @@
+# as: rollback.yml
+# expect: R11
+name: rollback
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        type: string
+permissions:
+  contents: read
+jobs:
+  rollback-worker:
+    if: github.ref == 'refs/heads/phase2-site' && inputs.target == 'ck-lead-worker'
+    runs-on: ubuntu-24.04
+    environment: production
+    concurrency:
+      group: prod-ck-lead-worker
+      cancel-in-progress: false
+    steps:
+      - run: npx --no-install wrangler rollback --yes
+  rollback-site:
+    needs: rollback-worker
+    if: github.ref == 'refs/heads/phase2-site' && inputs.target == 'ck-site-web'
+    runs-on: ubuntu-24.04
+    environment: production
+    strategy:
+      matrix:
+        n: [1, 2]
+    concurrency:
+      group: prod-ck-site-web
+      cancel-in-progress: false
+    steps:
+      - run: npx --no-install wrangler rollback --name ck-site-web --yes

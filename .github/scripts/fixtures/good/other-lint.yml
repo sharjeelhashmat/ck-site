@@ -1,0 +1,15 @@
+# as: docs-lint.yml
+# Any other workflow: no secrets, no environment, pinned actions.
+name: docs-lint
+on:
+  pull_request:
+    paths: ['site/**']
+permissions:
+  contents: read
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    permissions: {}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - run: echo "${{ github.ref }} ${{ vars.BRN }}"

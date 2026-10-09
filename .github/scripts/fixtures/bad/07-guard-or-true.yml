@@ -1,0 +1,18 @@
+# as: deploy.yml
+# expect: R4
+name: deploy-worker
+on: workflow_dispatch
+permissions:
+  contents: read
+concurrency:
+  group: prod-ck-lead-worker
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/phase2-site' || true
+    runs-on: ubuntu-24.04
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - run: echo deploy

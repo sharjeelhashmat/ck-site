@@ -1,0 +1,15 @@
+# as: ci.yml
+# expect: R5
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [phase2-site]
+permissions: write-all
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - run: echo build

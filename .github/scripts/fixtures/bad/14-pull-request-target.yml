@@ -1,0 +1,11 @@
+# as: labeler.yml
+# expect: R2
+name: labeler
+on: pull_request_target
+permissions:
+  contents: read
+jobs:
+  label:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo hi

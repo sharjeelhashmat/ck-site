@@ -1,0 +1,26 @@
+# as: deploy-site.yml
+name: deploy-site
+on: workflow_dispatch
+permissions:
+  contents: read
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/phase2-site'
+    runs-on: ubuntu-24.04
+    environment:
+      name: production
+      url: https://example.invalid
+    concurrency:
+      group: prod-ck-site-web
+      cancel-in-progress: false
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: site
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - run: npm ci && npm run build
+      - run: npx --no-install wrangler deploy
