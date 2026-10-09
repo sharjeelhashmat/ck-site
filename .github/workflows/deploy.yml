@@ -146,7 +146,19 @@ jobs:
       # h. Deploy.
       - name: Deploy Worker
         id: deploy
-        run: npx --no-install wrangler deploy --message "sha=$GITHUB_SHA run=$GITHUB_RUN_ID reason=$REASON_SAFE"
+        run: |
+          # Capture wrangler's exit code instead of stopping: wrangler can activate a new version and then fail on a later
+          # API call, so the live version is read here, in this same step, before exiting with wrangler's own code.
+          set +e
+          npx --no-install wrangler deploy --message "sha=$GITHUB_SHA run=$GITHUB_RUN_ID reason=$REASON_SAFE"
+          rc=$?
+          live=$(npx --no-install wrangler deployments status --name ck-lead-worker --json | jq -r '.versions[0].version_id // empty')
+          status_rc=$?
+          set -e
+          if [ "$status_rc" -ne 0 ] || ! [[ "$live" =~ ^[A-Za-z0-9-]+$ ]]; then live=unknown; fi
+          echo "live_version=$live" >> "$GITHUB_OUTPUT"
+          echo "wrangler deploy exit code: $rc; live version after the deploy step: $live"
+          exit "$rc"
       - name: Record new version
         id: newversion
         env:
@@ -204,17 +216,25 @@ jobs:
 
       # j. Evidence only: no deploy tooling, changes nothing.
       - name: Rollback evidence (no action taken)
-        if: failure() && steps.deploy.outcome == 'success'
+        if: failure() && (steps.deploy.outcome == 'success' || (steps.deploy.outcome == 'failure' && steps.deploy.outputs.live_version != '' && steps.deploy.outputs.live_version != 'unknown' && steps.deploy.outputs.live_version != steps.lastgood.outputs.version_id))
         env:
           NEW_VERSION: ${{ steps.newversion.outputs.version_id }}
           LAST_GOOD: ${{ steps.lastgood.outputs.version_id }}
           SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
+          DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
+          LIVE_VERSION: ${{ steps.deploy.outputs.live_version }}
         run: |
           {
             echo '### Action needed'
-            echo "Smoke failed. Live version: ${NEW_VERSION:-unknown}. LAST_GOOD: ${LAST_GOOD:-unknown}. To roll back: Actions -> rollback -> target=ck-lead-worker, version_id=${LAST_GOOD:-unknown}, reason=..."
-            echo ""
-            echo "Smoke step outcome: ${SMOKE_OUTCOME:-not run}. Nothing was rolled back automatically."
+            if [ "$DEPLOY_OUTCOME" = success ]; then
+              echo "Smoke failed. Live version: ${NEW_VERSION:-unknown}. LAST_GOOD: ${LAST_GOOD:-unknown}. To roll back: Actions -> rollback -> target=ck-lead-worker, version_id=${LAST_GOOD:-unknown}, reason=..."
+              echo ""
+              echo "Smoke step outcome: ${SMOKE_OUTCOME:-not run}. Nothing was rolled back automatically."
+            else
+              echo "PARTIAL DEPLOY: live version changed to $LIVE_VERSION (LAST_GOOD ${LAST_GOOD:-unknown}). Smoke not run. To roll back: Actions -> rollback -> target=ck-lead-worker, version_id=${LAST_GOOD:-unknown}."
+              echo ""
+              echo "The deploy step failed after the live version changed. Nothing was rolled back automatically."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
       # k. Run summary: no deploy tooling.
@@ -226,12 +246,31 @@ jobs:
           BOOKMARK: ${{ steps.bookmark.outputs.bookmark }}
           APPLY_OUTCOME: ${{ steps.apply.outcome }}
           DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
+          LIVE_VERSION: ${{ steps.deploy.outputs.live_version }}
           SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
           JOB_STATUS: ${{ job.status }}
         run: |
           REASON_SAFE=$(printf '%s' "$REASON" | tr -cd '[:alnum:] ._-' | cut -c1-200)
           {
             echo '## deploy-worker run summary'
+            case "$DEPLOY_OUTCOME" in
+              success) ;;
+              failure)
+                echo ""
+                if [ -z "$LIVE_VERSION" ] || [ "$LIVE_VERSION" = unknown ]; then
+                  echo "**Deploy failed. Live version could not be confirmed - check the Cloudflare dashboard before any further action.**"
+                elif [ "$LIVE_VERSION" = "$LAST_GOOD" ]; then
+                  echo "**No change to production.** The deploy step failed and the live version is still LAST_GOOD (\`$LAST_GOOD\`)."
+                else
+                  echo "**PARTIAL DEPLOY: live version changed to $LIVE_VERSION (LAST_GOOD ${LAST_GOOD:-unknown}). Smoke not run. To roll back: Actions -> rollback -> target=ck-lead-worker, version_id=${LAST_GOOD:-unknown}.**"
+                fi
+                if [ "$APPLY_OUTCOME" = success ]; then echo ""; echo "D1 migrations were applied before the deploy step (see the apply output below)."; fi
+                echo "" ;;
+              *)
+                echo ""
+                echo "The Worker deploy step did not run (outcome: ${DEPLOY_OUTCOME:-not run})."
+                echo "" ;;
+            esac
             echo '| field | value |'
             echo '|---|---|'
             echo "| commit | \`$GITHUB_SHA\` |"
@@ -240,6 +279,7 @@ jobs:
             echo "| reason | ${REASON_SAFE:-none} |"
             echo "| LAST_GOOD | \`${LAST_GOOD:-not recorded}\` |"
             echo "| new version | \`${NEW_VERSION:-not deployed}\` |"
+            echo "| live version (read in deploy step) | \`${LIVE_VERSION:-not read}\` |"
             echo "| D1 bookmark (before migrations) | \`${BOOKMARK:-not recorded}\` |"
             echo "| migrations apply | ${APPLY_OUTCOME:-not run} |"
             echo "| Worker deploy | ${DEPLOY_OUTCOME:-not run} |"
