@@ -164,7 +164,14 @@ jobs:
         env:
           LAST_GOOD: ${{ steps.lastgood.outputs.version_id }}
         run: |
-          id=$(npx --no-install wrangler deployments status --name ck-lead-worker --json | jq -r '.versions[0].version_id // empty')
+          # Cloudflare can report the previous version for a short while after the deploy; re-read until it changes.
+          id=""
+          for i in $(seq 1 12); do
+            id=$(npx --no-install wrangler deployments status --name ck-lead-worker --json | jq -r '.versions[0].version_id // empty') || id=""
+            echo "attempt $i/12: live version '${id:-none}'"
+            [ -n "$id" ] && [ "$id" != "$LAST_GOOD" ] && break
+            [ "$i" = 12 ] || sleep 5
+          done
           [[ "$id" =~ ^[A-Za-z0-9-]+$ ]] || { echo "could not read the new version id"; exit 1; }
           echo "version_id=$id" >> "$GITHUB_OUTPUT"
           echo "New live version: \`$id\`" >> "$GITHUB_STEP_SUMMARY"
