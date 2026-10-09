@@ -1,0 +1,21 @@
+# as: deploy.yml
+# expect: R7
+name: deploy-worker
+on: workflow_dispatch
+permissions:
+  contents: read
+concurrency:
+  group: prod-ck-lead-worker
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/phase2-site'
+    runs-on: ubuntu-24.04
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - run: |
+          echo start
+          npx --no-install wr"ang"ler \
+            roll'back' --message x

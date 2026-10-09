@@ -1,0 +1,18 @@
+# as: deploy.yml
+# expect: R8
+name: deploy-worker
+on: workflow_dispatch
+permissions:
+  contents: read
+concurrency:
+  group: prod-ck-lead-worker
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/phase2-site'
+    runs-on: ubuntu-24.04
+    environment: production
+    steps:
+      - run: echo deploy
+      - if: ${{ failure() }}
+        run: npx --no-install wrangler versions list

@@ -1,0 +1,15 @@
+# as: ci.yml
+# expect: R10
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [phase2-site]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: npm ci
+        working-directory: ${{ github.head_ref }}

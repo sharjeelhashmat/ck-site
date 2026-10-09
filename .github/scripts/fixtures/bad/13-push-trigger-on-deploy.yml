@@ -1,0 +1,17 @@
+# as: deploy.yml
+# expect: R1
+name: deploy-worker
+on:
+  workflow_dispatch:
+  push:
+    branches: [phase2-site]
+permissions:
+  contents: read
+concurrency:
+  group: prod-ck-lead-worker
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo build

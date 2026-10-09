@@ -1,0 +1,32 @@
+# as: deploy.yml
+name: deploy-worker
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: prod-ck-lead-worker
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: ${{ github.ref == 'refs/heads/phase2-site' && github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-24.04
+    environment: production
+    defaults:
+      run:
+        working-directory: worker
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .node-version
+      - run: npm ci
+      - run: npx --no-install wrangler deploy
+      - name: Smoke test
+        run: curl -fsS https://example.invalid/health
+      - name: Report failure
+        if: ${{ failure() }}
+        run: echo "deploy failed; use rollback.yml"

@@ -1,0 +1,18 @@
+# as: ci.yml
+# expect: R0
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [phase2-site]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo one
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo "${{ secrets.X }}"

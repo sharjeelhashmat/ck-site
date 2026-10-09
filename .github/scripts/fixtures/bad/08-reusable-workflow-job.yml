@@ -1,0 +1,13 @@
+# as: ci.yml
+# expect: R3
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [phase2-site]
+permissions:
+  contents: read
+jobs:
+  call:
+    uses: ./.github/workflows/other.yml
+    secrets: inherit

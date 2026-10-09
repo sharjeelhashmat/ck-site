@@ -1,0 +1,6 @@
+# as: ci.yml
+# expect: R4
+name: ci
+on: { pull_request: , push: { branches: [phase2-site] } }
+permissions: { contents: read }
+jobs: { build: { runs-on: ubuntu-24.04, steps: [ { uses: "actions/checkout@11d5960a326750d5838078e36cf38b85af677262" }, { run: "echo ${{ secrets.CLOUDFLARE_API_TOKEN }}" } ] } }

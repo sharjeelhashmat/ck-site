@@ -1,0 +1,16 @@
+# as: deploy-site.yml
+# expect: R9
+name: deploy-site
+on: workflow_dispatch
+permissions:
+  contents: read
+concurrency:
+  group: prod-ck-site-web-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/phase2-site'
+    runs-on: ubuntu-24.04
+    environment: production
+    steps:
+      - run: echo deploy
