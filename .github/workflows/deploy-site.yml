@@ -1,79 +1,251 @@
-# PROPOSED for .github/workflows/deploy-site.yml. Claude may not edit .github/ (guardrails/autonomy.md), so the owner commits this file.
-# Design: build+test on every site change; deploy only by manual run, gated by the GitHub Environment "production"
-# (Settings > Environments > production > Required reviewers: @sharjeelhashmat). That environment approval is the enforcement
-# point for "website publishing needs owner approval". Security fixes still go through the same gate but can be approved in one tap.
 name: deploy-site
+# P1β CS-3. Manual dispatch only, from phase2-site, through the "production" environment (owner approval).
+# Every PR is already built and tested by ci.yml (job "site"). No automatic rollback: on a failed smoke test this
+# workflow only records evidence; rolling back is the separate, owner-dispatched rollback.yml.
+# Inputs reach shell steps only through env, never inside run: text.
 on:
-  pull_request:
-    paths: ['site/**', 'worker/src/types.ts', 'worker/src/pipeline.ts']
   workflow_dispatch:
     inputs:
       public:
         description: 'Build the PUBLIC (indexable) site. Requires repo variable BRN. Leave false for a noindex staging build.'
         type: boolean
         default: false
+      reason:
+        description: 'Why this deploy is happening (recorded in the Worker version message and the run summary).'
+        type: string
+        required: true
+      confirm_target:
+        description: 'Type ck-site-web to confirm the target Worker.'
+        type: string
+        required: true
 permissions:
   contents: read
 concurrency:
-  group: deploy-site
+  group: prod-ck-site-web
   cancel-in-progress: false
 jobs:
   build:
-    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/phase2-site'
+    runs-on: ubuntu-24.04
     defaults:
       run:
+        shell: bash
         working-directory: site
     env:
-      PUBLIC_INDEXABLE: ${{ github.event_name == 'workflow_dispatch' && inputs.public && 'true' || 'false' }}
+      PUBLIC_INDEXABLE: ${{ inputs.public && 'true' || 'false' }}
       PUBLIC_BRN: ${{ vars.BRN }}
       PUBLIC_CF_ANALYTICS_TOKEN: ${{ vars.CF_ANALYTICS_TOKEN }} # optional; unset = no analytics tag
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      # Fail loudly on a mistyped target: otherwise the deploy job is only skipped and the run does not show as failed.
+      # Runs before checkout, so it uses the workspace root instead of the job default (site/ does not exist yet).
+      - name: Confirm target
+        working-directory: .
+        env:
+          CONFIRM_TARGET: ${{ inputs.confirm_target }}
+        run: |
+          if [ "$CONFIRM_TARGET" != "ck-site-web" ]; then
+            echo "::error title=Wrong confirm_target::confirm_target must be exactly ck-site-web. Nothing was deployed; re-run the workflow and type ck-site-web."
+            exit 1
+          fi
+          echo "confirm_target ok: ck-site-web"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 22
+          node-version-file: .node-version
           cache: npm
           cache-dependency-path: site/package-lock.json
-      - run: npm ci
+      - name: Assert location
+        run: |
+          test "$PWD" = "$GITHUB_WORKSPACE/site"
+          test -f package.json
+          test -f package-lock.json
+          test -f wrangler.jsonc
+      - run: npm ci --no-audit --no-fund
       - run: npm run build        # astro check + astro build + CSP/_headers generation
       - run: npm test             # URL map, Worker contract, CSP, BRN gate
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: site-dist
           path: site/dist
           retention-days: 7
+
   deploy:
-    if: ${{ github.event_name == 'workflow_dispatch' }}
     needs: build
-    runs-on: ubuntu-latest
-    environment: production   # <- owner approval happens here
+    if: github.ref == 'refs/heads/phase2-site' && inputs.confirm_target == 'ck-site-web'
+    runs-on: ubuntu-24.04
+    environment: production
+    defaults:
+      run:
+        shell: bash
+        working-directory: site
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       WRANGLER_SEND_METRICS: 'false'
-    defaults:
-      run:
-        working-directory: site
+      REASON: ${{ inputs.reason }}
+      PUBLIC: ${{ inputs.public }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      # a. Toolchain and the artifact built by the build job.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: site-dist
           path: site/dist
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: 22
-      - run: npx --yes wrangler@4 deploy
-      - name: Smoke test
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - name: Assert location
         run: |
-          URL="https://ck-site-web.sharjeelhashmat.workers.dev"
-          for i in 1 2 3 4 5 6; do
-            code=$(curl -s -o /tmp/home.html -w '%{http_code}' "$URL/" || true)
-            if [ "$code" = "200" ] && grep -q 'Sharjeel Hashmat' /tmp/home.html \
-               && [ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/investment-approach")" = "200" ]; then echo healthy; exit 0; fi
-            sleep 5
+          test "$PWD" = "$GITHUB_WORKSPACE/site"
+          test -f package.json
+          test -f package-lock.json
+          test -f wrangler.jsonc
+      - run: npm ci --no-audit --no-fund
+      - name: Assert wrangler 4.124.0
+        run: |
+          v=$(npx --no-install wrangler --version | tr -d '[:space:]')
+          [ "$v" = "4.124.0" ] || { echo "expected wrangler 4.124.0, got: $v"; exit 1; }
+          echo "wrangler $v"
+
+      # b. Preflight: fail closed, never print secret values.
+      - name: Preflight
+        run: |
+          REASON_SAFE=$(printf '%s' "$REASON" | tr -cd '[:alnum:] ._-' | cut -c1-200)
+          [ -n "${REASON_SAFE// /}" ] || { echo "reason is empty after sanitising"; exit 1; }
+          echo "REASON_SAFE=$REASON_SAFE" >> "$GITHUB_ENV"
+          [ -n "$CLOUDFLARE_API_TOKEN" ] || { echo "CLOUDFLARE_API_TOKEN is not set"; exit 1; }
+          [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || { echo "CLOUDFLARE_ACCOUNT_ID is not set"; exit 1; }
+          [ "$CLOUDFLARE_ACCOUNT_ID" = "6ae55501743fe5c0e6dc33be902cbace" ] || { echo "CLOUDFLARE_ACCOUNT_ID is not the reviewed account"; exit 1; }
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/phase2-site || { echo "$GITHUB_SHA is not on origin/phase2-site"; exit 1; }
+          [ "$(grep -cF '"name": "ck-site-web"' wrangler.jsonc)" = "1" ] || { echo 'wrangler.jsonc must contain "name": "ck-site-web" exactly once'; exit 1; }
+          if grep -nE '"?(routes|route|custom_domain)"?[[:space:]]*:' wrangler.jsonc; then
+            echo "wrangler.jsonc must not declare routes or custom domains"; exit 1
+          fi
+          for f in dist/index.html dist/404.html dist/robots.txt; do
+            [ -f "$f" ] || { echo "missing build output: $f"; exit 1; }
           done
-          echo "smoke test failed"; exit 1
-      - name: Roll back if the smoke test failed
-        if: ${{ failure() }}
-        run: npx --yes wrangler@4 rollback --message "auto-rollback after failed smoke test" || true
+          echo "preflight ok"
+
+      # c. Version currently live, recorded before anything changes.
+      - name: Record LAST_GOOD
+        id: lastgood
+        run: |
+          id=$(npx --no-install wrangler deployments status --name ck-site-web --json | jq -r '.versions[0].version_id // empty')
+          [[ "$id" =~ ^[A-Za-z0-9-]+$ ]] || { echo "could not read the live version id"; exit 1; }
+          echo "version_id=$id" >> "$GITHUB_OUTPUT"
+          echo "LAST_GOOD (live before deploy): \`$id\`" >> "$GITHUB_STEP_SUMMARY"
+
+      # d. Deploy (no positional path: the assets directory comes from wrangler.jsonc).
+      - name: Deploy site
+        id: deploy
+        run: npx --no-install wrangler deploy --config wrangler.jsonc --message "sha=$GITHUB_SHA run=$GITHUB_RUN_ID public=$PUBLIC reason=$REASON_SAFE"
+
+      # e. New version, recorded separately so steps.deploy.outcome reflects the deploy alone.
+      - name: Record new version
+        id: newversion
+        env:
+          LAST_GOOD: ${{ steps.lastgood.outputs.version_id }}
+        run: |
+          id=$(npx --no-install wrangler deployments status --name ck-site-web --json | jq -r '.versions[0].version_id // empty')
+          [[ "$id" =~ ^[A-Za-z0-9-]+$ ]] || { echo "could not read the new version id"; exit 1; }
+          echo "version_id=$id" >> "$GITHUB_OUTPUT"
+          echo "New live version: \`$id\`" >> "$GITHUB_STEP_SUMMARY"
+          [ "$id" != "$LAST_GOOD" ] || { echo "live version did not change after deploy"; exit 1; }
+
+      # f. Smoke: GET only, against the reviewed constant URL.
+      - name: Smoke test
+        id: smoke
+        run: |
+          SITE_URL=https://ck-site-web.sharjeelhashmat.workers.dev
+          host=${SITE_URL#https://}; host=${host%%/*}
+          [ "$host" = "ck-site-web.sharjeelhashmat.workers.dev" ] && [ "$SITE_URL" = "https://$host" ] || { echo "unexpected smoke host"; exit 1; }
+          out="$RUNNER_TEMP/smoke.tsv"
+          fetch() { # path -> sets code, body file
+            b=$(mktemp)
+            code=$(curl -sS -o "$b" -w '%{http_code}' --max-time 10 "$SITE_URL$1") || code=000
+          }
+          page() { # path
+            local title ok=PASS
+            fetch "$1"
+            title=$(grep -o '<title>[^<]*</title>' "$b" | head -n1 | sed -e 's/<[^>]*>//g' || true)
+            [ "$code" = 200 ] || ok=FAIL
+            [[ "$title" == *"Sharjeel Hashmat"* ]] || ok=FAIL
+            printf '%s\t%s\t%s\t%s\n' "GET $1" "$code" "title contains Sharjeel Hashmat: $([[ "$title" == *"Sharjeel Hashmat"* ]] && echo yes || echo no)" "$ok" >> "$out"
+            [ "$ok" = PASS ]
+          }
+          robots() {
+            local ok=PASS block=no
+            fetch /robots.txt
+            if tr -d '\r' < "$b" | grep -qx 'Disallow:[[:space:]]*/'; then block=yes; fi
+            [ "$code" = 200 ] || ok=FAIL
+            if [ "$PUBLIC" = true ]; then [ "$block" = no ] || ok=FAIL; else [ "$block" = yes ] || ok=FAIL; fi
+            printf '%s\t%s\t%s\t%s\n' "GET /robots.txt" "$code" "public=$PUBLIC, full-site Disallow: $block" "$ok" >> "$out"
+            [ "$ok" = PASS ]
+          }
+          for i in 1 2 3 4 5 6; do
+            : > "$out"
+            all=0
+            for p in / /investment-approach /contact /privacy /terms /investor-profile /insights; do page "$p" || all=1; done
+            robots || all=1
+            if [ "$all" = 0 ]; then echo "smoke passed on attempt $i"; break; fi
+            echo "smoke attempt $i failed"; cat "$out"
+            [ "$i" = 6 ] || sleep 5
+          done
+          { echo '### Smoke test'; echo '| route | status | check | result |'; echo '|---|---|---|---|'
+            while IFS=$'\t' read -r r c k v; do echo "| $r | $c | $k | $v |"; done < "$out"; } >> "$GITHUB_STEP_SUMMARY"
+          [ "$all" = 0 ] || { echo "smoke test failed after 6 attempts"; exit 1; }
+
+      # g. Evidence only: no deploy tooling, changes nothing.
+      - name: Rollback evidence (no action taken)
+        if: failure() && steps.deploy.outcome == 'success'
+        env:
+          NEW_VERSION: ${{ steps.newversion.outputs.version_id }}
+          LAST_GOOD: ${{ steps.lastgood.outputs.version_id }}
+          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
+        run: |
+          {
+            echo '### Action needed'
+            echo "Smoke failed. Live version: ${NEW_VERSION:-unknown}. LAST_GOOD: ${LAST_GOOD:-unknown}. To roll back: Actions -> rollback -> target=ck-site-web, version_id=${LAST_GOOD:-unknown}, reason=..."
+            echo ""
+            echo "Smoke step outcome: ${SMOKE_OUTCOME:-not run}. Nothing was rolled back automatically."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # h. Run summary: no deploy tooling.
+      - name: Run summary
+        if: always()
+        env:
+          LAST_GOOD: ${{ steps.lastgood.outputs.version_id }}
+          NEW_VERSION: ${{ steps.newversion.outputs.version_id }}
+          DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
+          SMOKE_OUTCOME: ${{ steps.smoke.outcome }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          REASON_SAFE=$(printf '%s' "$REASON" | tr -cd '[:alnum:] ._-' | cut -c1-200)
+          {
+            echo '## deploy-site run summary'
+            if [ "$DEPLOY_OUTCOME" != success ]; then
+              echo ""
+              echo "**No change to production.** The deploy step did not succeed (outcome: ${DEPLOY_OUTCOME:-not run})."
+              echo ""
+            fi
+            echo '| field | value |'
+            echo '|---|---|'
+            echo "| commit | \`$GITHUB_SHA\` |"
+            echo "| run id | $GITHUB_RUN_ID |"
+            echo "| actor | $GITHUB_ACTOR |"
+            echo "| reason | ${REASON_SAFE:-none} |"
+            echo "| public | ${PUBLIC:-false} |"
+            echo "| LAST_GOOD | \`${LAST_GOOD:-not recorded}\` |"
+            echo "| new version | \`${NEW_VERSION:-not deployed}\` |"
+            echo "| site deploy | ${DEPLOY_OUTCOME:-not run} |"
+            echo "| smoke | ${SMOKE_OUTCOME:-not run} |"
+            echo "| overall verdict | ${JOB_STATUS} |"
+            if [ -s "$RUNNER_TEMP/smoke.tsv" ]; then
+              echo ""; echo '### Smoke per route'; echo '| route | status | check | result |'; echo '|---|---|---|---|'
+              while IFS=$'\t' read -r r c k v; do echo "| $r | $c | $k | $v |"; done < "$RUNNER_TEMP/smoke.tsv"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
