@@ -2,7 +2,7 @@
 // Privacy is the live text with ONLY the sections that describe infrastructure changed (2, 4, 5, 7) so they stay true
 // after the move off Firebase. Every changed sentence is listed in CHANGES_FOR_APPROVAL.md. Owner approval required
 // before publishing (legal wording is a claim in the owner's name).
-import { ANALYTICS_TOKEN, SITE } from './site';
+import { AFFILIATION_LINE, ANALYTICS_TOKEN, SITE } from './site';
 import { PROFILE_ENABLED, PROFILE_PRIVACY_LINE } from './profile';
 
 export interface LegalSection { h: string; p: string[]; list?: string[]; after?: string }
@@ -21,7 +21,7 @@ export const PRIVACY: LegalSection[] = [
   {
     h: '1. Who this policy covers',
     p: [
-      `This policy applies to sharjeelhashmat.com and describes how ${SITE.name} ("I", "me"), as the data controller, collects, uses and stores personal data from visitors, enquirers and clients in connection with UAE real estate services. This site is operated as a personal brand by ${SITE.name}, a freelance real estate consultant working with ${SITE.brokerage}; the BRN registration reference is shown in the site's footer and About page for regulatory purposes.`,
+      `This policy applies to sharjeelhashmat.com and describes how ${SITE.name} ("I", "me"), as the data controller, collects, uses and stores personal data from visitors, enquirers and clients in connection with UAE real estate services. This site is operated as a personal brand by ${SITE.name}, a freelance real estate consultant${AFFILIATION_LINE ? ` working with ${SITE.brokerage}; the BRN registration reference is shown in the site's footer and About page for regulatory purposes` : ''}.`,
     ],
   },
   {

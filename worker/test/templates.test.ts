@@ -5,7 +5,7 @@ import { TEMPLATES } from './helpers';
 const t = (id: string) => TEMPLATES.find((x) => x.id === id)!;
 const slots = {
   first_name: 'Amira', sla_hours: '24', booking_url: 'https://cal.example.com/x', resource_url: 'https://sharjeelhashmat.com/investment-approach',
-  affiliation_line: 'Royals Field Properties · BRN 12345', unsubscribe_url: 'https://api.example.com/unsubscribe?e=a&t=b',
+  affiliation_line: 'Example Brokerage · BRN 12345', unsubscribe_url: 'https://api.example.com/unsubscribe?e=a&t=b',
 };
 
 describe('templates', () => {

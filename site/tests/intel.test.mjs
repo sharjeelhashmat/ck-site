@@ -178,7 +178,9 @@ test('build: a published opportunity renders the 12-section Brief with sources, 
   for (const id of IDS) assert.match(brief, new RegExp(`<h2 id="${id}"`), `section ${id}`);
   assert.match(brief, /Sample Tower/);
   assert.match(brief, /Permit TEST-PERMIT-1/);
-  assert.match(brief, /Working with Royals Field Properties · BRN TEST-BRN/);
+  // BRN set but no agency: the agency + BRN line must not render at all (owner decision 2026-10-10).
+  assert.match(brief, /Permit TEST-PERMIT-1<\/p>/);
+  assert.doesNotMatch(brief, /Working with|TEST-BRN|BRN pending/);
   assert.match(brief, /Why it could work/); assert.match(brief, /Why it could fail/);
   assert.match(brief, /https:\/\/example\.com\/source/);
   assert.match(brief, /<meta name="robots" content="index,follow/);

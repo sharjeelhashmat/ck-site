@@ -42,15 +42,13 @@ test('every page has one title, one h1, a www canonical, and is noindex in non-p
   assert.match(read('robots.txt'), /Disallow: \//);
 });
 
-test('owner decisions hold: no Gmail, no "Investment Advisor", no Firebase, no "broker" word, no trademark symbol, brokerage named beside BRN', () => {
+test('owner decisions hold: no Gmail, no "Investment Advisor", no Firebase, no "broker" word, no trademark symbol', () => {
   for (const f of htmlFiles) {
     const h = readFileSync(f, 'utf8').replace(/<script[\s\S]*?<\/script>/g, '');
     assert.doesNotMatch(h, /gmail/i, f);
     assert.doesNotMatch(h, /investment advis[eo]r/i, f);
     assert.doesNotMatch(h, /firebase|firestore/i, f);
     assert.doesNotMatch(h, /\bbroker\b/i, f);
-    assert.match(h, /BRN /, `${f}: BRN line`);
-    assert.match(h, /Working with Royals Field Properties · BRN /, `${f}: brokerage beside BRN`);
     assert.doesNotMatch(h, /™/, `${f}: no trademark symbol`);
     assert.doesNotMatch(h, /affiliated with any employer/i, f);
     assert.doesNotMatch(h, /every listed property/i, f);
@@ -185,10 +183,32 @@ test('floating actions on every page: WhatsApp link uses the site number, scroll
   }
 });
 
-test('print: every page carries the print-only mark header and a contact + brokerage footer', () => {
+test('print: every page carries the print-only mark header and a contact footer, with no agency line while the agency is unconfirmed', () => {
   for (const f of htmlFiles) {
     const h = readFileSync(f, 'utf8');
     assert.match(h, /class="print-only print-head"[^>]*>\s*<svg/, `${f}: print header with mark`);
-    assert.match(h, /class="print-only print-foot"[^>]*>\s*<p>\+971 55 541 4468 · hello@sharjeelhashmat\.com · sharjeelhashmat\.com<\/p>\s*<p>Working with Royals Field Properties · BRN /, `${f}: print footer`);
+    assert.match(h, /class="print-only print-foot"[^>]*>\s*<p>\+971 55 541 4468 · hello@sharjeelhashmat\.com · sharjeelhashmat\.com<\/p>\s*<\/div>/, `${f}: print footer`);
+  }
+});
+
+// Owner decision 2026-10-10: no agency is named and no BRN line is shown until the new agency is confirmed.
+// The previous agency's name is assembled from two parts so a repo-wide search for it stays empty.
+const PREVIOUS_AGENCY = new RegExp('roy' + 'als', 'i');
+test('built site names no previous agency and never shows "BRN pending"', () => {
+  for (const f of walk(dist).filter((p) => /\.(html|txt|xml|js|json|css)$/.test(p))) {
+    const t = readFileSync(f, 'utf8');
+    assert.doesNotMatch(t, PREVIOUS_AGENCY, `${f}: previous agency name`);
+    assert.doesNotMatch(t, /BRN pending/i, `${f}: BRN placeholder`);
+  }
+});
+
+test('with the agency (SITE.brokerage) empty, no page renders a "Working with" line', () => {
+  const site = readFileSync(join(root, 'src/lib/site.ts'), 'utf8');
+  assert.match(site, /^\s*brokerage: '',/m, 'SITE.brokerage must stay empty until the owner confirms the agency');
+  for (const f of htmlFiles) {
+    const h = readFileSync(f, 'utf8');
+    assert.doesNotMatch(h, /Working with/, `${f}: agency line must be hidden`);
+    assert.doesNotMatch(h, /<p class="disclosure">/, `${f}: empty footer disclosure`);
+    assert.doesNotMatch(h, /"name":"BRN"/, `${f}: BRN in structured data`);
   }
 });

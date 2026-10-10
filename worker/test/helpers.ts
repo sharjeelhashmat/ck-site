@@ -7,7 +7,7 @@ import { templateHash, type Template } from '../src/templates';
 export const TEMPLATES = (JSON.parse(readFileSync(new URL('../templates/lead-replies.v1.json', import.meta.url), 'utf8')) as { templates: Template[] }).templates;
 
 export const goodEnv: Record<string, string> = {
-  OUTBOUND: 'on', BRN: '12345', AFFILIATION: 'Royals Field Properties',
+  OUTBOUND: 'on', BRN: '12345', AFFILIATION: 'Example Brokerage',
   BOOKING_URL: 'https://cal.example.com/sh', SITE_URL: 'https://sharjeelhashmat.com', WORKER_URL: 'https://api.sharjeelhashmat.com',
   SLA_HOURS: '24', ALERT_EMAIL: 'hello@sharjeelhashmat.com', BREVO_API_KEY: 'k', UNSUB_SECRET: 's',
   FROM_LEADS_EMAIL: 'hello@mail.sharjeelhashmat.com', FROM_ALERTS_EMAIL: 'alerts@mail.sharjeelhashmat.com',

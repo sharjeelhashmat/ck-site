@@ -1,7 +1,7 @@
 ---
 import Mark from './Mark.astro';
 import NewsletterSignup from './NewsletterSignup.astro';
-import { SITE } from '../lib/site';
+import { SITE, AFFILIATION_LINE } from '../lib/site';
 const year = new Date().getFullYear();
 ---
 <footer class="site-footer">
@@ -27,6 +27,6 @@ const year = new Date().getFullYear();
         <a href="/terms">Terms</a>
       </div>
     </div>
-    <p class="disclosure">Working with {SITE.brokerage} · BRN {SITE.brn || 'pending'}</p>
+    {AFFILIATION_LINE && <p class="disclosure">{AFFILIATION_LINE}</p>}
   </div>
 </footer>

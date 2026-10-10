@@ -2,7 +2,7 @@
 // Print-only header and footer, so a printed Brief or investor-profile page keeps the mark, name and contact line
 // (the screen nav and footer are hidden in print). Collapsed <details> are opened for printing and restored after.
 import Mark from './Mark.astro';
-import { SITE } from '../lib/site';
+import { SITE, AFFILIATION_LINE } from '../lib/site';
 const { position } = Astro.props as { position: 'head' | 'foot' };
 ---
 {position === 'head' ? (
@@ -13,7 +13,7 @@ const { position } = Astro.props as { position: 'head' | 'foot' };
 ) : (
   <div class="print-only print-foot" aria-hidden="true">
     <p>{SITE.phoneDisplay} · {SITE.email} · sharjeelhashmat.com</p>
-    <p>Working with {SITE.brokerage} · BRN {SITE.brn || 'pending'}</p>
+    {AFFILIATION_LINE && <p>{AFFILIATION_LINE}</p>}
   </div>
 )}
 {position === 'foot' && (

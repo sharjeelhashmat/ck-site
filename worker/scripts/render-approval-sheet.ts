@@ -17,7 +17,7 @@ const tpls = (JSON.parse(readFileSync(new URL('../templates/lead-replies.v1.json
 let out = '# Reply templates v1: for your approval\n\n';
 out += 'The system can send ONLY these texts, and only after you approve them. It fills the {{slots}} and writes nothing else.\n';
 out += 'Any wording change creates a new hash and voids the approval until you approve again.\n\n';
-out += '{{slots}}: first_name = lead first name. sla_hours = your promised reply window (default 24). booking_url = your booking link. resource_url = your Investment Approach page. affiliation_line = "Royals Field Properties · BRN (pending)". unsubscribe_url = one-click opt-out.\n\n---\n\n';
+out += '{{slots}}: first_name = lead first name. sla_hours = your promised reply window (default 24). booking_url = your booking link. resource_url = your Investment Approach page. affiliation_line = "<agency to be confirmed by the owner> · BRN (pending)". unsubscribe_url = one-click opt-out.\n\n---\n\n';
 for (const t of tpls) {
   out += `## ${t.id} (v${t.version})\n**Sent when:** ${WHEN[t.id] ?? t.lane}\n\n**Subject:** ${t.subject}\n\n\`\`\`\n${t.body}\n\`\`\`\n\nHash: \`${(await templateHash(t)).slice(0, 12)}\`\n\n---\n\n`;
 }

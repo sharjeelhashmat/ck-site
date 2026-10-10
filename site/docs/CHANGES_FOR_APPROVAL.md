@@ -28,10 +28,10 @@ Rule: claims are the owner's. Nothing below goes public until the owner sets the
 4. Terms §10 keeps "the Compass Key name, mark" (ownership wording unchanged apart from the removed symbol).
 
 ## D. Brokerage and regulatory consistency: DECIDED 2026-09-21 (applied)
-The site now names **Royals Field Properties** beside the BRN line (footer and About: "Working with Royals Field Properties · BRN <number>"). Privacy §1 now says the site is operated by Sharjeel Hashmat, a freelance real estate consultant working with Royals Field Properties, replacing "not affiliated with any employer". The name lives in one constant, `SITE.brokerage` in `src/lib/site.ts`; changing brokerage is a one-line edit. The Worker email footer (`{{affiliation_line}}`) already says Royals Field Properties, so site and email now agree.
+Update 2026-10-10 (owner): the owner is no longer associated with the previous agency, and the new agency is to be confirmed by the owner. Until then the site names no agency and shows no BRN line: "Working with <agency> · BRN <number>" (footer, About, FAQ, print footer, Briefs) renders only when both `SITE.brokerage` (in `src/lib/site.ts`, now empty) and the BRN are set, and Privacy §1 mentions the agency and BRN only in that case. The Worker `AFFILIATION` is empty too, which keeps outbound email blocked. Setting the agency is a one-line edit once confirmed.
 Open items (not blockers for staging, blockers for public release):
 - BRN is not yet available. The public build refuses to run without `PUBLIC_BRN` (kept on purpose). The site cannot go public and indexable until the BRN exists.
-- Naming a brokerage in marketing normally needs that brokerage's approval. Get Royals Field's OK before going public. [Likely] Not legal advice.
+- Naming a brokerage in marketing normally needs that brokerage's approval. Get the agency's OK (agency to be confirmed by the owner) before going public. [Likely] Not legal advice.
 - Privacy does not say enquiries may be shared with the brokerage. If they are, Privacy needs one more sentence; the owner should confirm the practice first.
 
 ## E. SEO mechanics applied without approval (allowed: sitemap and schema mechanics)
@@ -48,7 +48,7 @@ Design and this wording are approved. Nothing here is live: staging is noindex a
 | Stale banner (articles) | "This article is past its review date and is being re-checked. Treat the figures as historical until it is updated." | Shown automatically when a review date passes. |
 | Methodology on the public pages | Home, About, Invest and Investment Approach now describe the seven factors (Location, Entry, Fundamentals, Yield, Supply, Liquidity, Risk), taken from the same list the Brief uses. Owner instruction 2026-09-21: "Make it 7". | Replaces the six-factor copy carried over from the live site. The Entry description now mentions the payment plan, since Payment Structure is no longer a separate factor. |
 
-Open items unchanged from D: BRN, Royals Field's OK to be named, whether enquiries are shared with the brokerage.
+Open items unchanged from D: BRN, the agency (to be confirmed by the owner) and its OK to be named, whether enquiries are shared with the brokerage.
 
 ## G. Investor profile, step 2: wording APPROVED by the owner on 2026-09-21
 Worker route deployed (deploy-worker run #9, 114 of 114 tests). The switch is ON in the site source; the wording below is live on staging after the next approved deploy.

@@ -59,7 +59,7 @@ describe('newsletter: subscribe', () => {
     const m = f.sent[0]!;
     expect(m.stream).toBe('news');
     expect(m.to).toBe('amira@example.com');
-    expect(m.text).toContain('Royals Field Properties · BRN 12345');
+    expect(m.text).toContain('Example Brokerage · BRN 12345');
     expect(m.text).toContain(m.listUnsubscribe!);
     const token = new URL(m.listUnsubscribe!).searchParams.get('token')!;
     expect(m.listUnsubscribe!.startsWith('https://api.sharjeelhashmat.com/api/newsletter/unsubscribe?token=')).toBe(true);
@@ -124,7 +124,7 @@ describe('newsletter: subscribe', () => {
       '',
       'Sharjeel Hashmat',
       'Real Estate Consultant · UAE',
-      'Royals Field Properties · BRN 12345',
+      'Example Brokerage · BRN 12345',
       '',
       'Automated message. You receive it because you subscribed on sharjeelhashmat.com.',
     ].join('\n'));

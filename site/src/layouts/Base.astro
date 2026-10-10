@@ -4,7 +4,7 @@ import Nav from '../components/Nav.astro';
 import FloatingActions from '../components/FloatingActions.astro';
 import PrintFrame from '../components/PrintFrame.astro';
 import Footer from '../components/Footer.astro';
-import { ANALYTICS_TOKEN, SITE } from '../lib/site';
+import { AFFILIATION_LINE, ANALYTICS_TOKEN, SITE } from '../lib/site';
 
 interface Props { title?: string; description?: string; noindex?: boolean; path?: string }
 const DEFAULT_DESC =
@@ -26,7 +26,8 @@ const ld = {
   areaServed: SITE.areasServed,
   knowsLanguage: SITE.languages,
   sameAs: [SITE.instagram, SITE.linkedin],
-  ...(SITE.brn ? { identifier: { '@type': 'PropertyValue', name: 'BRN', value: SITE.brn } } : {}),
+  // Like the visible line: the BRN is published only once the agency is confirmed too (owner decision 2026-10-10).
+  ...(AFFILIATION_LINE ? { identifier: { '@type': 'PropertyValue', name: 'BRN', value: SITE.brn } } : {}),
 };
 ---
 <!doctype html>
