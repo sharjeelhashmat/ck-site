@@ -6,6 +6,7 @@ import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
+import { inflateSync } from 'node:zlib';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const dist = join(root, 'dist');
@@ -187,14 +188,17 @@ test('footer social row: exactly LinkedIn, Instagram, Facebook, opening safely i
   }
 });
 
-test('brand assets are the approved Brand Package v3.0 files, byte for byte', () => {
+// The tab icons are the Brand Package v3.0 squares with rounded corners (owner-approved 2026-10-10): the corners were
+// masked out with the approved method (8x supersampled rounded rectangle, radius 22%), artwork unchanged.
+// apple-touch-icon.png stays the original square (iOS rounds it itself).
+test('brand assets are the approved Brand Package v3.0 files (tab icons with the approved rounded corners), byte for byte', () => {
   const approved = {
     'apple-touch-icon.png': '265c8d943885ae0fd28082939a7e38dddb23fdf25fe551cfb399799864b9c1a1',
-    'favicon.ico': '47f1ef40ead664ba2faa2939a1c17734d18ded8d450bd27f5eb97f6f3fd0edea',
-    'icon-192.png': '399b76451ff7df7c48857824943ceabfb365c6b1f9298464a8726af69b42e194',
-    'icon-32.png': '93d9b1adfdd201df57e286d706e929e99859e42bee6b1cf1e4877663ae5feffe',
-    'icon-48.png': 'f7dcc159d8b3c4f0b8e1345a0cf83374105f386fdffae371637323997dece261',
-    'icon-512.png': 'b80849ae58c731d2dd50e8da851c1daebc6b87395a4218f575ca9c161b191054',
+    'favicon.ico': 'fb42ac20ead8a95d81002f7209c50ed3fe348b55a91f81eb8856948bb080efdd',
+    'icon-192.png': 'e4b20e1e81459ba853862ba685b96d7f05aabc0b4aad400944c33aea723743fc',
+    'icon-32.png': '0c5505bc277091398a236931a61ab933f62c9f6458aec8c17769b5fc9b6301d6',
+    'icon-48.png': 'b4ed4eb5f2bfa22875cab5cefbc08062a1f68f12a38b8c9c8f7d3075e76ce562',
+    'icon-512.png': 'd71ab9b4bf05000fe6ad2f93770b2d42148ce1e2d6b1494746a4c31934061911',
     'logo-horizontal-ink.svg': 'f7f4530cc2bfc7b16c828ba4aec0dec03a02e1303d12469bed849a86662b0b55',
     'logo-horizontal-ivory.svg': '2162b5c1c6c33bedd447d7cb83a833deb8f91392cbb8e763a0ba64f2526a06b0',
     'og.png': '60c8b85d3ba4936bb149c9a45bd5e1e2958e4ae4be5b087eeba434f88e1e0220',
@@ -240,4 +244,81 @@ test('menu focus: the built header script handles Escape, Tab, inert and aria-ex
   assert.match(h, /<button class="menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="site-menu" id="menu-btn">/);
   assert.ok(h.indexOf('id="menu-btn"') < h.indexOf('id="site-menu"'), 'the button precedes the menu');
   assert.doesNotMatch(h.replace(/<script[\s\S]*?<\/script>/g, ''), /\sinert(=|\s|>)/, 'nothing is inert in the served markup');
+});
+
+// Rounded edges everywhere (owner-approved 2026-10-10).
+const builtCss = () => readdirSync(join(dist, '_astro')).filter((f) => f.endsWith('.css')).map((f) => readFileSync(join(dist, '_astro', f), 'utf8')).join('\n');
+
+test('radius tokens exist, and no other border-radius is used anywhere in site/src (only the tokens, 4px and 50%)', () => {
+  assert.match(css, /--r-pill: 999px;/);
+  assert.match(css, /--r-field: 10px;/);
+  assert.match(css, /--r-card: 14px;/);
+  for (const f of walk(join(root, 'src')).filter((p) => /\.(astro|css|mjs|ts)$/.test(p))) {
+    for (const m of readFileSync(f, 'utf8').matchAll(/border(?:-[a-z]+)*-radius\s*:\s*([^;}"]+)/g)) {
+      const v = m[1].trim();
+      assert.match(v, /^(?:(?:var\(--r-(?:pill|field|card)\)|4px|50%|0)(?:\s+|$))+$/, `${f}: border-radius ${v}`);
+    }
+  }
+});
+
+test('built CSS: buttons, fields, the country-code box, cards and checkboxes resolve to the right token', () => {
+  const c = builtCss();
+  const rule = (sel) => [...c.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter(([, s]) => s.split(',').map((x) => x.trim()).includes(sel)).map(([, , b]) => b).join(';');
+  const radius = (sel) => (rule(sel).match(/border-radius:([^;]+)/) ?? [])[1]?.trim();
+  assert.equal(radius('.btn'), 'var(--r-pill)', '.btn (a.btn, button.btn, .btn--ghost)');
+  assert.equal(radius('.skip'), 'var(--r-pill)', 'skip link');
+  for (const sel of ['.field input', '.field select', '.field textarea']) assert.equal(radius(sel), 'var(--r-field)', sel);
+  assert.equal(radius('.cc-display'), 'var(--r-field)', 'country-code box');
+  assert.equal(radius('.field .cc-control select'), 'var(--r-field)', 'country-code select');
+  assert.equal(radius('.card'), 'var(--r-card)', '.card');
+  assert.equal(radius('.card.way'), 'var(--r-card)', 'four ways cards');
+  assert.match(rule('.card.way'), /overflow:hidden/, 'Brass bar clipped to the rounded corner');
+  assert.equal(radius(".check input[type=checkbox]"), '4px', 'checkboxes');
+  assert.equal(radius('.steps li'), 'var(--r-card)', 'sell process steps');
+});
+
+// Minimal PNG reader (8-bit RGBA, non-interlaced) so the icon checks run in CI without image libraries.
+function readPng(buf) {
+  assert.equal(buf.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
+  let off = 8, w = 0, h = 0, depth = 0, type = 0; const idat = [];
+  while (off < buf.length) {
+    const len = buf.readUInt32BE(off), kind = buf.toString('ascii', off + 4, off + 8), data = buf.subarray(off + 8, off + 8 + len);
+    if (kind === 'IHDR') { w = data.readUInt32BE(0); h = data.readUInt32BE(4); depth = data[8]; type = data[9]; }
+    if (kind === 'IDAT') idat.push(data);
+    off += 12 + len;
+  }
+  assert.deepEqual([depth, type], [8, 6], 'RGBA, 8 bits per channel');
+  const raw = inflateSync(Buffer.concat(idat)), bpp = 4, stride = w * bpp, px = Buffer.alloc(h * stride);
+  for (let y = 0; y < h; y++) {
+    const f = raw[y * (stride + 1)], line = raw.subarray(y * (stride + 1) + 1, (y + 1) * (stride + 1));
+    for (let x = 0; x < stride; x++) {
+      const a = x >= bpp ? px[y * stride + x - bpp] : 0, b = y ? px[(y - 1) * stride + x] : 0, c = x >= bpp && y ? px[(y - 1) * stride + x - bpp] : 0;
+      const p = a + b - c, pa = Math.abs(p - a), pb = Math.abs(p - b), pc = Math.abs(p - c);
+      const pred = [0, a, b, (a + b) >> 1, pa <= pb && pa <= pc ? a : pb <= pc ? b : c][f];
+      px[y * stride + x] = (line[x] + pred) & 255;
+    }
+  }
+  return { w, h, alpha: (x, y) => px[(y * w + x) * 4 + 3] };
+}
+const roundedOk = (png, size, label) => {
+  assert.deepEqual([png.w, png.h], [size, size], `${label}: size`);
+  for (const [x, y] of [[0, 0], [size - 1, 0], [0, size - 1], [size - 1, size - 1]]) assert.equal(png.alpha(x, y), 0, `${label}: corner ${x},${y} transparent`);
+  assert.equal(png.alpha(size >> 1, size >> 1), 255, `${label}: centre opaque`);
+};
+
+test('tab icons: rounded (transparent corners, opaque centre, exact sizes); favicon.ico holds 16, 32 and 48; apple-touch stays square', () => {
+  for (const [f, size] of [['icon-32.png', 32], ['icon-48.png', 48], ['icon-192.png', 192], ['icon-512.png', 512]]) {
+    roundedOk(readPng(readFileSync(join(root, 'public', f))), size, f);
+  }
+  const ico = readFileSync(join(root, 'public/favicon.ico'));
+  const n = ico.readUInt16LE(4), sizes = [];
+  for (let i = 0; i < n; i++) {
+    const e = 6 + 16 * i, w = ico[e] || 256, len = ico.readUInt32LE(e + 8), at = ico.readUInt32LE(e + 12);
+    sizes.push(w);
+    roundedOk(readPng(ico.subarray(at, at + len)), w, `favicon.ico ${w}`);
+  }
+  assert.deepEqual(sizes.sort((a, b) => a - b), [16, 32, 48]);
+  const apple = readFileSync(join(root, 'public/apple-touch-icon.png'));
+  assert.equal(apple[25], 2, 'apple-touch-icon is RGB (no alpha): square, iOS rounds it');
+  assert.equal(existsSync(join(root, 'public/site.webmanifest')) || existsSync(join(root, 'public/manifest.webmanifest')), false, 'no web manifest (nothing marked maskable)');
 });
