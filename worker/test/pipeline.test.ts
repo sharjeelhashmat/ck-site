@@ -26,6 +26,18 @@ describe('pipeline', () => {
     expect(f.rows[0]!.lead.attribution.source_type).toBe('linkedin');
   });
 
+  it('staging origin: stored as TEST with reason staging_origin, lane NONE, no send, no alert, same client response', async () => {
+    const f = makeFake();
+    const r = await processLead(baseLead(), { ...(await ctx()), staging: true }, f.deps);
+    expect(r.status).toBe(202);
+    expect(r.body).toEqual({ ok: true, id: 'id-1' });
+    expect(r.internal).toMatchObject({ lane: 'NONE', status: 'TEST', outbound: 'none' });
+    expect(f.rows[0]).toMatchObject({ status: 'TEST', lane: 'NONE', alert_level: 'none' });
+    expect(f.rows[0]!.reasons).toContain('staging_origin');
+    expect(f.sent).toHaveLength(0);
+    expect(f.alerts).toHaveLength(0);
+  });
+
   it('OUTBOUND off: lead is stored and alerted, nothing is sent', async () => {
     const f = makeFake();
     const r = await processLead(baseLead(), await ctx({ ...goodEnv, OUTBOUND: 'off' }), f.deps);

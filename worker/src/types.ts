@@ -38,7 +38,8 @@ export interface Lead {
   honeypot: string;
 }
 
-export type FirewallStatus = 'VALID' | 'SUSPICIOUS' | 'SPAM' | 'DUPLICATE';
+// TEST is never produced by the firewall: it marks an enquiry from the staging origin (quarantined, never sent or alerted).
+export type FirewallStatus = 'VALID' | 'SUSPICIOUS' | 'SPAM' | 'DUPLICATE' | 'TEST';
 export type Lane =
   | 'PRIORITY'
   | 'QUALIFIED'

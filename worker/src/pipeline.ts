@@ -60,6 +60,8 @@ export interface PipelineCtx {
   templates: Template[];
   approved: Record<string, string>;
   unsubSecret?: string;
+  // The request came from STAGING_ORIGIN: store it as a quarantined TEST lead, whatever OUTBOUND or any other flag says.
+  staging?: boolean;
 }
 
 export interface PipelineResult {
@@ -147,10 +149,15 @@ export async function processLead(raw: unknown, ctx: PipelineCtx, deps: Deps): P
   const since = new Date(now.getTime() - 24 * 3600 * 1000).toISOString();
   const duplicate = await deps.findRecentByEmailHash(emailHash, since);
 
-  const { status, reasons } = classify(lead, { duplicate });
+  const firewall = classify(lead, { duplicate });
   const escalation = escalationReasons(lead.message);
   const { score } = scoreLead(lead, ctx.config.weights);
-  const { lane, alert_level } = assignLane(lead, status, score, escalation.length > 0);
+  const assigned = assignLane(lead, firewall.status, score, escalation.length > 0);
+  // A staging enquiry is a test: lane NONE means no outbound (so nothing counts toward DAILY_SEND_CAP), alert none means no
+  // owner alert, and status TEST stores it quarantined.
+  const status: FirewallStatus = ctx.staging ? 'TEST' : firewall.status;
+  const reasons = ctx.staging ? [...firewall.reasons, 'staging_origin'] : firewall.reasons;
+  const { lane, alert_level }: { lane: Lane; alert_level: AlertLevel } = ctx.staging ? { lane: 'NONE', alert_level: 'none' } : assigned;
   const id = deps.uuid();
 
   await deps.insertLead({ id, created_at: now.toISOString(), email_hash: emailHash, lead, status, reasons, escalation, score, lane, alert_level });
