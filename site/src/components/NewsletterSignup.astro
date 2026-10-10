@@ -43,6 +43,11 @@ const id = `nl-${variant}`;
   .nl-form .status:empty { display: none; }
   .nl-form .fine { margin-top: .6rem; }
   .nl-done { margin-top: .9rem; font-size: 1rem; }
+  /* Footer variant sits on Ink (Brand v3.1): Slate Light text, white input with a Brass border, Brass focus ring. */
+  .nl--footer { border-bottom-color: color-mix(in srgb, var(--slate-light) 35%, transparent); }
+  .nl--footer .nl-lede { color: var(--slate-light); }
+  .nl--footer .nl-row input { border-color: var(--gold); }
+  .nl--footer .nl-row input:focus { border-color: var(--gold); outline: 2px solid var(--gold); outline-offset: 2px; }
 </style>
 
 <script>

@@ -2,18 +2,25 @@
 import NewsletterSignup from './NewsletterSignup.astro';
 import { SITE, AFFILIATION_LINE } from '../lib/site';
 const year = new Date().getFullYear();
+const social = [
+  { name: 'LinkedIn', href: SITE.linkedin },
+  { name: 'Instagram', href: SITE.instagram },
+  { name: 'Facebook', href: SITE.facebook },
+];
 ---
 <footer class="site-footer">
   <div class="wrap">
     <NewsletterSignup source="footer" />
     <div class="foot-row">
-      <div class="brand" style="font-size:1.05rem">
-        <img class="logo" src="/logo-horizontal-ink.svg" alt="Sharjeel Hashmat" width="216" height="72" />
+      <div class="brand">
+        <img class="logo" src="/logo-web-ivory.svg" alt="Sharjeel Hashmat" width="224" height="46" />
         <span>{SITE.title} · UAE</span>
       </div>
-      <div class="foot-links">
-        <a href={SITE.instagram} target="_blank" rel="noopener">Instagram</a>
-        <a href={SITE.linkedin} target="_blank" rel="noopener">LinkedIn</a>
+      <div class="social">
+        <span class="social-label">Follow</span>
+        {social.map((s) => (
+          <a href={s.href} target="_blank" rel="noopener" aria-label={`${SITE.name} on ${s.name}`}>{s.name}</a>
+        ))}
       </div>
     </div>
     <div class="foot-row">

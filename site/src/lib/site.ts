@@ -22,6 +22,7 @@ export const SITE = {
   areasServed: 'United Arab Emirates',
   instagram: 'https://www.instagram.com/sharjeelhashmat',
   linkedin: 'https://www.linkedin.com/in/sharjeel-hashmat-16944322',
+  facebook: 'https://www.facebook.com/profile.php?id=61593982841274',
   workerUrl: (env.PUBLIC_WORKER_URL as string | undefined) ?? 'https://ck-lead-worker.sharjeelhashmat.workers.dev',
   // Public by design (Turnstile site keys are embedded in pages).
   turnstileSiteKey: (env.PUBLIC_TURNSTILE_SITE_KEY as string | undefined) ?? '0x4AAAAAAE9Ndhe9on1juQ_h',
