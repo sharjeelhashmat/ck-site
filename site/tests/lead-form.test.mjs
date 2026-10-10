@@ -62,7 +62,9 @@ test('form script: blocks submit on an invalid phone and sends the E.164 value i
   assert.match(src, /else if \(!phone\) \{ phoneErr\(/);
   assert.match(src, /if \(bad\) \{ say\('Please fix the highlighted fields\.', false\); return; \}/, 'returns before fetch');
   assert.match(src, /\n {8}phone,\n/, 'payload field "phone" carries the E.164 value');
-  assert.match(src, /body\.error === 'invalid_phone'/, 'server-side rejection is shown on the phone field');
+  // The server's invalid_phone maps to a phone-field outcome in lead-submit.mjs (tested below); the form shows it on the field.
+  assert.match(src, /if \(outcome\.field === 'phone'\) phoneErr\(outcome\.message\);/, 'server-side rejection is shown on the phone field');
+  assert.equal(outcomeFor(400, { ok: false, error: 'invalid_phone' }).field, 'phone');
 });
 
 test('Turnstile: the managed widget container is present on every form page with the site key', () => {
@@ -132,4 +134,73 @@ test('compact country code: the closed control shows only "+971" (aria-hidden) o
   assert.match(css, /\.cc-control:focus-within \.cc-display \{[^}]*outline: 3px solid/, 'visible focus ring');
   const src = readFileSync(join(root, 'src/components/LeadForm.astro'), 'utf8');
   assert.match(src, /ccSelect\?\.addEventListener\('change', showDial\);/, 'display updates on change');
+});
+
+// Contact form feedback (owner-approved 2026-10-10): the visitor always gets a clear answer.
+import { MESSAGES, outcomeFor, sendLead, TIMEOUT_MS } from '../src/lib/lead-submit.mjs';
+
+test('feedback: 2xx ok replaces the form with the confirmation panel', () => {
+  const o = outcomeFor(202, { ok: true, id: '0b5d2f2e-1111-4222-8333-944445555666' });
+  assert.equal(o.kind, 'success');
+  assert.equal(o.message, 'Thank you. Your enquiry has been received. I will reply within 24 hours.');
+  assert.equal(o.id, '0b5d2f2e-1111-4222-8333-944445555666');
+});
+
+test('feedback: 400 invalid_phone keeps the form and shows the phone message; verification_failed asks to retry', () => {
+  assert.deepEqual(outcomeFor(400, { ok: false, error: 'invalid_phone' }), { kind: 'field', field: 'phone', message: 'Please check the mobile number and country code.', enableSend: true, resetTurnstile: true });
+  for (const status of [400, 403]) {
+    assert.deepEqual(outcomeFor(status, { ok: false, error: 'verification_failed' }), { kind: 'verification', message: 'Verification failed. Please try again.', enableSend: true, resetTurnstile: true });
+  }
+  assert.equal(outcomeFor(400, { ok: false, error: 'invalid_input', field: 'email' }).field, 'email');
+});
+
+test('feedback: every other answer is the generic failure with WhatsApp and email', () => {
+  for (const [status, body] of [[403, { ok: false, error: 'forbidden' }], [429, {}], [500, {}], [502, null], [503, { ok: false, error: 'verification_unavailable' }], [413, { error: 'too_large' }], [202, { ok: false }], [200, 'not json'], [400, { error: 'invalid_input', field: 'unknown_field' }]]) {
+    const o = outcomeFor(status, body);
+    assert.equal(o.kind, 'failure', `${status} ${JSON.stringify(body)}`);
+    assert.equal(o.message, 'Your message could not be sent. Please try again, or contact me directly on WhatsApp or at hello@sharjeelhashmat.com.');
+  }
+});
+
+test('feedback: a rejected fetch ("Failed to fetch", CORS) and a timeout both end in the generic failure', async () => {
+  const rejected = await sendLead('https://w.test/lead', {}, { fetchImpl: async () => { throw new TypeError('Failed to fetch'); } });
+  assert.equal(rejected.kind, 'failure');
+  const hang = (_url, init) => new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError'))));
+  const t0 = Date.now();
+  const timedOut = await sendLead('https://w.test/lead', {}, { fetchImpl: hang, timeoutMs: 50 });
+  assert.equal(timedOut.kind, 'failure');
+  assert.ok(Date.now() - t0 < 2000);
+  assert.equal(TIMEOUT_MS, 15000);
+  const unreadable = await sendLead('https://w.test/lead', {}, { fetchImpl: async () => new Response('<html>', { status: 502 }) });
+  assert.equal(unreadable.kind, 'failure');
+  const ok = await sendLead('https://w.test/lead', { a: 1 }, { fetchImpl: async (_u, init) => { assert.equal(init.method, 'POST'); return Response.json({ ok: true, id: 'x' }, { status: 202 }); } });
+  assert.equal(ok.kind, 'success');
+});
+
+test('feedback: no silent state, and Send is re-enabled after every failure', async () => {
+  const outcomes = [
+    ...[[202, { ok: true }], [400, { error: 'invalid_phone' }], [403, { error: 'verification_failed' }], [400, { error: 'invalid_input', field: 'name' }], [403, { error: 'forbidden' }], [429, {}], [500, {}]].map(([s, b]) => outcomeFor(s, b)),
+    await sendLead('u', {}, { fetchImpl: async () => { throw new TypeError('Failed to fetch'); } }),
+  ];
+  for (const o of outcomes) {
+    assert.ok(o.message.length > 10, `${o.kind}: has a message`);
+    if (o.kind === 'success') assert.equal(o.enableSend, false);
+    else { assert.equal(o.enableSend, true, `${o.kind}: Send re-enabled`); assert.equal(o.resetTurnstile, true, `${o.kind}: Turnstile reset`); }
+  }
+  assert.deepEqual(Object.values(MESSAGES).filter((m) => !m), []);
+});
+
+test('feedback: the form page carries the alert region, its WhatsApp + email template, and the sending state', () => {
+  const js = readdirSync(join(dist, '_astro')).filter((f) => f.endsWith('.js')).map((f) => readFileSync(join(dist, '_astro', f), 'utf8')).join('\n');
+  assert.match(js, /aria-busy/);
+  assert.match(js, /Sending…/);
+  for (const f of formPages) {
+    const h = read(f);
+    assert.match(h, /<div class="lead-alert" id="lead-alert" role="alert"><\/div>/, `${f}: alert region`);
+    const tpl = h.match(/<template id="lead-alert-tpl">([\s\S]*?)<\/template>/)?.[1] ?? '';
+    assert.match(tpl, /<a href="https:\/\/wa\.me\/[^"]+" target="_blank" rel="noopener">WhatsApp<\/a>/, `${f}: WhatsApp link`);
+    assert.match(tpl, /<a href="mailto:hello@sharjeelhashmat\.com">hello@sharjeelhashmat\.com<\/a>/, `${f}: email link`);
+    assert.equal(tpl.replace(/<[^>]+>/g, ''), MESSAGES.failure, `${f}: template text matches the failure message`);
+    assert.match(h, /<span class="err lead-err" data-err="turnstile" role="alert"><\/span>/, `${f}: verification message slot`);
+  }
 });

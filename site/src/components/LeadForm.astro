@@ -119,26 +119,44 @@ const countries = [
   </div>
 
   <div class="turnstile cf-turnstile" data-sitekey={SITE.turnstileSiteKey} data-theme="light" data-appearance="always"></div>
+  <span class="err lead-err" data-err="turnstile" role="alert"></span>
 
   <div class="form-foot">
     <button class="btn" type="submit" id="lead-submit">{submitLabel}</button>
     <span class="status" id="lead-status" role="status" aria-live="polite"></span>
   </div>
+  <div class="lead-alert" id="lead-alert" role="alert"></div>
+  <template id="lead-alert-tpl"><p>Your message could not be sent. Please try again, or contact me directly on <a href={waLink("Hi Sharjeel, I'd like to discuss UAE real estate.")} target="_blank" rel="noopener">WhatsApp</a> or at <a href={`mailto:${SITE.email}`}>{SITE.email}</a>.</p></template>
   {PROFILE_ENABLED && <p class="fine" id="lead-next" hidden style="margin-top:1rem"></p>}
   <p class="fine" style="margin-top:1rem">Prefer WhatsApp? <a href={waLink("Hi Sharjeel, I'd like to discuss UAE real estate.")} target="_blank" rel="noopener">Message me directly</a> or call {SITE.phoneDisplay}.</p>
 </form>
+
+<style is:global>
+  /* Submit outcomes (existing tokens; ok and err pass AA on the white card). */
+  .lead-err { display: block; color: var(--err); font-size: .875rem; margin-top: .5rem; }
+  .lead-err:empty { display: none; }
+  .lead-alert:not(:empty) { margin-top: 1rem; padding: .9rem 1rem; background: var(--paper); border: 1px solid var(--err); border-left-width: 3px; color: var(--err); font-size: .95rem; }
+  .lead-alert p { margin: 0; }
+  .lead-alert a { color: var(--err); }
+  /* scroll-margin keeps the panel clear of the fixed header when focus moves to it. */
+  .lead-success { border-left: 3px solid var(--ok); scroll-margin-top: 6rem; }
+  .lead-success > p:first-child { margin: 0; color: var(--ok); font-size: 1.05rem; font-weight: 500; }
+</style>
 
 <script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <script>
   import { toE164 } from '../lib/phone.mjs';
   import { attributionFields } from '../lib/attribution.mjs';
+  import { MESSAGES, sendLead } from '../lib/lead-submit.mjs';
   const form = document.getElementById('lead-form') as HTMLFormElement | null;
   if (form) {
     const status = document.getElementById('lead-status')!;
     const btn = document.getElementById('lead-submit') as HTMLButtonElement;
     const sell = form.dataset.mode === 'sell';
     const workerUrl = form.dataset.worker!;
-    const mailto = 'hello@sharjeelhashmat.com';
+    const alertBox = document.getElementById('lead-alert')!;
+    const alertTpl = document.getElementById('lead-alert-tpl') as HTMLTemplateElement;
+    const sendLabel = btn.textContent ?? 'Send';
 
     // Preselect intent from ?intent=
     const q = new URLSearchParams(location.search).get('intent');
@@ -153,6 +171,7 @@ const countries = [
     };
     const clearErrs = () => {
       form.querySelectorAll('[data-err]').forEach((e) => (e.textContent = ''));
+      alertBox.replaceChildren();
       form.querySelector('#f-phone')?.removeAttribute('aria-invalid');
     };
     const phoneErr = (msg: string) => { setErr('phone', msg); form.querySelector('#f-phone')?.setAttribute('aria-invalid', 'true'); };
@@ -213,42 +232,48 @@ const countries = [
         ...attributionFields(attribution, location.pathname, document.referrer),
       };
 
-      btn.disabled = true; say('Sending…', true);
-      try {
-        const res = await fetch(`${workerUrl}/lead`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload) });
-        const body = (await res.json().catch(() => ({}))) as { ok?: boolean; id?: string; error?: string; field?: string };
-        if (res.ok && body.ok) {
-          const sentIntent = payload.intent;
-          form.reset();
-          say("Received. I'll come back to you personally, usually within a day.", true);
-          // Optional step 2: only when the feature is switched on, and only for enquiries where a profile helps.
-          const next = document.getElementById('lead-next');
-          const profileIntents = (form.dataset.profile ?? '').split(',').filter(Boolean);
-          if (next && body.id && /^[0-9a-f-]{36}$/i.test(body.id) && profileIntents.includes(sentIntent)) {
-            const a = document.createElement('a');
-            a.href = `/investor-profile?lead=${encodeURIComponent(body.id)}`;
-            a.textContent = 'Optional: answer five short questions so I can match properties to you.';
-            next.replaceChildren(a);
-            next.hidden = false;
-          }
-        } else if (body.error === 'invalid_input' && body.field) {
-          const map: Record<string, string> = { name: 'name', email: 'email', consent_contact: 'consent_contact' };
-          if (map[body.field]) setErr(map[body.field], 'Please check this field.');
-          say('Please check the form and try again.', false);
-        } else if (body.error === 'invalid_phone') {
-          phoneErr('Please check your mobile number and country code.');
-          say('Please check the form and try again.', false);
-        } else if (body.error === 'verification_failed') {
-          say('The security check failed. Reload the page and try again.', false);
-        } else {
-          say(`Something went wrong on my side. Please email ${mailto} or use WhatsApp.`, false);
+      // Sending: the button says so and the form is busy until exactly one outcome is shown.
+      btn.disabled = true; btn.textContent = 'Sending…'; form.setAttribute('aria-busy', 'true');
+      const outcome = await sendLead(`${workerUrl}/lead`, payload);
+      form.removeAttribute('aria-busy');
+
+      if (outcome.kind === 'success') {
+        // Replace the form with the confirmation, and move focus to it.
+        const panel = document.createElement('div');
+        panel.className = 'card lead-success';
+        panel.setAttribute('role', 'status');
+        panel.tabIndex = -1;
+        const p = document.createElement('p');
+        p.textContent = MESSAGES.success;
+        panel.append(p);
+        // Optional step 2: only when the feature is switched on, and only for enquiries where a profile helps.
+        const profileIntents = (form.dataset.profile ?? '').split(',').filter(Boolean);
+        if (document.getElementById('lead-next') && outcome.id && /^[0-9a-f-]{36}$/i.test(outcome.id) && profileIntents.includes(payload.intent)) {
+          const a = document.createElement('a');
+          a.href = `/investor-profile?lead=${encodeURIComponent(outcome.id)}`;
+          a.textContent = 'Optional: answer five short questions so I can match properties to you.';
+          const next = document.createElement('p');
+          next.className = 'fine';
+          next.append(a);
+          panel.append(next);
         }
-      } catch {
-        say(`Connection problem. Please try again, or email ${mailto}.`, false);
-      } finally {
-        btn.disabled = false;
-        (window as unknown as { turnstile?: { reset: () => void } }).turnstile?.reset();
+        form.replaceWith(panel);
+        panel.focus();
+        return;
       }
+
+      // Every other outcome keeps the visitor's input, explains itself and lets them send again.
+      if (outcome.kind === 'field') {
+        if (outcome.field === 'phone') phoneErr(outcome.message);
+        else setErr(outcome.field, outcome.message);
+        say('Please check the form and try again.', false);
+      } else if (outcome.kind === 'verification') {
+        setErr('turnstile', outcome.message);
+      } else {
+        alertBox.replaceChildren(alertTpl.content.cloneNode(true));
+      }
+      if (outcome.resetTurnstile) (window as unknown as { turnstile?: { reset: () => void } }).turnstile?.reset();
+      if (outcome.enableSend) { btn.disabled = false; btn.textContent = sendLabel; }
     });
   }
 </script>

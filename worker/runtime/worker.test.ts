@@ -25,6 +25,7 @@ const baseEnv = (over: Record<string, string> = {}): Env =>
     ALERT_EMAIL: 'owner@example.com',
     SLA_HOURS: '24',
     EMAIL_PROVIDER: 'brevo', // explicit, so tests do not depend on the production value in wrangler.toml
+    STAGING_ORIGIN: '', // off unless a test turns it on, so production-origin tests do not depend on wrangler.toml
     ...over,
   }) as Env;
 
@@ -111,6 +112,98 @@ describe('worker on workerd', () => {
     const off = await worker.fetch(new Request('https://api.test/lead', { method: 'OPTIONS', headers: { origin: STAGING } }), baseEnv({ EXTRA_ORIGINS: '' }));
     expect(off.headers.get('access-control-allow-origin')).toBeNull();
     expect((await post(lead(), baseEnv({ EXTRA_ORIGINS: '' }), STAGING)).status).toBe(403);
+  });
+
+  describe('STAGING_ORIGIN: quarantined test enquiries', () => {
+    const STAGING = 'https://ck-site-web.sharjeelhashmat.workers.dev';
+    const stagingEnv = (over: Record<string, string> = {}) => baseEnv({ ...LIVE, STAGING_ORIGIN: STAGING, ...over });
+
+    it('preflight from the staging origin is allowed; unknown origins are still rejected', async () => {
+      const pre = await worker.fetch(new Request('https://api.test/lead', { method: 'OPTIONS', headers: { origin: STAGING } }), stagingEnv());
+      expect(pre.status).toBe(204);
+      expect(pre.headers.get('access-control-allow-origin')).toBe(STAGING);
+      expect(pre.headers.get('vary')).toBe('origin');
+      const bad = await worker.fetch(new Request('https://api.test/lead', { method: 'OPTIONS', headers: { origin: 'https://evil.example' } }), stagingEnv());
+      expect(bad.headers.get('access-control-allow-origin')).toBeNull();
+      expect((await post(lead(), stagingEnv(), 'https://evil.example')).status).toBe(403);
+      // exact match only: no prefix, suffix or sibling subdomain
+      for (const o of [STAGING + '.evil.example', 'https://x.ck-site-web.sharjeelhashmat.workers.dev', 'http://ck-site-web.sharjeelhashmat.workers.dev']) {
+        expect((await post(lead(), stagingEnv(), o)).status).toBe(403);
+      }
+    });
+
+    it('a staging lead is stored quarantined as TEST: no send, no alert, lane NONE, even with OUTBOUND on and templates approved', async () => {
+      const e = stagingEnv();
+      await approveAllInKv(e);
+      const res = await post(lead(), e, STAGING);
+      expect(res.status).toBe(202);
+      expect(res.headers.get('access-control-allow-origin')).toBe(STAGING);
+      expect(res.headers.get('vary')).toBe('origin');
+      const { id } = (await res.json()) as { id: string };
+      const [row] = await rows('SELECT * FROM leads WHERE id = ?1', id);
+      expect(row).toMatchObject({ status: 'TEST', quarantined: 1, lane: 'NONE', alert_level: 'none' });
+      expect(JSON.parse(row!.reasons as string)).toContain('staging_origin');
+      expect(await rows('SELECT * FROM messages')).toHaveLength(0);
+      expect(brevo()).toHaveLength(0);
+      expect(resend()).toHaveLength(0);
+      // Turnstile still runs, exactly as for production
+      expect(calls.filter((c) => c.url.includes('turnstile'))).toHaveLength(1);
+    });
+
+    it('a staging lead with a failed Turnstile check is rejected and not stored', async () => {
+      expect((await post(lead({ turnstile_token: 'bad' }), stagingEnv(), STAGING)).status).toBe(403);
+      expect(await rows('SELECT id FROM leads')).toHaveLength(0);
+    });
+
+    it('a staging test does not make a real enquiry from the same address a duplicate', async () => {
+      const e = stagingEnv();
+      await approveAllInKv(e);
+      await post(lead(), e, STAGING);
+      const res = await post(lead(), e, ORIGIN);
+      const { id } = (await res.json()) as { id: string };
+      const [row] = await rows('SELECT * FROM leads WHERE id = ?1', id);
+      expect(row).toMatchObject({ status: 'VALID', quarantined: 0, lane: 'PRIORITY' });
+      expect(await rows("SELECT * FROM messages WHERE outcome = 'sent'")).toHaveLength(1);
+    });
+
+    it('production origins are unaffected while STAGING_ORIGIN is set', async () => {
+      const e = stagingEnv();
+      await approveAllInKv(e);
+      const res = await post(lead(), e, 'https://www.sharjeelhashmat.com');
+      expect(res.headers.get('access-control-allow-origin')).toBe('https://www.sharjeelhashmat.com');
+      const { id } = (await res.json()) as { id: string };
+      const [row] = await rows('SELECT status, quarantined, lane FROM leads WHERE id = ?1', id);
+      expect(row).toEqual({ status: 'VALID', quarantined: 0, lane: 'PRIORITY' });
+    });
+
+    it('staging is admitted on /lead only: /profile and the newsletter still refuse it', async () => {
+      const e = stagingEnv();
+      const prof = await worker.fetch(new Request('https://api.test/profile', { method: 'POST', headers: { origin: STAGING, 'content-type': 'application/json' }, body: '{}' }), e);
+      expect(prof.status).toBe(403);
+      const nl = await worker.fetch(new Request('https://api.test/api/newsletter/subscribe', { method: 'POST', headers: { origin: STAGING, 'content-type': 'application/json' }, body: JSON.stringify({ email: 'a@example.com', turnstile_token: 'ok' }) }), e);
+      expect(nl.status).toBe(403);
+      const nlPre = await worker.fetch(new Request('https://api.test/api/newsletter/subscribe', { method: 'OPTIONS', headers: { origin: STAGING } }), e);
+      expect(nlPre.headers.get('access-control-allow-origin')).toBeNull();
+    });
+
+    it('empty STAGING_ORIGIN disables it', async () => {
+      const e = stagingEnv({ STAGING_ORIGIN: '' });
+      const pre = await worker.fetch(new Request('https://api.test/lead', { method: 'OPTIONS', headers: { origin: STAGING } }), e);
+      expect(pre.headers.get('access-control-allow-origin')).toBeNull();
+      expect((await post(lead(), e, STAGING)).status).toBe(403);
+      expect(await rows('SELECT id FROM leads')).toHaveLength(0);
+    });
+
+    it('/health: same body; CORS header for allowed origins only', async () => {
+      const get = (origin: string | null, e: Env) => worker.fetch(new Request('https://api.test/health', { headers: origin ? { origin } : {} }), e);
+      for (const [origin, acao] of [[STAGING, STAGING], [ORIGIN, ORIGIN], ['https://evil.example', null], [null, null]] as const) {
+        const res = await get(origin, stagingEnv());
+        expect(res.status).toBe(200);
+        expect(await res.json()).toEqual({ ok: true });
+        expect(res.headers.get('access-control-allow-origin')).toBe(acao);
+      }
+      expect((await get(STAGING, stagingEnv({ STAGING_ORIGIN: '' }))).headers.get('access-control-allow-origin')).toBeNull();
+    });
   });
 
   it('rejects wrong methods, oversized and malformed bodies', async () => {

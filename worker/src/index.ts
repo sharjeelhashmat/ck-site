@@ -36,6 +36,7 @@ export interface Env {
   ALERT_EMAIL?: string;
   DAILY_SEND_CAP?: string;
   EXTRA_ORIGINS?: string;
+  STAGING_ORIGIN?: string;
 }
 
 const TEMPLATES = (templatesJson as { templates: Template[] }).templates;
@@ -136,7 +137,8 @@ function makeDeps(env: Env): Deps {
     uuid: () => crypto.randomUUID(),
     hash: sha256Hex,
     async findRecentByEmailHash(hash, sinceIso) {
-      const r = await env.DB.prepare('SELECT 1 AS x FROM leads WHERE email_hash = ?1 AND created_at >= ?2 LIMIT 1').bind(hash, sinceIso).first();
+      // Staging TEST leads are ignored, so a test enquiry never makes a real one from the same address a DUPLICATE.
+      const r = await env.DB.prepare("SELECT 1 AS x FROM leads WHERE email_hash = ?1 AND created_at >= ?2 AND (status IS NULL OR status != 'TEST') LIMIT 1").bind(hash, sinceIso).first();
       return r !== null;
     },
     async isSuppressed(hash) {
@@ -226,10 +228,15 @@ export default {
     const origins = allowedOrigins(cfg.siteUrl, cfg.extraOrigins);
     const origin = req.headers.get('origin') ?? '';
     const corsOrigin = origins.includes(origin) ? origin : undefined;
+    // STAGING_ORIGIN (exact match, "" = off) is admitted on /lead and /health only; /profile and the newsletter keep the
+    // production list, so the staging site can never trigger real mail.
+    const staging = !corsOrigin && cfg.stagingOrigin !== '' && origin === cfg.stagingOrigin;
+    const leadCors = corsOrigin ?? (staging ? origin : undefined);
 
-    if (url.pathname === '/health') return json({ ok: true }, 200);
+    if (url.pathname === '/health') return json({ ok: true }, 200, leadCors);
 
     if (url.pathname === '/lead') {
+      const corsOrigin = leadCors;
       if (req.method === 'OPTIONS') return preflight(corsOrigin);
       if (req.method !== 'POST') return json({ ok: false }, 405);
       if (!corsOrigin) return json({ ok: false, error: 'forbidden' }, 403);
@@ -249,7 +256,7 @@ export default {
       if (!human) return json({ ok: false, error: 'verification_failed' }, 403, corsOrigin);
 
       const approved = ((await env.KV.get('approved_templates', 'json')) ?? {}) as Record<string, string>;
-      const result = await processLead(raw, { config: cfg, templates: TEMPLATES, approved, unsubSecret: env.UNSUB_SECRET }, makeDeps(env));
+      const result = await processLead(raw, { config: cfg, templates: TEMPLATES, approved, unsubSecret: env.UNSUB_SECRET, staging }, makeDeps(env));
       return json(result.body, result.status, corsOrigin);
     }
 
