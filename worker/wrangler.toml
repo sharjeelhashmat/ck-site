@@ -24,6 +24,7 @@ BRN = ""                              # pending: owner to supply before go-live
 AFFILIATION = ""
 LEAD_STRICT = "false"                 # Package B: "true" makes a valid phone required on /lead. Keep "false" until the domain cutover.
 SITE_URL = "https://sharjeelhashmat.com"
+STAGING_ORIGIN = "https://ck-site-web.sharjeelhashmat.workers.dev"   # /lead only; every enquiry from it is stored quarantined as TEST, never sent or alerted. "" disables it.
 WORKER_URL = "https://ck-lead-worker.sharjeelhashmat.workers.dev"   # workers.dev subdomain registered 2026-09-19
 BOOKING_URL = ""
 # Automated senders live on subdomains only. The root domain is for human mail.

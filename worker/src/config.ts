@@ -13,6 +13,8 @@ export interface Config {
   bookingUrl: string;
   siteUrl: string;
   extraOrigins: string[];
+  // The staging site. Admitted on /lead (and /health) only; its enquiries are stored quarantined as TEST. "" = off.
+  stagingOrigin: string;
   workerUrl: string;
   slaHours: string;
   senders: { leads: Sender; alerts: Sender; news: Sender };
@@ -39,6 +41,7 @@ export function readConfig(env: Record<string, string | undefined>): Config {
     bookingUrl: (env.BOOKING_URL ?? '').trim(),
     siteUrl: (env.SITE_URL ?? '').trim().replace(/\/$/, ''),
     extraOrigins: parseExtraOrigins(env.EXTRA_ORIGINS),
+    stagingOrigin: parseExtraOrigins(env.STAGING_ORIGIN)[0] ?? '',
     workerUrl: (env.WORKER_URL ?? '').trim().replace(/\/$/, ''),
     slaHours: (env.SLA_HOURS ?? '24').trim(),
     senders: {

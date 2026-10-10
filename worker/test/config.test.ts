@@ -45,6 +45,13 @@ describe('outbound gate', () => {
 
 describe('extra CORS origins', () => {
   it('defaults to none', () => expect(readConfig(goodEnv).extraOrigins).toEqual([]));
+  it('STAGING_ORIGIN: one exact https origin, empty or malformed means off', () => {
+    expect(readConfig({ ...goodEnv, STAGING_ORIGIN: 'https://ck-site-web.sharjeelhashmat.workers.dev' }).stagingOrigin).toBe('https://ck-site-web.sharjeelhashmat.workers.dev');
+    expect(readConfig({ ...goodEnv, STAGING_ORIGIN: '' }).stagingOrigin).toBe('');
+    expect(readConfig(goodEnv).stagingOrigin).toBe('');
+    expect(readConfig({ ...goodEnv, STAGING_ORIGIN: 'https://*.workers.dev' }).stagingOrigin).toBe('');
+    expect(readConfig({ ...goodEnv, STAGING_ORIGIN: 'http://ck-site-web.sharjeelhashmat.workers.dev' }).stagingOrigin).toBe('');
+  });
   it('accepts bare https origins, comma-separated', () => {
     expect(parseExtraOrigins(' https://ck-site-web.sharjeelhashmat.workers.dev , https://Staging.Example.com'))
       .toEqual(['https://ck-site-web.sharjeelhashmat.workers.dev', 'https://staging.example.com']);
