@@ -18,7 +18,9 @@ export const SITE = {
   phoneE164: '971555414468',
   // Owner decision 2026-09-19: hello@ replaces the Gmail address publicly.
   email: 'hello@sharjeelhashmat.com',
-  languages: ['English', 'Urdu', 'Arabic'],
+  // Structured data (JSON-LD knowsLanguage) has no proficiency level, so only fluent languages are listed; the About page
+  // says "basic Arabic" in words (owner decision 2026-10-10).
+  languages: ['English', 'Urdu'],
   areasServed: 'United Arab Emirates',
   instagram: 'https://www.instagram.com/sharjeelhashmat',
   linkedin: 'https://www.linkedin.com/in/sharjeel-hashmat-16944322',

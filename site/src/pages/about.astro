@@ -1,32 +1,52 @@
 ---
+// About (owner-approved copy and layout, 2026-10-10). No cards on this page: every section is plain text under an H2 at
+// the page H2 size. The five checks are copied word for word from /investment-approach; tests/about.test.mjs compares them.
 import Base from '../layouts/Base.astro';
 import { SITE, AFFILIATION_LINE } from '../lib/site';
 ---
-<Base title="About Sharjeel Hashmat" description="UAE property consultant — background, philosophy and how I work.">
+<Base title="About" description="Sharjeel Hashmat, Property Consultant in the UAE since 2018. Numbers first, straight answers, and the five checks behind every recommendation.">
   <section class="section">
-    <div class="narrow">
+    <div class="narrow about">
       <p class="eyebrow">About</p>
       <h1>{SITE.name}</h1>
       <p class="kicker" style="margin-top:.5rem">{SITE.title} · UAE</p>
 
-      <div style="margin-top:2rem">
-        <p>I work with buyers, investors, sellers and international clients across the UAE — on ready properties, off-plan launches, and the secondary market.</p>
-        <p>In UAE real estate since 2018, with a decade across banking sales and senior management behind me. I hold a Bachelor of Commerce from the University of Karachi.</p>
-        <p>I speak English, Urdu and Arabic, which covers most of the conversations that actually happen in this market.</p>
-      </div>
+      <p class="lede">Numbers first. Straight answers. No pitch.</p>
+      <p>I work with buyers, investors, sellers and international clients across the UAE — on ready properties, off-plan launches, and the secondary market.</p>
+      <p>Most property conversations start with the brochure. Mine start with the numbers.</p>
+      <p>I have worked in UAE real estate since 2018, with local and international investors. Before that, I spent a decade in banking sales and senior management: structuring finance, running heavy-industry operations, leading teams, and negotiating across the table from people who don't blink. It taught me how money behaves under pressure, and that deals are won through preparation, not performance.</p>
+      <p>I hold a Bachelor of Commerce from the University of Karachi, and I speak English, Urdu and basic Arabic, which covers most of the conversations that actually happen in this market.</p>
 
-      <div class="card" style="margin-top:2.5rem">
-        <h2>How I work</h2>
-        <p>I work for you — not a developer, not a sales target. If a listing isn't right for you, I'll say so, even if it costs me the deal. Every recommendation goes through the same five checks: price, returns, risk, exit, and my view. <a href="/investment-approach">The approach in full.</a></p>
-      </div>
+      <h2 class="about-h2">The Compass Key Method</h2>
+      <p>A compass tells you where you stand. A key opens the door. Both are built into my mark, and both describe the job. Every property I put in front of you goes through the same five checks:</p>
+      <ol class="about-checks">
+        <li><strong>Price.</strong> What comparable units actually sold for, per Dubai Land Department records, not the asking price.</li>
+        <li><strong>Returns.</strong> Net yield after service charges, vacancy and management. For off-plan, the payment plan set against your cash flow.</li>
+        <li><strong>Risk.</strong> The developer's delivery record, the project's escrow status, and the supply arriving in the same area.</li>
+        <li><strong>Exit.</strong> Who buys this unit from you in five years, and at what realistic price.</li>
+        <li><strong>My view:</strong> buy, watch, or pass. If the numbers don't work, I'll tell you not to buy.</li>
+      </ol>
+      <p><a href="/investment-approach">The method in full →</a></p>
 
-      <div class="card" style="margin-top:1.5rem">
-        <p class="kicker" style="margin:0">Track record</p>
-        <p class="small">Selected transactions and client outcomes will be added here as engagements complete and clients agree to be featured — this section isn't populated with placeholder claims.</p>
-      </div>
+      <h2 class="about-h2">How I work</h2>
+      <p>From offer to transfer, I coordinate the developer, the seller, the legal side and the Dubai Land Department, so you know what happens next at every step. First-time buyers and seasoned portfolio owners get the same standard: a clear brief, a clear strategy, and a clear answer on whether the deal is worth doing.</p>
+      <p>Sometimes it isn't. I'll tell you when to walk away. A deal I talk you out of is still a good day's work.</p>
+
+      <h2 class="about-h2">What you can expect</h2>
+      <p>You deal with me directly, from the first conversation to handover. Straight answers, including the ones you'd rather not hear. No inflated promises. No wasted time.</p>
 
       {AFFILIATION_LINE && <p class="fine" style="margin-top:2.5rem">{AFFILIATION_LINE}</p>}
+      <p class="lede about-close">Serious about UAE property? Let's talk. Still deciding? I'll tell you exactly where you stand.</p>
       <div class="actions"><a class="btn" href="/contact">Get in touch</a></div>
     </div>
   </section>
 </Base>
+
+<style>
+  /* One rhythm for the whole page: every H2 at the page H2 size with the same space above it; paragraphs keep the
+     site's normal size and spacing. */
+  .about .lede { margin-top: 2rem; }
+  .about-h2 { margin-top: 3rem; margin-bottom: 0; }
+  .about-checks { margin: 1rem 0 0; padding-left: 1.25rem; display: grid; gap: .5rem; }
+  .about .about-close { margin-top: 3rem; }
+</style>
