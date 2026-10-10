@@ -1,30 +1,42 @@
 ---
 import { NAV_LINKS, SITE, waLink } from '../lib/site';
-const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+// build.format is 'file', so a page's URL at build time ends in .html (/buy.html); strip it before matching.
+const path = Astro.url.pathname.replace(/\.html$/, '').replace(/\/$/, '') || '/';
 const wa = waLink("Hi Sharjeel, I'm interested in UAE real estate.");
 const current = (href: string) => (path === href || path.startsWith(href + '/') ? 'page' : undefined);
+// One <nav> serves desktop and mobile (the mobile menu is the same element shown as a panel), so each page carries
+// exactly one aria-current link. Groups: segmented Buy | Invest | Sell, outlined pills, plain links, WhatsApp.
+const pick = (hrefs: string[]) => NAV_LINKS.filter((l) => hrefs.includes(l.href));
+const segment = pick(['/buy', '/invest', '/sell']);
+const pills = pick(['/areas', '/new-launches', '/insights']);
+const plain = pick(['/about', '/contact']);
 ---
 <header class="site-nav">
   <div class="wrap">
     <a class="brand" href="/" aria-label={`${SITE.name}, home`}>
-      <img class="logo" src="/logo-horizontal-ink.svg" alt="Sharjeel Hashmat" width="264" height="88" />
+      <img class="logo" src="/logo-web-ivory.svg" alt="Sharjeel Hashmat" width="253" height="52" />
     </a>
-    <nav class="nav-links" aria-label="Primary">
-      {NAV_LINKS.map((l) => <a href={l.href} aria-current={current(l.href)}>{l.label}</a>)}
-      <a class="nav-wa" href={wa} target="_blank" rel="noopener">WhatsApp</a>
-    </nav>
-    <button class="menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="mobile-menu" id="menu-btn">
+    <!-- The button comes before the menu so Tab moves from it straight into the open panel. -->
+    <button class="menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="site-menu" id="menu-btn">
       <span></span><span></span><span></span>
     </button>
+    <nav class="site-menu" id="site-menu" aria-label="Primary">
+      <div class="nav-seg">
+        {segment.map((l) => <a href={l.href} aria-current={current(l.href)}>{l.label}</a>)}
+      </div>
+      <div class="nav-pills">
+        {pills.map((l) => <a href={l.href} aria-current={current(l.href)}>{l.label}</a>)}
+      </div>
+      <div class="nav-plain">
+        {plain.map((l) => <a href={l.href} aria-current={current(l.href)}>{l.label}</a>)}
+      </div>
+      <a class="nav-wa" href={wa} target="_blank" rel="noopener">WhatsApp</a>
+    </nav>
   </div>
 </header>
-<nav class="mobile-menu" id="mobile-menu" aria-label="Mobile">
-  {NAV_LINKS.map((l) => <a href={l.href}>{l.label}</a>)}
-  <a class="btn" href={wa} target="_blank" rel="noopener" style="font-family:var(--sans);font-size:.9rem;width:fit-content">WhatsApp me</a>
-</nav>
 <script>
   const btn = document.getElementById('menu-btn');
-  const menu = document.getElementById('mobile-menu');
+  const menu = document.getElementById('site-menu');
   function set(open: boolean) {
     menu?.classList.toggle('open', open);
     btn?.setAttribute('aria-expanded', String(open));
