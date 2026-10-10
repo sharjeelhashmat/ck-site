@@ -173,18 +173,19 @@ describe('pipeline: phone (Package B)', () => {
     }
   });
 
-  it('non-strict: an invalid phone is 400 invalid_phone and nothing is stored', async () => {
-    for (const phone of ['12345', '+971 12', '+1 555 0100', 'call me', 12345]) {
+  it('non-strict: a phone that cannot be parsed is stored as empty and the lead still succeeds (today\'s behaviour)', async () => {
+    for (const phone of ['12345', '0501234567', '+971 12', '+1 555 0100', 'call me', 12345]) {
       const f = makeFake();
       const r = await processLead({ ...baseLead(), phone }, await ctx(), f.deps);
-      expect(r, String(phone)).toMatchObject({ status: 400, body: { ok: false, error: 'invalid_phone' } });
-      expect(f.rows).toHaveLength(0);
+      expect(r.status, String(phone)).toBe(202);
+      expect(f.rows).toHaveLength(1);
+      expect(f.rows[0]!.lead.phone, String(phone)).toBeNull();
     }
   });
 
   it('strict: phone is required and must be valid', async () => {
     const strict = await ctx({ ...goodEnv, LEAD_STRICT: 'true' });
-    for (const phone of [undefined, '', '12345']) {
+    for (const phone of [undefined, '', '12345', '0501234567', 'call me']) {
       const f = makeFake();
       expect((await processLead({ ...baseLead(), phone }, strict, f.deps)).body, String(phone)).toEqual({ ok: false, error: 'invalid_phone' });
       expect(f.rows).toHaveLength(0);

@@ -432,8 +432,14 @@ describe('Package B: phone and Turnstile on /lead', () => {
     expect(await stored()).toEqual([{ phone: '+971501234567' }]);
   });
 
-  it('non-strict: an invalid phone is rejected with invalid_phone and nothing is stored', async () => {
-    const res = await post(lead({ phone: '+971 12' }), baseEnv());
+  it('non-strict: a phone that cannot be parsed is stored as empty; the enquiry still succeeds as today', async () => {
+    const res = await post(lead({ phone: '0501234567' }), baseEnv());
+    expect(res.status).toBe(202);
+    expect(await stored()).toEqual([{ phone: null }]);
+  });
+
+  it('strict: an unparseable phone is rejected with invalid_phone and nothing is stored', async () => {
+    const res = await post(lead({ phone: '0501234567' }), baseEnv({ LEAD_STRICT: 'true' }));
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ ok: false, error: 'invalid_phone' });
     expect(await stored()).toHaveLength(0);
