@@ -421,3 +421,81 @@ describe('newsletter on workerd', () => {
     });
   });
 });
+
+// Package B (owner-approved 2026-10-10): phone validation behind LEAD_STRICT, Turnstile stays required on /lead.
+describe('Package B: phone and Turnstile on /lead', () => {
+  const stored = () => rows('SELECT phone FROM leads');
+
+  it('non-strict: a valid phone is stored in E.164', async () => {
+    const res = await post(lead({ phone: '+971 50 123 4567' }), baseEnv());
+    expect(res.status).toBe(202);
+    expect(await stored()).toEqual([{ phone: '+971501234567' }]);
+  });
+
+  it('non-strict: an invalid phone is rejected with invalid_phone and nothing is stored', async () => {
+    const res = await post(lead({ phone: '+971 12' }), baseEnv());
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ ok: false, error: 'invalid_phone' });
+    expect(await stored()).toHaveLength(0);
+  });
+
+  it('non-strict: a missing phone keeps today\'s success path', async () => {
+    const res = await post(lead({ phone: undefined }), baseEnv());
+    expect(res.status).toBe(202);
+    expect(await stored()).toEqual([{ phone: null }]);
+  });
+
+  it('strict: a missing phone is rejected with invalid_phone; a valid one is accepted', async () => {
+    const strict = baseEnv({ LEAD_STRICT: 'true' });
+    const missing = await post(lead({ phone: undefined }), strict);
+    expect(missing.status).toBe(400);
+    expect(await missing.json()).toEqual({ ok: false, error: 'invalid_phone' });
+    expect((await post(lead({ phone: 'not a number' }), strict)).status).toBe(400);
+    expect(await stored()).toHaveLength(0);
+    expect((await post(lead({ phone: '+447911123456' }), strict)).status).toBe(202);
+    expect(await stored()).toEqual([{ phone: '+447911123456' }]);
+  });
+
+  it('a valid token passes and an invalid one is rejected, in both modes', async () => {
+    for (const e of [baseEnv(), baseEnv({ LEAD_STRICT: 'true' })]) {
+      expect((await post(lead({ turnstile_token: 'bad' }), e)).status).toBe(403);
+      expect((await post(lead({ turnstile_token: 'ok' }), e)).status).toBe(202);
+    }
+    const verify = calls.filter((c) => c.url.includes('siteverify'));
+    expect(verify.map((c) => c.body?.response)).toEqual(['bad', 'ok', 'bad', 'ok']);
+  });
+
+  it('a payload without a token is rejected 403 as today, whatever LEAD_STRICT says (owner decision: no weakening)', async () => {
+    for (const e of [baseEnv(), baseEnv({ LEAD_STRICT: 'true' })]) {
+      const res = await post(lead({ turnstile_token: undefined, phone: undefined }), e);
+      expect(res.status).toBe(403);
+      expect(await res.json()).toEqual({ ok: false, error: 'verification_failed' });
+    }
+    expect(await stored()).toHaveLength(0);
+  });
+
+  it('missing TURNSTILE_SECRET fails closed with 503, without calling siteverify or logging the secret', async () => {
+    const errors: unknown[][] = [];
+    const spy = vi.spyOn(console, 'error').mockImplementation((...a: unknown[]) => { errors.push(a); });
+    const res = await post(lead(), baseEnv({ TURNSTILE_SECRET: '' }));
+    spy.mockRestore();
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ ok: false, error: 'verification_unavailable' });
+    expect(calls.filter((c) => c.url.includes('siteverify'))).toHaveLength(0);
+    expect(await stored()).toHaveLength(0);
+    expect(errors.flat().join(' ')).toMatch(/TURNSTILE_SECRET is not set/);
+    expect(errors.flat().join(' ')).not.toMatch(/test-secret/);
+  });
+
+  it('siteverify is called with a 5 s timeout and a timeout counts as a failed check', async () => {
+    let signal: AbortSignal | undefined;
+    vi.stubGlobal('fetch', async (_input: RequestInfo | URL, init?: RequestInit) => {
+      signal = init?.signal ?? undefined;
+      throw new DOMException('The operation was aborted due to timeout', 'TimeoutError');
+    });
+    const res = await post(lead(), baseEnv());
+    expect(signal).toBeInstanceOf(AbortSignal);
+    expect(res.status).toBe(403);
+    expect(await stored()).toHaveLength(0);
+  });
+});

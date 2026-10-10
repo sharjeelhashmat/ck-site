@@ -3,9 +3,12 @@
 // Field names and enums match worker/src/types.ts and worker/src/firewall.ts exactly.
 import { INTENTS, SITE, waLink } from '../lib/site';
 import { PROFILE_ENABLED, PROFILE_INTENTS } from '../lib/profile';
+import { dialCodes } from '../lib/phone.mjs';
 interface Props { mode?: 'general' | 'sell'; defaultIntent?: string; submitLabel?: string }
 const { mode = 'general', defaultIntent = 'buy', submitLabel = 'Send' } = Astro.props;
 const sell = mode === 'sell';
+// Country-code select for the mobile number (all countries; default United Arab Emirates +971).
+const dials = dialCodes();
 const countries = [
   ['AE', 'United Arab Emirates'], ['PK', 'Pakistan'], ['GB', 'United Kingdom'], ['IN', 'India'], ['SA', 'Saudi Arabia'],
   ['QA', 'Qatar'], ['KW', 'Kuwait'], ['OM', 'Oman'], ['BH', 'Bahrain'], ['US', 'United States'], ['CA', 'Canada'],
@@ -25,8 +28,14 @@ const countries = [
       <span class="err" data-err="email" role="alert"></span>
     </div>
     <div class="field">
-      <label for="f-phone">Phone or WhatsApp (optional)</label>
-      <input id="f-phone" name="phone" type="tel" autocomplete="tel" placeholder="+971 5x xxx xxxx" maxlength="24" />
+      <label for="f-phone">Mobile number (with country code)</label>
+      <div class="phone-row">
+        <select id="f-phone-cc" name="phone_country" aria-label="Country code" required>
+          {dials.map((d) => <option value={d.cc} selected={d.cc === 'AE'}>{`${d.flag} ${d.name} (+${d.dial})`}</option>)}
+        </select>
+        <input id="f-phone" name="phone_national" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="50 123 4567" maxlength="24" required aria-describedby="f-phone-err" />
+      </div>
+      <span class="err" id="f-phone-err" data-err="phone" role="alert"></span>
     </div>
     <div class="field">
       <label for="f-country">Where are you based?</label>
@@ -117,6 +126,8 @@ const countries = [
 
 <script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <script>
+  import { toE164 } from '../lib/phone.mjs';
+  import { attributionFields } from '../lib/attribution.mjs';
   const form = document.getElementById('lead-form') as HTMLFormElement | null;
   if (form) {
     const status = document.getElementById('lead-status')!;
@@ -136,7 +147,11 @@ const countries = [
       const el = form.querySelector(`[data-err="${field}"]`);
       if (el) el.textContent = msg;
     };
-    const clearErrs = () => form.querySelectorAll('[data-err]').forEach((e) => (e.textContent = ''));
+    const clearErrs = () => {
+      form.querySelectorAll('[data-err]').forEach((e) => (e.textContent = ''));
+      form.querySelector('#f-phone')?.removeAttribute('aria-invalid');
+    };
+    const phoneErr = (msg: string) => { setErr('phone', msg); form.querySelector('#f-phone')?.setAttribute('aria-invalid', 'true'); };
     const say = (msg: string, ok: boolean) => { status.textContent = msg; status.className = 'status ' + (ok ? 'ok' : 'bad'); };
 
     let attribution: Record<string, string | null> = {};
@@ -149,6 +164,11 @@ const countries = [
       let bad = false;
       if (!/^[\p{L}\p{M}' .\-]{2,80}$/u.test(name)) { setErr('name', 'Enter your name.'); bad = true; }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { setErr('email', 'Enter a valid email address.'); bad = true; }
+      const ccSel = form.elements.namedItem('phone_country') as HTMLSelectElement;
+      const national = val('phone_national');
+      const phone = toE164(national, ccSel.value);
+      if (!national) { phoneErr('Enter your mobile number.'); bad = true; }
+      else if (!phone) { phoneErr(`Enter a valid mobile number for ${ccSel.selectedOptions[0]?.text ?? 'the selected country'}.`); bad = true; }
       const consent = (form.elements.namedItem('consent_contact') as HTMLInputElement).checked;
       if (!consent) { setErr('consent_contact', 'Please confirm so I can reply to you.'); bad = true; }
       if (bad) { say('Please fix the highlighted fields.', false); return; }
@@ -167,7 +187,7 @@ const countries = [
 
       const payload = {
         name, email,
-        phone: val('phone') || undefined,
+        phone,
         country: val('country') || undefined,
         intent: sell ? 'sell' : val('intent') || 'buy',
         budget_band: sell ? undefined : val('budget_band') || 'unspecified',
@@ -178,10 +198,7 @@ const countries = [
         consent_nurture: (form.elements.namedItem('consent_nurture') as HTMLInputElement).checked,
         company_website: val('company_website'),
         turnstile_token: token,
-        utm_source: attribution.utm_source, utm_medium: attribution.utm_medium, utm_campaign: attribution.utm_campaign,
-        utm_content: attribution.utm_content, utm_term: attribution.utm_term,
-        landing_page: attribution.landing_page ?? location.pathname,
-        referrer: attribution.referrer ?? (document.referrer || undefined),
+        ...attributionFields(attribution, location.pathname, document.referrer),
       };
 
       btn.disabled = true; say('Sending…', true);
@@ -205,6 +222,9 @@ const countries = [
         } else if (body.error === 'invalid_input' && body.field) {
           const map: Record<string, string> = { name: 'name', email: 'email', consent_contact: 'consent_contact' };
           if (map[body.field]) setErr(map[body.field], 'Please check this field.');
+          say('Please check the form and try again.', false);
+        } else if (body.error === 'invalid_phone') {
+          phoneErr('Please check your mobile number and country code.');
           say('Please check the form and try again.', false);
         } else if (body.error === 'verification_failed') {
           say('The security check failed. Reload the page and try again.', false);

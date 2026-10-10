@@ -1,6 +1,7 @@
 import { outboundBlockers, type Config } from './config';
 import { escalationReasons } from './escalation';
 import { classify, validateLead } from './firewall';
+import { phonePresent, validE164 } from './phone';
 import { assignLane, templateFor } from './lanes';
 import { scoreLead } from './scoring';
 import { firstName, isApproved, renderTemplate, templateHash, type Stream, type Template } from './templates';
@@ -134,6 +135,15 @@ export async function processLead(raw: unknown, ctx: PipelineCtx, deps: Deps): P
   const v = validateLead(raw);
   if (!v.ok) return { status: 400, body: { ok: false, error: 'invalid_input', field: v.field } };
   const lead = v.lead;
+  // Package B: a phone that is sent must be a valid number (stored as E.164); LEAD_STRICT also makes it required.
+  const rawPhone = (raw as Record<string, unknown>).phone;
+  if (phonePresent(rawPhone)) {
+    const e164 = validE164(rawPhone);
+    if (!e164) return { status: 400, body: { ok: false, error: 'invalid_phone' } };
+    lead.phone = e164;
+  } else if (ctx.config.leadStrict) {
+    return { status: 400, body: { ok: false, error: 'invalid_phone' } };
+  }
 
   const now = deps.now();
   const emailHash = await deps.hash(lead.email);

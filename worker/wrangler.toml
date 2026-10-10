@@ -22,6 +22,7 @@ OUTBOUND = "off"                      # stays off until the go-live checklist is
 EMAIL_PROVIDER = "resend"             # "resend" (default choice) or "brevo"; secrets: RESEND_API_KEY / BREVO_API_KEY
 BRN = ""                              # pending: owner to supply before go-live
 AFFILIATION = ""
+LEAD_STRICT = "false"                 # Package B: "true" makes a valid phone required on /lead. Keep "false" until the domain cutover.
 SITE_URL = "https://sharjeelhashmat.com"
 WORKER_URL = "https://ck-lead-worker.sharjeelhashmat.workers.dev"   # workers.dev subdomain registered 2026-09-19
 BOOKING_URL = ""

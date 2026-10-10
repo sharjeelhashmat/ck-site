@@ -14,7 +14,8 @@
     "@astrojs/sitemap": "^3.6.0",
     "@fontsource-variable/inter": "^5.2.0",
     "@fontsource/cormorant-garamond": "^5.2.0",
-    "astro": "^5.14.0"
+    "astro": "^5.14.0",
+    "libphonenumber-js": "1.13.14"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.4",

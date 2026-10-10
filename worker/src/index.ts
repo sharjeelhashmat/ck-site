@@ -20,6 +20,7 @@ export interface Env {
   OUTBOUND?: string;
   BRN?: string;
   AFFILIATION?: string;
+  LEAD_STRICT?: string;
   BOOKING_URL?: string;
   SITE_URL?: string;
   WORKER_URL?: string;
@@ -117,9 +118,14 @@ async function verifyTurnstile(secret: string, token: unknown, ip: string | null
   form.append('secret', secret);
   form.append('response', token);
   if (ip) form.append('remoteip', ip);
-  const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { method: 'POST', body: form });
-  const out = (await res.json().catch(() => ({}))) as { success?: boolean };
-  return out.success === true;
+  // 5 s cap: a slow or unreachable siteverify counts as a failed check, never as a pass.
+  try {
+    const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { method: 'POST', body: form, signal: AbortSignal.timeout(5000) });
+    const out = (await res.json().catch(() => ({}))) as { success?: boolean };
+    return out.success === true;
+  } catch {
+    return false;
+  }
 }
 
 function makeDeps(env: Env): Deps {
@@ -233,6 +239,11 @@ export default {
       let raw: unknown;
       try { raw = JSON.parse(text); } catch { return json({ ok: false, error: 'invalid_input', field: 'body' }, 400, corsOrigin); }
 
+      // Fail closed: without the Turnstile secret no enquiry can be verified, so none is accepted.
+      if (!env.TURNSTILE_SECRET) {
+        console.error('lead: TURNSTILE_SECRET is not set; rejecting the enquiry (fail closed)');
+        return json({ ok: false, error: 'verification_unavailable' }, 503, corsOrigin);
+      }
       const token = (raw as Record<string, unknown> | null)?.turnstile_token;
       const human = await verifyTurnstile(env.TURNSTILE_SECRET, token, req.headers.get('cf-connecting-ip'));
       if (!human) return json({ ok: false, error: 'verification_failed' }, 403, corsOrigin);

@@ -162,3 +162,40 @@ describe('pipeline', () => {
     expect(r.internal?.outbound).toBe('skipped:blocked');
   });
 });
+
+describe('pipeline: phone (Package B)', () => {
+  it('non-strict: valid formatted phone stored as E.164; absent or empty phone keeps the old path', async () => {
+    for (const [phone, want] of [['+971 50 123 4567', '+971501234567'], ['00971501234567', '+971501234567'], [undefined, null], ['', null], ['  ', null]] as const) {
+      const f = makeFake();
+      const r = await processLead({ ...baseLead(), phone }, await ctx(), f.deps);
+      expect(r.status, String(phone)).toBe(202);
+      expect(f.rows[0]!.lead.phone).toBe(want);
+    }
+  });
+
+  it('non-strict: an invalid phone is 400 invalid_phone and nothing is stored', async () => {
+    for (const phone of ['12345', '+971 12', '+1 555 0100', 'call me', 12345]) {
+      const f = makeFake();
+      const r = await processLead({ ...baseLead(), phone }, await ctx(), f.deps);
+      expect(r, String(phone)).toMatchObject({ status: 400, body: { ok: false, error: 'invalid_phone' } });
+      expect(f.rows).toHaveLength(0);
+    }
+  });
+
+  it('strict: phone is required and must be valid', async () => {
+    const strict = await ctx({ ...goodEnv, LEAD_STRICT: 'true' });
+    for (const phone of [undefined, '', '12345']) {
+      const f = makeFake();
+      expect((await processLead({ ...baseLead(), phone }, strict, f.deps)).body, String(phone)).toEqual({ ok: false, error: 'invalid_phone' });
+      expect(f.rows).toHaveLength(0);
+    }
+    const f = makeFake();
+    expect((await processLead({ ...baseLead(), phone: '+971501234567' }, strict, f.deps)).status).toBe(202);
+  });
+
+  it('other validation errors still come first, unchanged', async () => {
+    const f = makeFake();
+    const r = await processLead({ ...baseLead(), email: 'nope', phone: '12345' }, await ctx(), f.deps);
+    expect(r.body).toEqual({ ok: false, error: 'invalid_input', field: 'email' });
+  });
+});

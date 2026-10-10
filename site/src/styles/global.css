@@ -150,6 +150,8 @@ form.card { padding: 1.75rem; }
 .field textarea { min-height: 7rem; resize: vertical; }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--navy); outline: 3px solid rgba(12, 59, 110, .25); outline-offset: 0; }
 .field .err { color: var(--err); font-size: .8rem; min-height: 1em; }
+.phone-row { display: grid; grid-template-columns: minmax(0, 12rem) minmax(0, 1fr); gap: .5rem; }
+@media (max-width: 420px) { .phone-row { grid-template-columns: 1fr; } }
 .check { display: flex; gap: .7rem; align-items: flex-start; font-size: .875rem; color: var(--ink); }
 .check input { margin-top: .3rem; width: 1.1rem; height: 1.1rem; accent-color: var(--navy); flex: none; }
 .hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
