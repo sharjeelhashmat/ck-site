@@ -35,14 +35,38 @@ const plain = pick(['/about', '/contact']);
   </div>
 </header>
 <script>
-  const btn = document.getElementById('menu-btn');
+  import { pageBehind, wrapFocus } from '../lib/menu-focus.mjs';
+  const btn = document.getElementById('menu-btn') as HTMLButtonElement | null;
   const menu = document.getElementById('site-menu');
-  function set(open: boolean) {
+  const header = btn?.closest('header') ?? null;
+  // The menu is a panel only below 75rem (1200px); at desktop width the button is hidden and nothing here applies.
+  const desktop = window.matchMedia('(min-width: 75rem)');
+  const items = () => [...(menu?.querySelectorAll<HTMLElement>('a') ?? [])];
+  const isOpen = () => !!menu?.classList.contains('open');
+  let inerted: Element[] = [];
+  function set(open: boolean, returnFocus = false) {
     menu?.classList.toggle('open', open);
     btn?.setAttribute('aria-expanded', String(open));
     btn?.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+    if (open) {
+      // The page behind is inert only while the menu is open.
+      inerted = pageBehind([...document.body.children], header);
+      inerted.forEach((el) => el.setAttribute('inert', ''));
+      items()[0]?.focus();
+    } else {
+      inerted.forEach((el) => el.removeAttribute('inert'));
+      inerted = [];
+      if (returnFocus) btn?.focus();
+    }
   }
-  btn?.addEventListener('click', () => set(!menu?.classList.contains('open')));
+  btn?.addEventListener('click', () => set(!isOpen()));
   menu?.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => set(false)));
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') set(false); });
+  document.addEventListener('keydown', (e) => {
+    if (!isOpen() || !btn) return;
+    if (e.key === 'Escape') { set(false, true); return; }
+    if (e.key !== 'Tab') return;
+    const target = wrapFocus({ shift: e.shiftKey, active: document.activeElement as HTMLElement | null, button: btn as HTMLElement, items: items() });
+    if (target) { e.preventDefault(); target.focus(); }
+  });
+  desktop.addEventListener('change', (e) => { if (e.matches && isOpen()) set(false); });
 </script>

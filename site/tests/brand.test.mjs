@@ -205,3 +205,39 @@ test('brand assets are the approved Brand Package v3.0 files, byte for byte', ()
     }
   }
 });
+
+// Mobile menu focus (owner-approved 2026-10-10): focus stays inside the open menu.
+import { pageBehind, wrapFocus } from '../src/lib/menu-focus.mjs';
+
+test('menu focus: open goes to Buy, Tab x9 from Buy cycles back to the button, Shift+Tab wraps the other way', () => {
+  const button = 'button';
+  const items = ['Buy', 'Invest', 'Sell', 'Areas', 'New Launches', 'Insights', 'About', 'Contact', 'WhatsApp'];
+  const order = [button, ...items]; // DOM order: the button sits directly before the menu
+  const step = (active, shift) => wrapFocus({ shift, active, button, items }) ?? order[order.indexOf(active) + (shift ? -1 : 1)];
+  assert.equal(step(button, false), 'Buy', 'Tab from the button enters the menu at Buy');
+  let at = 'Buy';
+  const path = [];
+  for (let i = 0; i < 9; i++) { at = step(at, false); path.push(at); }
+  assert.deepEqual(path, [...items.slice(1), button], 'Tab x9 from Buy ends on the button');
+  assert.equal(step('WhatsApp', false), button, 'Tab from WhatsApp moves to the button');
+  assert.equal(step(button, true), 'WhatsApp', 'Shift+Tab from the button moves to WhatsApp');
+  assert.equal(step('Buy', true), button, 'Shift+Tab from Buy moves to the button');
+  assert.equal(wrapFocus({ shift: false, active: 'page-link', button, items }), 'Buy', 'focus outside the cycle is brought back in');
+});
+
+test('menu focus: only the page behind becomes inert, and pre-existing inert is left alone', () => {
+  const el = (name, inert = false) => ({ name, hasAttribute: (a) => a === 'inert' && inert });
+  const header = el('header');
+  const kids = [el('skip'), header, el('main'), el('fabs'), el('footer'), el('already', true)];
+  assert.deepEqual(pageBehind(kids, header).map((e) => e.name), ['skip', 'main', 'fabs', 'footer']);
+});
+
+test('menu focus: the built header script handles Escape, Tab, inert and aria-expanded; desktop is unchanged', () => {
+  // Astro inlines a small script into the page and bundles a larger one into _astro/; look in both.
+  const h = readFileSync(join(dist, 'index.html'), 'utf8');
+  const js = h + readdirSync(join(dist, '_astro')).filter((f) => f.endsWith('.js')).map((f) => readFileSync(join(dist, '_astro', f), 'utf8')).join('\n');
+  for (const needle of ['Escape', 'inert', 'aria-expanded', 'min-width: 75rem']) assert.ok(js.includes(needle), needle);
+  assert.match(h, /<button class="menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="site-menu" id="menu-btn">/);
+  assert.ok(h.indexOf('id="menu-btn"') < h.indexOf('id="site-menu"'), 'the button precedes the menu');
+  assert.doesNotMatch(h.replace(/<script[\s\S]*?<\/script>/g, ''), /\sinert(=|\s|>)/, 'nothing is inert in the served markup');
+});
