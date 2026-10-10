@@ -4,7 +4,11 @@
 //
 // Access model: the lead id returned by POST /lead (a random UUID) is the capability. It is shown only to the person who
 // just sent the enquiry. The route can only WRITE a profile; it never reads anything back. All five fields are fixed
-// choices, so no free text is stored. Quarantined (suspicious/spam) leads and enquiries older than 7 days are refused.
+// choices except one optional, sanitised "Elsewhere in the UAE" text (other_area, max 80 characters, stored in areas as
+// "other:<text>"). Quarantined (suspicious/spam) leads and enquiries older than 7 days are refused.
+// Staging: a request from STAGING_ORIGIN may attach a profile only to a TEST lead (an enquiry sent from staging). That
+// profile is stored like any other but never alerts the owner. Nothing else reads investor_profiles: no score, lane,
+// message or nurture step uses them, so the owner alert below is the only consumer to skip.
 
 export const OBJECTIVES = ['rental_income', 'capital_growth', 'mix', 'residency'] as const;
 export const PROPERTY_TYPES = ['apartment', 'townhouse', 'villa', 'no_preference'] as const;
@@ -14,6 +18,10 @@ export const HOLDING_PERIODS = ['under_2y', '2_5y', '5_10y', '10y_plus'] as cons
 export const AREA_SLUGS = [
   'downtown-dubai', 'dubai-marina', 'dubai-hills', 'dubai-creek-harbour', 'dubai-islands', 'palm-jumeirah', 'palm-jebel-ali', 'dubai-maritime-city',
 ] as const;
+// Extra choices on the site's profile form: "Elsewhere in the UAE" (with other_area text) and "Not sure yet - I'd like your advice".
+export const AREA_EXTRAS = ['other', 'advice'] as const;
+const AREA_CHOICES = [...AREA_SLUGS, ...AREA_EXTRAS] as const;
+export const OTHER_AREA_MAX = 80;
 
 export const PROFILE_WINDOW_DAYS = 7;
 export const MAX_PROFILE_BODY = 4 * 1024;
@@ -26,7 +34,12 @@ export interface Profile {
   areas: string[];
 }
 
-export type ProfileValidation = { ok: true; leadId: string; profile: Profile } | { ok: false; field: string };
+export type ProfileValidation = { ok: true; leadId: string; profile: Profile } | { ok: false; field: string; error?: 'invalid_other_area' };
+
+/** other_area: strip control characters and angle brackets, collapse whitespace, trim, cap at 80 characters. */
+export function cleanOtherArea(v: string): string {
+  return v.replace(/[\u0000-\u001f\u007f-\u009f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, OTHER_AREA_MAX).trim();
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const pick = <T extends readonly string[]>(list: T, v: unknown): T[number] | null => (typeof v === 'string' && (list as readonly string[]).includes(v) ? (v as T[number]) : null);
@@ -45,14 +58,20 @@ export function validateProfile(raw: unknown): ProfileValidation {
   if (!holding_period) return { ok: false, field: 'holding_period' };
   let areas: string[] = [];
   if (r.areas !== undefined) {
-    if (!Array.isArray(r.areas) || r.areas.length > AREA_SLUGS.length) return { ok: false, field: 'areas' };
-    for (const a of r.areas) if (!pick(AREA_SLUGS, a)) return { ok: false, field: 'areas' };
-    areas = [...new Set(r.areas as string[])].sort();
+    if (!Array.isArray(r.areas) || r.areas.length > AREA_CHOICES.length) return { ok: false, field: 'areas' };
+    for (const a of r.areas) if (!pick(AREA_CHOICES, a)) return { ok: false, field: 'areas' };
+    areas = [...new Set(r.areas as string[])];
   }
+  // "other" needs its text, and text needs "other". Empty or whitespace-only text counts as not sent.
+  if (r.other_area !== undefined && typeof r.other_area !== 'string') return { ok: false, field: 'other_area', error: 'invalid_other_area' };
+  const otherArea = typeof r.other_area === 'string' ? cleanOtherArea(r.other_area) : '';
+  const otherTicked = areas.includes('other');
+  if (otherTicked !== (otherArea !== '')) return { ok: false, field: 'other_area', error: 'invalid_other_area' };
+  areas = areas.map((a) => (a === 'other' ? `other:${otherArea}` : a)).sort();
   return { ok: true, leadId: r.lead_id.toLowerCase(), profile: { objective, property_type, risk_tolerance, holding_period, areas } };
 }
 
-export interface LeadRef { created_at: string; quarantined: number; name: string; email: string; intent: string; lane: string | null }
+export interface LeadRef { created_at: string; quarantined: number; status?: string | null; name: string; email: string; intent: string; lane: string | null }
 
 export interface ProfileDeps {
   now(): Date;
@@ -66,22 +85,31 @@ export interface ProfileResult { status: number; body: { ok: boolean; error?: st
 
 const clean = (s: string) => s.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120);
 
-export async function saveProfile(raw: unknown, deps: ProfileDeps): Promise<ProfileResult> {
+export async function saveProfile(raw: unknown, deps: ProfileDeps, opts: { staging?: boolean } = {}): Promise<ProfileResult> {
   const v = validateProfile(raw);
-  if (!v.ok) return { status: 400, body: { ok: false, error: 'invalid_input', field: v.field } };
+  if (!v.ok) {
+    if (v.error === 'invalid_other_area') return { status: 400, body: { ok: false, error: 'invalid_other_area' } };
+    return { status: 400, body: { ok: false, error: 'invalid_input', field: v.field } };
+  }
 
   const lead = await deps.findLead(v.leadId);
-  // Unknown id and quarantined lead give the same answer, so the route cannot be used to probe which ids exist.
-  if (!lead || lead.quarantined) return { status: 404, body: { ok: false, error: 'invalid_link' } };
+  const test = lead?.status === 'TEST';
+  if (opts.staging) {
+    // Staging may only reach TEST leads. Unknown and real leads get the same answer, so nothing can be probed.
+    if (!lead || !test) return { status: 403, body: { ok: false, error: 'not_allowed' } };
+  } else if (!lead || lead.quarantined) {
+    // Unknown id and quarantined lead (TEST included) give the same answer, so the route cannot be used to probe ids.
+    return { status: 404, body: { ok: false, error: 'invalid_link' } };
+  }
   const ageMs = deps.now().getTime() - new Date(lead.created_at).getTime();
   if (!(ageMs >= 0) || ageMs > PROFILE_WINDOW_DAYS * 24 * 3600 * 1000) return { status: 410, body: { ok: false, error: 'expired' } };
 
   const nowIso = deps.now().toISOString();
   const outcome = await deps.upsertProfile(v.leadId, v.profile, nowIso);
-  await deps.logEvent(outcome === 'created' ? 'profile_saved' : 'profile_updated', v.leadId, JSON.stringify({ areas: v.profile.areas.length }));
+  await deps.logEvent(outcome === 'created' ? 'profile_saved' : 'profile_updated', v.leadId, JSON.stringify({ areas: v.profile.areas.length, ...(test ? { test: true } : {}) }));
 
-  // Tell the owner once, on first save. Best effort: the profile is already stored.
-  if (outcome === 'created') {
+  // Tell the owner once, on first save. Best effort: the profile is already stored. Never for a TEST lead.
+  if (outcome === 'created' && !test) {
     const p = v.profile;
     try {
       await deps.notifyOwner(
