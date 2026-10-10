@@ -34,10 +34,10 @@ const id = `nl-${variant}`;
   .nl-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .nl-row { display: flex; flex-wrap: wrap; gap: .6rem; }
   .nl-row input {
-    flex: 1 1 14rem; min-width: 0; font: 400 1rem var(--sans); color: var(--ink); background: #fff;
-    border: 1px solid #b9b3a3; border-radius: 2px; padding: .75rem .8rem;
+    flex: 1 1 14rem; min-width: 0; font: 400 1rem var(--sans); color: var(--ink); background: var(--paper);
+    border: 1px solid var(--sky); border-radius: 2px; padding: .75rem .8rem;
   }
-  .nl-row input:focus { border-color: var(--navy); outline: 3px solid rgba(12, 59, 110, .25); outline-offset: 0; }
+  .nl-row input:focus { border-color: var(--navy); outline: 3px solid color-mix(in srgb, var(--navy) 25%, transparent); outline-offset: 0; }
   .nl-row .btn { flex: none; }
   .nl-form .status { margin-top: .6rem; min-height: 1.2em; font-size: .9rem; }
   .nl-form .status:empty { display: none; }

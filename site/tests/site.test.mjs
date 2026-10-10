@@ -186,7 +186,7 @@ test('floating actions on every page: WhatsApp link uses the site number, scroll
 test('print: every page carries the print-only mark header and a contact footer, with no agency line while the agency is unconfirmed', () => {
   for (const f of htmlFiles) {
     const h = readFileSync(f, 'utf8');
-    assert.match(h, /class="print-only print-head"[^>]*>\s*<svg/, `${f}: print header with mark`);
+    assert.match(h, /class="print-only print-head"[^>]*>\s*<img class="logo" src="\/logo-horizontal-ink\.svg" alt="Sharjeel Hashmat"/, `${f}: print header with logo`);
     assert.match(h, /class="print-only print-foot"[^>]*>\s*<p>\+971 55 541 4468 · hello@sharjeelhashmat\.com · sharjeelhashmat\.com<\/p>\s*<\/div>/, `${f}: print footer`);
   }
 });

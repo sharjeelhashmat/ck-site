@@ -1,5 +1,4 @@
 ---
-import Mark from './Mark.astro';
 import { NAV_LINKS, SITE, waLink } from '../lib/site';
 const path = Astro.url.pathname.replace(/\/$/, '') || '/';
 const wa = waLink("Hi Sharjeel, I'm interested in UAE real estate.");
@@ -8,8 +7,7 @@ const current = (href: string) => (path === href || path.startsWith(href + '/') 
 <header class="site-nav">
   <div class="wrap">
     <a class="brand" href="/" aria-label={`${SITE.name}, home`}>
-      <Mark />
-      <span>{SITE.name}</span>
+      <img class="logo" src="/logo-horizontal-ink.svg" alt="Sharjeel Hashmat" width="264" height="88" />
     </a>
     <nav class="nav-links" aria-label="Primary">
       {NAV_LINKS.map((l) => <a href={l.href} aria-current={current(l.href)}>{l.label}</a>)}

@@ -21,7 +21,7 @@ export const PRIVACY: LegalSection[] = [
   {
     h: '1. Who this policy covers',
     p: [
-      `This policy applies to sharjeelhashmat.com and describes how ${SITE.name} ("I", "me"), as the data controller, collects, uses and stores personal data from visitors, enquirers and clients in connection with UAE real estate services. This site is operated as a personal brand by ${SITE.name}, a freelance real estate consultant${AFFILIATION_LINE ? ` working with ${SITE.brokerage}; the BRN registration reference is shown in the site's footer and About page for regulatory purposes` : ''}.`,
+      `This policy applies to sharjeelhashmat.com and describes how ${SITE.name} ("I", "me"), as the data controller, collects, uses and stores personal data from visitors, enquirers and clients in connection with UAE real estate services. This site is operated as a personal brand by ${SITE.name}, a freelance property consultant${AFFILIATION_LINE ? ` working with ${SITE.brokerage}; the BRN registration reference is shown in the site's footer and About page for regulatory purposes` : ''}.`,
     ],
   },
   {
