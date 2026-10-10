@@ -4,6 +4,12 @@ import Base from '../layouts/Base.astro';
 import { SITE, waLink } from '../lib/site';
 import { PROFILE_OPTIONS, PROFILE_AREAS } from '../lib/profile';
 const o = PROFILE_OPTIONS;
+// Added after the eight named areas (owner-approved 2026-10-10). Values match the Worker's AREA_EXTRAS.
+const AREA_EXTRAS = [
+  { value: 'other', label: 'Elsewhere in the UAE' },
+  { value: 'advice', label: 'Not sure yet – I’d like your advice' },
+];
+const wa = waLink("Hi Sharjeel, I'd like to discuss what would suit me.");
 ---
 <Base title="Investor profile" description="An optional short profile so I can match properties to you." noindex>
   <section class="section">
@@ -49,26 +55,65 @@ const o = PROFILE_OPTIONS;
           <fieldset class="field full" style="border:0;padding:0;margin:0">
             <legend style="font-size:.85rem;font-weight:600;margin-bottom:.5rem">Areas you prefer (optional)</legend>
             <div style="display:grid;gap:.5rem;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr))">
-              {PROFILE_AREAS.map((a) => (
-                <label class="check" style="text-transform:none;letter-spacing:normal;font-size:.9rem;font-weight:400"><input type="checkbox" name="areas" value={a.value} /><span>{a.label}</span></label>
+              {[...PROFILE_AREAS, ...AREA_EXTRAS].map((a) => (
+                <label class="check" style="text-transform:none;letter-spacing:normal;font-size:.9rem;font-weight:400"><input type="checkbox" name="areas" value={a.value} aria-controls={a.value === 'other' ? 'p-other-wrap' : undefined} /><span>{a.label}</span></label>
               ))}
+            </div>
+            <div class="field other-area" id="p-other-wrap" hidden>
+              <label for="p-other">Which area or community?</label>
+              <input id="p-other" name="other_area" type="text" maxlength="80" placeholder="e.g. JVC, Yas Island, Al Marjan Island" aria-describedby="p-other-hint p-other-err" autocomplete="off" />
+              <span class="hint" id="p-other-hint">Any area or emirate in the UAE.</span>
+              <span class="err" id="p-other-err" data-err="other_area" role="alert"></span>
             </div>
           </fieldset>
         </div>
-        <div class="form-foot">
+        <div class="profile-actions">
           <button class="btn" type="submit" id="profile-submit">Send profile</button>
-          <span class="status" id="profile-status" role="status" aria-live="polite"></span>
+          <a class="btn btn--ghost" href={wa} target="_blank" rel="noopener">Prefer to talk? Message me on WhatsApp</a>
+          <a class="profile-skip" href="/">Skip for now</a>
         </div>
-        <p class="fine" style="margin-top:1rem">Stored with your enquiry and used only to match properties to you. <a href="/privacy">Privacy</a>. Prefer to talk? <a href={waLink("Hi Sharjeel, I'd like to discuss what would suit me.")} target="_blank" rel="noopener">WhatsApp me</a>.</p>
+        <span class="status" id="profile-status" role="status" aria-live="polite"></span>
+        <div class="profile-alert" id="profile-alert" role="alert"></div>
+        <template id="profile-alert-tpl"><p>Your profile could not be saved. Your enquiry has still been received, and I will reply within 24 hours. <a href={wa} target="_blank" rel="noopener">Message me on WhatsApp</a></p></template>
+        <p class="profile-privacy">Your answers are stored with your enquiry and used only to tailor my recommendation to you. See how your data is handled in the <a href="/privacy">Privacy Policy</a>.</p>
       </form>
     </div>
   </section>
 </Base>
+<style is:global>
+  /* Investor profile form (Brand v3.1 tokens; ok and err pass AA on the white card). */
+  .other-area { margin-top: 1rem; }
+  .other-area .hint { font-size: .8rem; color: var(--ink); }
+  .profile-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1rem; margin-top: 1.5rem; }
+  .profile-actions .btn { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  .profile-skip { font-size: .9rem; color: var(--ink); }
+  @media (max-width: 40rem) {
+    .profile-actions { flex-direction: column; align-items: stretch; }
+    .profile-actions .btn { width: 100%; }
+    .profile-skip { align-self: flex-start; }
+  }
+  #profile-status:empty { display: none; }
+  #profile-status { display: block; margin-top: .75rem; }
+  .profile-alert:not(:empty) { margin-top: 1rem; padding: .9rem 1rem; background: var(--paper); border: 1px solid var(--err); border-left-width: 3px; color: var(--err); font-size: .95rem; }
+  #profile-form .profile-alert p { margin: 0; font-size: .95rem; color: var(--err); }
+  .profile-alert a { color: var(--err); }
+  #profile-form .profile-privacy { margin-top: 1rem; font-size: 14px; color: var(--ink); }
+  .profile-success { border-left: 3px solid var(--ok); scroll-margin-top: 6rem; }
+  .card.profile-success > p { margin: 0; color: var(--ok); font-size: 1.05rem; font-weight: 500; }
+</style>
 <script>
+  import { MESSAGES, otherAreaState, sendProfile } from '../lib/profile-submit.mjs';
   const form = document.getElementById('profile-form') as HTMLFormElement | null;
   if (form) {
     const status = document.getElementById('profile-status')!;
     const btn = document.getElementById('profile-submit') as HTMLButtonElement;
+    const alertBox = document.getElementById('profile-alert')!;
+    const alertTpl = document.getElementById('profile-alert-tpl') as HTMLTemplateElement;
+    const otherBox = form.querySelector<HTMLInputElement>('input[name="areas"][value="other"]')!;
+    const otherWrap = document.getElementById('p-other-wrap')!;
+    const otherInput = document.getElementById('p-other') as HTMLInputElement;
+    const otherErr = document.getElementById('p-other-err')!;
+    const sendLabel = btn.textContent ?? 'Send profile';
     const workerUrl = form.dataset.worker!;
     const lead = new URLSearchParams(location.search).get('lead') ?? '';
     const say = (m: string, ok: boolean) => { status.textContent = m; status.className = 'status ' + (ok ? 'ok' : 'bad'); };
@@ -77,36 +122,57 @@ const o = PROFILE_OPTIONS;
       say('This page works from the link shown after you send an enquiry. Please use that link, or message me on WhatsApp.', false);
       btn.disabled = true;
     }
+    // "Elsewhere in the UAE": reveal the text field while ticked; hide and clear it when unticked.
+    const syncOther = () => {
+      const st = otherAreaState(otherBox.checked);
+      otherWrap.hidden = st.hidden;
+      otherInput.required = st.required;
+      if (st.clear) { otherInput.value = ''; otherErr.textContent = ''; otherInput.removeAttribute('aria-invalid'); }
+    };
+    otherBox.addEventListener('change', () => { syncOther(); if (otherBox.checked) otherInput.focus(); });
+    otherInput.addEventListener('input', () => { if (otherInput.value.trim()) { otherErr.textContent = ''; otherInput.removeAttribute('aria-invalid'); } });
+    syncOther();
+    const otherProblem = () => { otherErr.textContent = MESSAGES.otherArea; otherInput.setAttribute('aria-invalid', 'true'); otherInput.focus(); };
     // A shown error clears as soon as that question is answered.
     form.querySelectorAll('select').forEach((s) => s.addEventListener('change', () => { const el = form.querySelector(`[data-err="${s.name}"]`); if (el) el.textContent = ''; }));
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       form.querySelectorAll('[data-err]').forEach((x) => (x.textContent = ''));
+      alertBox.replaceChildren();
+      status.textContent = '';
       let bad = false;
       for (const f of ['objective', 'property_type', 'risk_tolerance', 'holding_period']) {
         if (!val(f)) { const el = form.querySelector(`[data-err="${f}"]`); if (el) el.textContent = 'Please choose one.'; bad = true; }
       }
+      const otherText = otherInput.value.replace(/\s+/g, ' ').trim();
+      if (otherBox.checked && !otherText) { otherProblem(); bad = true; }
       if (bad) { say('Please answer the highlighted questions.', false); return; }
       const areas = [...form.querySelectorAll<HTMLInputElement>('input[name="areas"]:checked')].map((c) => c.value);
-      btn.disabled = true; say('Sending…', true);
-      try {
-        const res = await fetch(`${workerUrl}/profile`, {
-          method: 'POST', headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ lead_id: lead, objective: val('objective'), property_type: val('property_type'), risk_tolerance: val('risk_tolerance'), holding_period: val('holding_period'), areas }),
-        });
-        const body = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
-        if (res.ok && body.ok) {
-          form.reset();
-          say('Thank you. I will use this to match properties to you.', true);
-          btn.disabled = true;
-          return;
-        }
-        if (body.error === 'invalid_link' || body.error === 'expired') say('This link is no longer valid. Please message me on WhatsApp and I will note it manually.', false);
-        else say('Something went wrong on my side. Please message me on WhatsApp.', false);
-      } catch {
-        say('Connection problem. Please try again in a moment.', false);
+
+      // Sending: the button says so and the form is busy until exactly one outcome is shown.
+      btn.disabled = true; btn.textContent = 'Sending…'; form.setAttribute('aria-busy', 'true');
+      const outcome = await sendProfile(`${workerUrl}/profile`, {
+        lead_id: lead, objective: val('objective'), property_type: val('property_type'), risk_tolerance: val('risk_tolerance'),
+        holding_period: val('holding_period'), areas, ...(otherBox.checked ? { other_area: otherText } : {}),
+      });
+      form.removeAttribute('aria-busy');
+
+      if (outcome.kind === 'success') {
+        const panel = document.createElement('div');
+        panel.className = 'card profile-success';
+        panel.setAttribute('role', 'status');
+        panel.tabIndex = -1;
+        const p = document.createElement('p');
+        p.textContent = MESSAGES.success;
+        panel.append(p);
+        form.replaceWith(panel);
+        panel.focus();
+        return;
       }
-      btn.disabled = false;
+      // The visitor's answers stay; they can correct and send again.
+      if (outcome.kind === 'other_area') otherProblem();
+      else alertBox.replaceChildren(alertTpl.content.cloneNode(true));
+      if (outcome.enableSend) { btn.disabled = false; btn.textContent = sendLabel; }
     });
   }
 </script>
