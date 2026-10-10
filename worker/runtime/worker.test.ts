@@ -176,10 +176,11 @@ describe('worker on workerd', () => {
       expect(row).toEqual({ status: 'VALID', quarantined: 0, lane: 'PRIORITY' });
     });
 
-    it('staging is admitted on /lead only: /profile and the newsletter still refuse it', async () => {
+    it('the newsletter still refuses the staging origin (/profile admits it for TEST leads only: runtime/profile.test.ts)', async () => {
       const e = stagingEnv();
-      const prof = await worker.fetch(new Request('https://api.test/profile', { method: 'POST', headers: { origin: STAGING, 'content-type': 'application/json' }, body: '{}' }), e);
+      const prof = await worker.fetch(new Request('https://api.test/profile', { method: 'POST', headers: { origin: STAGING, 'content-type': 'application/json' }, body: JSON.stringify({ lead_id: '3f2b8c1e-7d4a-4e6b-9c10-2a5d8e9f0b11', objective: 'mix', property_type: 'villa', risk_tolerance: 'low', holding_period: '2_5y' }) }), e);
       expect(prof.status).toBe(403);
+      expect(await prof.json()).toEqual({ ok: false, error: 'not_allowed' });
       const nl = await worker.fetch(new Request('https://api.test/api/newsletter/subscribe', { method: 'POST', headers: { origin: STAGING, 'content-type': 'application/json' }, body: JSON.stringify({ email: 'a@example.com', turnstile_token: 'ok' }) }), e);
       expect(nl.status).toBe(403);
       const nlPre = await worker.fetch(new Request('https://api.test/api/newsletter/subscribe', { method: 'OPTIONS', headers: { origin: STAGING } }), e);

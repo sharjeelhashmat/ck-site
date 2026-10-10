@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { AREA_SLUGS, PROFILE_WINDOW_DAYS, saveProfile, validateProfile, type LeadRef, type Profile, type ProfileDeps } from '../src/profile';
+import { AREA_SLUGS, cleanOtherArea, PROFILE_WINDOW_DAYS, saveProfile, validateProfile, type LeadRef, type Profile, type ProfileDeps } from '../src/profile';
 
 const ID = '3f2b8c1e-7d4a-4e6b-9c10-2a5d8e9f0b11';
 const good = { lead_id: ID, objective: 'rental_income', property_type: 'apartment', risk_tolerance: 'moderate', holding_period: '5_10y', areas: ['dubai-marina', 'downtown-dubai'] };
@@ -35,7 +35,7 @@ describe('validateProfile', () => {
   it.each([
     ['lead_id', { lead_id: 'not-a-uuid' }], ['objective', { objective: 'get_rich' }], ['property_type', { property_type: 'castle' }],
     ['risk_tolerance', { risk_tolerance: '' }], ['holding_period', { holding_period: 'forever' }], ['areas', { areas: ['atlantis'] }], ['areas', { areas: 'dubai-marina' }],
-    ['areas', { areas: Array(9).fill('dubai-marina') }],
+    ['areas', { areas: Array(11).fill('dubai-marina') }], // more entries than the 10 choices (8 areas + other + advice)
   ])('rejects a bad %s', (field, over) => {
     const v = validateProfile({ ...good, ...over });
     expect(v).toEqual({ ok: false, field });
@@ -50,6 +50,33 @@ describe('validateProfile', () => {
     expect(v.ok && Object.keys(v.profile).sort()).toEqual(['areas', 'holding_period', 'objective', 'property_type', 'risk_tolerance']);
   });
   it('has 8 area slugs', () => expect(AREA_SLUGS).toHaveLength(8));
+
+  describe('Elsewhere in the UAE (other + other_area) and advice', () => {
+    it('stores "other" with its text as other:<text>, sorted with the rest', () => {
+      const v = validateProfile({ ...good, areas: ['other', 'dubai-marina'], other_area: 'JVC' });
+      expect(v.ok && v.profile.areas).toEqual(['dubai-marina', 'other:JVC']);
+    });
+    it('sanitises the text: control characters and angle brackets out, whitespace collapsed, 80 characters max', () => {
+      expect(cleanOtherArea('  <b>Yas\u0007   Island</b>\n ')).toBe('b Yas Island /b');
+      const v = validateProfile({ ...good, areas: ['other'], other_area: 'x'.repeat(200) });
+      expect(v.ok && v.profile.areas[0]).toBe('other:' + 'x'.repeat(80));
+    });
+    it.each([
+      ['"other" ticked with no text', { areas: ['other'] }],
+      ['"other" ticked with empty text', { areas: ['other'], other_area: '' }],
+      ['"other" ticked with only spaces and brackets', { areas: ['other'], other_area: '  <> ' }],
+      ['text sent without "other"', { areas: ['dubai-marina'], other_area: 'JVC' }],
+      ['text that is not a string', { areas: ['other'], other_area: 42 }],
+    ])('rejects %s with invalid_other_area', (_label, over) => {
+      const v = validateProfile({ ...good, ...over });
+      expect(v.ok).toBe(false);
+      if (!v.ok) expect(v.error).toBe('invalid_other_area');
+    });
+    it('accepts "advice" alongside other choices', () => {
+      const v = validateProfile({ ...good, areas: ['advice', 'palm-jumeirah'] });
+      expect(v.ok && v.profile.areas).toEqual(['advice', 'palm-jumeirah']);
+    });
+  });
 });
 
 describe('saveProfile', () => {
@@ -92,6 +119,33 @@ describe('saveProfile', () => {
     await saveProfile(good, f.deps);
     expect(f.mails[0]!.subject).not.toMatch(/[\r\n]/);
   });
+  it('invalid_other_area comes back as its own error, and nothing is stored', async () => {
+    const f = fake();
+    const r = await saveProfile({ ...good, areas: ['other'] }, f.deps);
+    expect(r).toEqual({ status: 400, body: { ok: false, error: 'invalid_other_area' } });
+    expect(f.saved).toHaveLength(0);
+  });
+
+  it('staging: a TEST lead takes a profile with no owner alert; any other lead is not_allowed', async () => {
+    const t = fake({ status: 'TEST', quarantined: 1 });
+    expect(await saveProfile(good, t.deps, { staging: true })).toEqual({ status: 200, body: { ok: true } });
+    expect(t.saved).toHaveLength(1);
+    expect(t.mails).toHaveLength(0);
+    expect(t.events).toEqual(['profile_saved']);
+    for (const lead of [{ status: 'VALID', quarantined: 0 }, { status: 'SPAM', quarantined: 1 }, null]) {
+      const f = fake(lead);
+      expect(await saveProfile(good, f.deps, { staging: true })).toEqual({ status: 403, body: { ok: false, error: 'not_allowed' } });
+      expect(f.saved).toHaveLength(0);
+      expect(f.mails).toHaveLength(0);
+    }
+  });
+
+  it('production: a TEST lead is quarantined, so it gets the same 404 as an unknown id', async () => {
+    const f = fake({ status: 'TEST', quarantined: 1 });
+    expect((await saveProfile(good, f.deps)).status).toBe(404);
+    expect(f.saved).toHaveLength(0);
+  });
+
   it('invalid input never touches storage', async () => {
     const f = fake();
     expect((await saveProfile({ ...good, objective: 'x' }, f.deps)).status).toBe(400);
