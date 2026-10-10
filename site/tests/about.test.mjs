@@ -78,6 +78,19 @@ test('about: title and description', () => {
   assert.ok(h.includes(`<meta property="og:description" content="${desc}">`));
 });
 
+test('about: the lead line is the display line straight after the kicker; the closing line stays plain', () => {
+  const m = main();
+  const after = m.match(/<p class="kicker"[^>]*>[\s\S]*?<\/p>\s*<p class="([^"]*)">([^<]*)<\/p>/);
+  assert.ok(after, 'a paragraph follows the kicker');
+  assert.ok(after[1].split(' ').includes('about-lead'), after[1]);
+  assert.equal(after[2], 'Numbers first. Straight answers. No pitch.');
+  assert.equal((m.match(/\babout-lead\b/g) || []).length, 1, 'only the lead line');
+  const close = m.match(/<p class="([^"]*)">Serious about UAE property\?/);
+  assert.ok(close, 'closing line');
+  const cls = close[1].split(' ');
+  assert.ok(cls.includes('about-close') && !cls.includes('about-lead'), close[1]);
+});
+
 test('JSON-LD knowsLanguage is ["English","Urdu"] on every page', () => {
   const pages = walk(dist).filter((f) => f.endsWith('.html'));
   assert.ok(pages.length > 10);
