@@ -9,6 +9,7 @@ const { mode = 'general', defaultIntent = 'buy', submitLabel = 'Send' } = Astro.
 const sell = mode === 'sell';
 // Country-code select for the mobile number (all countries; default United Arab Emirates +971).
 const dials = dialCodes();
+const defaultDial = dials.find((d) => d.cc === 'AE')?.dial ?? '971';
 const countries = [
   ['AE', 'United Arab Emirates'], ['PK', 'Pakistan'], ['GB', 'United Kingdom'], ['IN', 'India'], ['SA', 'Saudi Arabia'],
   ['QA', 'Qatar'], ['KW', 'Kuwait'], ['OM', 'Oman'], ['BH', 'Bahrain'], ['US', 'United States'], ['CA', 'Canada'],
@@ -30,9 +31,12 @@ const countries = [
     <div class="field">
       <label for="f-phone">Mobile number (with country code)</label>
       <div class="phone-row">
-        <select id="f-phone-cc" name="phone_country" aria-label="Country code" required>
-          {dials.map((d) => <option value={d.cc} selected={d.cc === 'AE'}>{`${d.flag} ${d.name} (+${d.dial})`}</option>)}
-        </select>
+        <div class="cc-control">
+          <span class="cc-display" id="f-phone-cc-display" aria-hidden="true"><span class="cc-code">+{defaultDial}</span><svg class="cc-chevron" viewBox="0 0 12 8" width="12" height="8" focusable="false"><path d="M1 1.5 6 6.5l5-5" fill="none" stroke="currentColor" stroke-width="1.6" /></svg></span>
+          <select id="f-phone-cc" name="phone_country" aria-label="Country code" required>
+            {dials.map((d) => <option value={d.cc} data-dial={d.dial} selected={d.cc === 'AE'}>{`${d.name} (+${d.dial})`}</option>)}
+          </select>
+        </div>
         <input id="f-phone" name="phone_national" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="50 123 4567" maxlength="24" required aria-describedby="f-phone-err" />
       </div>
       <span class="err" id="f-phone-err" data-err="phone" role="alert"></span>
@@ -152,6 +156,14 @@ const countries = [
       form.querySelector('#f-phone')?.removeAttribute('aria-invalid');
     };
     const phoneErr = (msg: string) => { setErr('phone', msg); form.querySelector('#f-phone')?.setAttribute('aria-invalid', 'true'); };
+
+    // The closed country-code control shows only the dial code; the native select sits over it (opacity 0).
+    const ccSelect = form.querySelector<HTMLSelectElement>('#f-phone-cc');
+    const ccCode = form.querySelector<HTMLElement>('#f-phone-cc-display .cc-code');
+    const showDial = () => { if (ccSelect && ccCode) ccCode.textContent = `+${ccSelect.selectedOptions[0]?.dataset.dial ?? ''}`; };
+    ccSelect?.addEventListener('change', showDial);
+    form.addEventListener('reset', () => setTimeout(showDial));
+    showDial();
     const say = (msg: string, ok: boolean) => { status.textContent = msg; status.className = 'status ' + (ok ? 'ok' : 'bad'); };
 
     let attribution: Record<string, string | null> = {};

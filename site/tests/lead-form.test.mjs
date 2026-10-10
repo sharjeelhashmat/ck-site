@@ -27,8 +27,16 @@ test('form: mobile number is required, with an all-countries code select default
     const sel = h.match(/<select id="f-phone-cc" name="phone_country" aria-label="Country code" required>([\s\S]*?)<\/select>/);
     assert.ok(sel, `${f}: required country-code select`);
     assert.ok((sel[1].match(/<option /g) ?? []).length >= 240, `${f}: all countries listed`);
-    assert.match(sel[1], /<option value="AE" selected>🇦🇪 United Arab Emirates \(\+971\)<\/option>/, `${f}: UAE default with flag and dial code`);
+    const options = [...sel[1].matchAll(/<option value="([A-Z]{2})" data-dial="(\d+)"( selected)?>([^<]*)<\/option>/g)];
+    assert.ok(options.length >= 240, `${f}: every option parsed`);
+    assert.deepEqual([options[0][1], options[0][2], options[0][3], options[0][4]], ['AE', '971', ' selected', 'United Arab Emirates (+971)'], `${f}: UAE first and selected`);
     assert.equal((sel[1].match(/ selected/g) ?? []).length, 1, `${f}: exactly one default`);
+    const rest = options.slice(1).map((o) => o[4].replace(/ \(\+\d+\)$/, ''));
+    assert.deepEqual(rest, [...rest].sort((a, b) => a.localeCompare(b, 'en')), `${f}: the rest alphabetical`);
+    for (const o of options) {
+      assert.equal(o[4], `${o[4].replace(/ \(\+\d+\)$/, '')} (+${o[2]})`, `${f}: option text is "Name (+code)": ${o[4]}`);
+      assert.doesNotMatch(o[4], /\p{Extended_Pictographic}|\p{Regional_Indicator}/u, `${f}: no emoji in ${o[4]}`);
+    }
     assert.match(h, /<input id="f-phone" name="phone_national" type="tel"[^>]*\brequired\b[^>]*aria-describedby="f-phone-err"/, `${f}: required national number input`);
     assert.match(h, /<span class="err" id="f-phone-err" data-err="phone" role="alert">/, `${f}: accessible error slot`);
   }
@@ -44,7 +52,7 @@ test('validation: only a number valid for the chosen country becomes E.164; anyt
   }
   const all = dialCodes();
   assert.ok(all.length >= 240);
-  assert.deepEqual(all.find((d) => d.cc === 'AE'), { cc: 'AE', name: 'United Arab Emirates', flag: '🇦🇪', dial: '971' });
+  assert.deepEqual(all[0], { cc: 'AE', name: 'United Arab Emirates', dial: '971' }, 'UAE first, no flag field');
 });
 
 test('form script: blocks submit on an invalid phone and sends the E.164 value in "phone"', () => {
@@ -106,4 +114,22 @@ test('attribution: first-touch UTMs from the landing URL survive navigation to /
   const src = readFileSync(join(root, 'src/components/LeadForm.astro'), 'utf8');
   assert.match(src, /sessionStorage\.getItem\('ck_attr'\)/, 'form reads the captured attribution');
   assert.match(src, /\.\.\.attributionFields\(attribution, location\.pathname, document\.referrer\)/, 'and sends it in the payload');
+});
+
+test('compact country code: the closed control shows only "+971" (aria-hidden) over an accessible native select', () => {
+  for (const f of formPages) {
+    const h = read(f);
+    const ctl = h.match(/<div class="cc-control">([\s\S]*?)<\/select>\s*<\/div>/);
+    assert.ok(ctl, `${f}: country-code control`);
+    assert.match(ctl[1], /<span class="cc-display" id="f-phone-cc-display" aria-hidden="true"><span class="cc-code">\+971<\/span><svg class="cc-chevron"/, `${f}: display span shows +971 by default`);
+    assert.match(ctl[1], /<select id="f-phone-cc" name="phone_country" aria-label="Country code" required>/, `${f}: select keeps its accessible name`);
+    assert.doesNotMatch(ctl[1], /<select[^>]*(aria-hidden|tabindex="-1"|disabled)/, `${f}: select stays focusable and exposed`);
+  }
+  const css = readFileSync(join(root, 'src/styles/global.css'), 'utf8');
+  assert.match(css, /\.phone-row \{ display: grid; grid-template-columns: 6\.5rem minmax\(0, 1fr\);/, 'fixed-width code, number takes the rest');
+  assert.doesNotMatch(css, /\.phone-row \{ grid-template-columns: 1fr; \}/, 'no stacking on narrow screens');
+  assert.match(css, /\.field \.cc-control select \{ position: absolute; inset: 0;[^}]*opacity: 0;/, 'select layered over the display');
+  assert.match(css, /\.cc-control:focus-within \.cc-display \{[^}]*outline: 3px solid/, 'visible focus ring');
+  const src = readFileSync(join(root, 'src/components/LeadForm.astro'), 'utf8');
+  assert.match(src, /ccSelect\?\.addEventListener\('change', showDial\);/, 'display updates on change');
 });

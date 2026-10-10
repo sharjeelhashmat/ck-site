@@ -19,14 +19,13 @@ export function toE164(national, country) {
 }
 
 /**
- * Every country libphonenumber-js knows, for the country-code select: ISO code, English name, flag and dial code,
- * sorted by name.
- * @returns {{ cc: string, name: string, flag: string, dial: string }[]}
+ * Every country libphonenumber-js knows, for the country-code select: ISO code, English name and dial code.
+ * United Arab Emirates first, then alphabetical by name. No flag emoji (Windows renders them as two letters).
+ * @returns {{ cc: string, name: string, dial: string }[]}
  */
 export function dialCodes() {
   const names = new Intl.DisplayNames(['en'], { type: 'region' });
-  const flag = (cc) => String.fromCodePoint(...[...cc].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65));
   return getCountries()
-    .map((cc) => ({ cc, name: names.of(cc) ?? cc, flag: flag(cc), dial: getCountryCallingCode(cc) }))
-    .sort((a, b) => a.name.localeCompare(b.name, 'en'));
+    .map((cc) => ({ cc, name: names.of(cc) ?? cc, dial: getCountryCallingCode(cc) }))
+    .sort((a, b) => (a.cc === 'AE' ? -1 : b.cc === 'AE' ? 1 : a.name.localeCompare(b.name, 'en')));
 }
