@@ -199,7 +199,7 @@ function makeProfileDeps(env: Env): ProfileDeps {
   return {
     now: () => new Date(),
     async findLead(id) {
-      return env.DB.prepare('SELECT created_at, quarantined, name, email, intent, lane FROM leads WHERE id = ?1').bind(id).first();
+      return env.DB.prepare('SELECT created_at, quarantined, status, name, email, intent, lane FROM leads WHERE id = ?1').bind(id).first();
     },
     async upsertProfile(leadId, p, nowIso) {
       const existing = await env.DB.prepare('SELECT 1 AS x FROM investor_profiles WHERE lead_id = ?1').bind(leadId).first();
@@ -228,8 +228,8 @@ export default {
     const origins = allowedOrigins(cfg.siteUrl, cfg.extraOrigins);
     const origin = req.headers.get('origin') ?? '';
     const corsOrigin = origins.includes(origin) ? origin : undefined;
-    // STAGING_ORIGIN (exact match, "" = off) is admitted on /lead and /health only; /profile and the newsletter keep the
-    // production list, so the staging site can never trigger real mail.
+    // STAGING_ORIGIN (exact match, "" = off) is admitted on /lead, /health and /profile (TEST leads only, see profile.ts);
+    // the newsletter keeps the production list, so the staging site can never trigger real mail.
     const staging = !corsOrigin && cfg.stagingOrigin !== '' && origin === cfg.stagingOrigin;
     const leadCors = corsOrigin ?? (staging ? origin : undefined);
 
@@ -261,6 +261,7 @@ export default {
     }
 
     if (url.pathname === '/profile') {
+      const corsOrigin = leadCors;
       if (req.method === 'OPTIONS') return preflight(corsOrigin);
       if (req.method !== 'POST') return json({ ok: false }, 405);
       if (!corsOrigin) return json({ ok: false, error: 'forbidden' }, 403);
@@ -268,7 +269,7 @@ export default {
       if (text.length > MAX_PROFILE_BODY) return json({ ok: false, error: 'too_large' }, 413, corsOrigin);
       let raw: unknown;
       try { raw = JSON.parse(text); } catch { return json({ ok: false, error: 'invalid_input', field: 'body' }, 400, corsOrigin); }
-      const result = await saveProfile(raw, makeProfileDeps(env));
+      const result = await saveProfile(raw, makeProfileDeps(env), { staging });
       return json(result.body, result.status, corsOrigin);
     }
 

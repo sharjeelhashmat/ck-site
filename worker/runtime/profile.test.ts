@@ -89,3 +89,75 @@ describe('POST /profile on workerd with real D1', () => {
     expect(opt.headers.get('access-control-allow-origin')).toBe('https://www.sharjeelhashmat.com');
   });
 });
+
+describe('POST /profile from the staging origin (TEST leads only)', () => {
+  const STAGING = 'https://ck-site-web.sharjeelhashmat.workers.dev';
+  const env2 = (over: Record<string, string> = {}): Env => ({ ...e(), STAGING_ORIGIN: STAGING, ...over }) as Env;
+  const post = (path: string, body: unknown, origin: string | null, en: Env) =>
+    worker.fetch(new Request(`https://api.test${path}`, { method: 'POST', headers: { 'content-type': 'application/json', ...(origin ? { origin } : {}) }, body: JSON.stringify(body) }), en);
+  const testLead = async (en = env2()) => ((await (await post('/lead', lead, STAGING, en)).json()) as { id: string }).id;
+  const realLead = async (en = env2()) => ((await (await post('/lead', lead, ORIGIN, en)).json()) as { id: string }).id;
+
+  it('preflight from staging is allowed; with STAGING_ORIGIN empty it is not', async () => {
+    const pre = await worker.fetch(new Request('https://api.test/profile', { method: 'OPTIONS', headers: { origin: STAGING } }), env2());
+    expect(pre.headers.get('access-control-allow-origin')).toBe(STAGING);
+    const off = await worker.fetch(new Request('https://api.test/profile', { method: 'OPTIONS', headers: { origin: STAGING } }), env2({ STAGING_ORIGIN: '' }));
+    expect(off.headers.get('access-control-allow-origin')).toBeNull();
+  });
+
+  it('staging + TEST lead: stored, CORS header, no owner alert, lead row untouched', async () => {
+    const en = env2();
+    const id = await testLead(en);
+    expect((await rows('SELECT status FROM leads WHERE id = ?1', id))[0]!.status).toBe('TEST');
+    const before = await rows('SELECT score, lane, status, quarantined, alert_level FROM leads WHERE id = ?1', id);
+    const r = await post('/profile', profile(id), STAGING, en);
+    expect(r.status).toBe(200);
+    expect(r.headers.get('access-control-allow-origin')).toBe(STAGING);
+    expect(await rows('SELECT lead_id FROM investor_profiles WHERE lead_id = ?1', id)).toHaveLength(1);
+    expect(mails).toHaveLength(0);
+    expect(await rows('SELECT score, lane, status, quarantined, alert_level FROM leads WHERE id = ?1', id)).toEqual(before);
+    expect(await rows('SELECT * FROM messages')).toHaveLength(0);
+  });
+
+  it('staging + a real (non-TEST) lead or an unknown id: 403 not_allowed with the CORS header, nothing stored, no alert', async () => {
+    const en = env2();
+    const id = await realLead(en);
+    mails = [];
+    for (const target of [id, '3f2b8c1e-7d4a-4e6b-9c10-2a5d8e9f0b11']) {
+      const r = await post('/profile', profile(target), STAGING, en);
+      expect(r.status).toBe(403);
+      expect(await r.json()).toEqual({ ok: false, error: 'not_allowed' });
+      expect(r.headers.get('access-control-allow-origin')).toBe(STAGING);
+    }
+    expect(await rows('SELECT * FROM investor_profiles')).toHaveLength(0);
+    expect(mails).toHaveLength(0);
+  });
+
+  it('unknown origin is still rejected; production cannot reach a TEST lead; production is otherwise unchanged', async () => {
+    const en = env2();
+    const id = await testLead(en);
+    const evil = await post('/profile', profile(id), 'https://evil.example', en);
+    expect(evil.status).toBe(403);
+    expect(evil.headers.get('access-control-allow-origin')).toBeNull();
+    const prodOnTest = await post('/profile', profile(id), ORIGIN, en);
+    expect(prodOnTest.status).toBe(404);
+    expect(await prodOnTest.json()).toEqual({ ok: false, error: 'invalid_link' });
+    const real = await realLead(en);
+    const ok = await post('/profile', profile(real), ORIGIN, en);
+    expect(ok.status).toBe(200);
+    expect(mails.filter((m) => m.subject.startsWith('[PROFILE]'))).toHaveLength(1);
+  });
+
+  it('other + other_area is stored inside areas; mismatches are 400 invalid_other_area; advice is accepted', async () => {
+    const en = env2();
+    const id = await realLead(en);
+    const bad1 = await post('/profile', profile(id, { areas: ['other'] }), ORIGIN, en);
+    expect(bad1.status).toBe(400);
+    expect(await bad1.json()).toEqual({ ok: false, error: 'invalid_other_area' });
+    const bad2 = await post('/profile', profile(id, { areas: ['palm-jumeirah'], other_area: 'JVC' }), ORIGIN, en);
+    expect(await bad2.json()).toEqual({ ok: false, error: 'invalid_other_area' });
+    const ok = await post('/profile', profile(id, { areas: ['other', 'advice', 'palm-jumeirah'], other_area: '  Yas   <Island> ' }), ORIGIN, en);
+    expect(ok.status).toBe(200);
+    expect((await rows('SELECT areas FROM investor_profiles WHERE lead_id = ?1', id))[0]!.areas).toBe('["advice","other:Yas Island","palm-jumeirah"]');
+  });
+});
