@@ -53,3 +53,13 @@ describe('extra CORS origins', () => {
     expect(parseExtraOrigins('http://a.com,https://b.com/path,https://*.c.com,*,https://d.com/,,')).toEqual([]);
   });
 });
+
+describe('config: LEAD_STRICT (Package B)', () => {
+  it('is off unless exactly "true" (case-insensitive)', () => {
+    expect(readConfig({}).leadStrict).toBe(false);
+    expect(readConfig({ LEAD_STRICT: 'false' }).leadStrict).toBe(false);
+    expect(readConfig({ LEAD_STRICT: 'yes' }).leadStrict).toBe(false);
+    expect(readConfig({ LEAD_STRICT: 'TRUE' }).leadStrict).toBe(true);
+    expect(readConfig({ LEAD_STRICT: ' true ' }).leadStrict).toBe(true);
+  });
+});

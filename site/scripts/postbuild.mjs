@@ -47,5 +47,10 @@ const headers = `/*
 /*.html
   Cache-Control: public, max-age=0, must-revalidate
 `;
-writeFileSync(join(dist, '_headers'), headers);
+// site/public/_headers holds static rules (e.g. text/plain charset). Astro copies it into dist, so read it from the source
+// tree, not from dist, so that running this script twice never duplicates it.
+const staticRules = (() => {
+  try { return readFileSync(fileURLToPath(new URL('../public/_headers', import.meta.url)), 'utf8').trimEnd() + '\n'; } catch { return ''; }
+})();
+writeFileSync(join(dist, '_headers'), staticRules + headers);
 console.log(`postbuild: wrote _headers with ${hashes.size} inline-script hash(es)${analytics ? ', analytics allowed' : ''}`);

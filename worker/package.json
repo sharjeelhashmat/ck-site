@@ -26,5 +26,8 @@
   },
   "overrides": {
     "sharp": ">=0.35.4"
+  },
+  "dependencies": {
+    "libphonenumber-js": "1.13.14"
   }
 }

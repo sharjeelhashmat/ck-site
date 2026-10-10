@@ -1,0 +1,6 @@
+# Static rules merged ahead of the generated security headers by scripts/postbuild.mjs.
+# Plain-text files are served as UTF-8 so the em dash in llms.txt does not render as mojibake.
+/llms.txt
+  Content-Type: text/plain; charset=utf-8
+/robots.txt
+  Content-Type: text/plain; charset=utf-8

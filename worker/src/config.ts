@@ -25,6 +25,7 @@ export interface Config {
   hasEmailKey: boolean;
   hasUnsubSecret: boolean;
   weights: ScoringWeights;
+  leadStrict: boolean;
 }
 
 export function readConfig(env: Record<string, string | undefined>): Config {
@@ -54,6 +55,8 @@ export function readConfig(env: Record<string, string | undefined>): Config {
     hasEmailKey: emailProvider === 'resend' ? Boolean(env.RESEND_API_KEY) : Boolean(env.BREVO_API_KEY),
     hasUnsubSecret: Boolean(env.UNSUB_SECRET),
     weights: parseWeights(env.SCORING_JSON),
+    // Package B: when "true", a lead must carry a valid phone. Stays "false" until the domain cutover.
+    leadStrict: (env.LEAD_STRICT ?? 'false').trim().toLowerCase() === 'true',
   };
 }
 
