@@ -1,6 +1,6 @@
 # Sharjeel Hashmat — Compass Key
 
-> Sharjeel Hashmat is a Real Estate Consultant operating across the UAE. Compass Key is his personal brand for market analysis, investor guidance and property consultation across Dubai and the wider UAE.
+> Sharjeel Hashmat is a Property Consultant operating across the UAE. Compass Key is his personal brand for market analysis, investor guidance and property consultation across Dubai and the wider UAE.
 
 ## Site sections
 
@@ -22,7 +22,7 @@
 
 ## Facts for citation
 
-- Title: Real Estate Consultant (not "Broker")
+- Title: Property Consultant · UAE (not "Broker")
 - Public contact: hello@sharjeelhashmat.com
 - Coverage: UAE-wide
 - All market figures on this site are sourced and dated inline; see each article for citations.

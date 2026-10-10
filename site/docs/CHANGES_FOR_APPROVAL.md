@@ -3,7 +3,7 @@
 Rule: claims are the owner's. Nothing below goes public until the owner sets the Notion card to "Approved". Everything not listed here is carried over verbatim.
 
 ## A. Decisions already made by the owner (applied)
-1. Title is "Real Estate Consultant" only. Removed "& Investment Advisor" from: home title, About subtitle, About meta description, JSON-LD `jobTitle`.
+1. Title is "Property Consultant" only (renamed 2026-10-10, Brand v3.0). Removed "& Investment Advisor" from: home title, About subtitle, About meta description, JSON-LD `jobTitle`.
 2. Public email is `hello@sharjeelhashmat.com` (footer, form error text). Gmail removed.
 3. Footer/About regulatory line now reads `BRN <number>` (was "RERA ORN pending"). Builds that go public refuse to run without a BRN.
 

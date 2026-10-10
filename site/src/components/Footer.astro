@@ -1,5 +1,4 @@
 ---
-import Mark from './Mark.astro';
 import NewsletterSignup from './NewsletterSignup.astro';
 import { SITE, AFFILIATION_LINE } from '../lib/site';
 const year = new Date().getFullYear();
@@ -9,8 +8,8 @@ const year = new Date().getFullYear();
     <NewsletterSignup source="footer" />
     <div class="foot-row">
       <div class="brand" style="font-size:1.05rem">
-        <Mark />
-        <span>{SITE.name} · {SITE.title} · UAE</span>
+        <img class="logo" src="/logo-horizontal-ink.svg" alt="Sharjeel Hashmat" width="216" height="72" />
+        <span>{SITE.title} · UAE</span>
       </div>
       <div class="foot-links">
         <a href={SITE.instagram} target="_blank" rel="noopener">Instagram</a>

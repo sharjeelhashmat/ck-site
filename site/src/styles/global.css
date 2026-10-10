@@ -4,17 +4,24 @@
 @import '@fontsource/cormorant-garamond/500.css';
 @import '@fontsource/cormorant-garamond/400-italic.css';
 
-/* Palette: exported Compass Key palette + ivory. Gold and light blue are decoration only (contrast < 4.5:1 on ivory). */
+/* Palette: Brand v3.0 tokens (Notion 1c v5.0). Brass is decoration on light backgrounds (rules, lines, icons) and text only on Ink;
+   brass-coloured text on light uses --brass-deep. Small text on light is Ink; Slate Light is the small-text colour on Ink. */
 :root {
-  --navy: #0c3b6e;
-  --navy-deep: #071e38;
-  --sky: #5b9bd5;
-  --gold: #c8922a;
-  --ivory: #f7f5f0;
+  --navy: #14252f;        /* Ink (legacy token name) */
+  --navy-deep: #14252f;   /* Ink: no darker shade exists */
+  --ink: #14252f;         /* Ink */
+  --ivory: #f3f0e7;       /* Ivory */
+  --gold: #c6a272;        /* Brass: rules, lines, borders, icons; text only on Ink */
+  --brass-deep: #7e6034;  /* Brass Deep: brass-coloured text and links on light backgrounds */
+  --sky: #627982;         /* Slate: lines, icons, form borders; text only at large sizes */
+  --slate-light: #8fa3ab; /* Slate Light: small text on Ink */
   --paper: #ffffff;
-  --ink: #071e38;
-  --muted: #45566b;
-  --line: #d9d4c7;
+  --muted: #14252f;       /* small secondary text on light is Ink (owner decision D1) */
+  --line: #cfd2ce;        /* tint: Slate 25% over Ivory */
+  --band: #eae8e0;        /* tint: Ink 4% over Ivory */
+  --brass-tint: #ece4d5;  /* tint: Brass 15% over Ivory */
+  --wa: #1fa855;          /* WhatsApp utility green (icon only, 3:1) */
+  --wa-hover: #178a45;
   --ok: #1d6b3f;
   --err: #a12a2a;
   --serif: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
@@ -49,7 +56,7 @@ a:hover { color: var(--navy-deep); }
 .narrow { max-width: 46rem; margin: 0 auto; padding: 0 1.5rem; }
 .section { padding: 4rem 0; }
 .section--tight { padding: 2.5rem 0; }
-.band { background: #efece3; border-block: 1px solid var(--line); }
+.band { background: var(--band); border-block: 1px solid var(--line); }
 .band--navy { background: var(--navy-deep); color: var(--ivory); border: 0; }
 .band--navy a { color: var(--ivory); }
 .center { text-align: center; }
@@ -59,16 +66,16 @@ a:hover { color: var(--navy-deep); }
   color: var(--navy); display: inline-flex; align-items: center; gap: .75rem; margin: 0 0 .75rem;
 }
 .eyebrow::before, .eyebrow.both::after { content: ''; width: 1.5rem; height: 2px; background: var(--gold); display: inline-block; }
-.band--navy .eyebrow { color: #e9c987; }
+.band--navy .eyebrow { color: var(--gold); }
 h1, h2, h3 { font-family: var(--serif); font-weight: 400; line-height: 1.12; margin: 0; color: var(--navy-deep); }
 .band--navy h1, .band--navy h2 { color: var(--ivory); }
 h1 { font-size: clamp(2.4rem, 5.5vw, 4rem); letter-spacing: -0.01em; }
 h2 { font-size: clamp(1.9rem, 3.6vw, 2.75rem); }
 h3 { font-size: 1.5rem; }
 h1 em, h2 em { font-style: italic; color: var(--navy); }
-.band--navy h1 em, .band--navy h2 em { color: #e9c987; }
+.band--navy h1 em, .band--navy h2 em { color: var(--gold); }
 .lede { font-size: 1.125rem; color: var(--muted); max-width: 40rem; margin: 1.25rem 0 0; }
-.band--navy .lede, .band--navy p { color: #d8e2ee; }
+.band--navy .lede, .band--navy p { color: var(--slate-light); }
 p { margin: 1rem 0 0; }
 .small { font-size: .875rem; color: var(--muted); }
 .fine { font-size: .75rem; color: var(--muted); line-height: 1.55; }
@@ -83,7 +90,7 @@ p { margin: 1rem 0 0; }
 .btn--ghost { background: transparent; color: var(--navy); }
 .btn--ghost:hover { background: var(--navy); color: var(--ivory); }
 .band--navy .btn { background: var(--ivory); color: var(--navy-deep); border-color: var(--ivory); }
-.band--navy .btn:hover { background: #e9c987; border-color: #e9c987; color: var(--navy-deep); }
+.band--navy .btn:hover { background: var(--gold); border-color: var(--gold); color: var(--navy-deep); }
 .btn[disabled] { opacity: .6; cursor: wait; }
 .actions { display: flex; flex-wrap: wrap; gap: 1rem; margin-top: 2rem; }
 .center .actions { justify-content: center; }
@@ -113,11 +120,15 @@ a.card:hover { border-color: var(--navy); }
 /* Header */
 .site-nav {
   position: fixed; inset: 0 0 auto 0; z-index: 50; height: 4.25rem;
-  background: rgba(247, 245, 240, .96); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--ivory) 96%, transparent); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line);
 }
 .site-nav .wrap { display: flex; align-items: center; justify-content: space-between; height: 100%; }
 .brand { display: flex; align-items: center; gap: .7rem; text-decoration: none; color: var(--navy-deep); font-family: var(--serif); font-size: 1.35rem; letter-spacing: .01em; }
-.brand svg { width: 2rem; height: 2rem; }
+/* Logo: the SVG canvas is 2880x960 with the artwork at x 218-2668, y 236-725; negative margins trim the transparent
+   padding so the visible artwork is --logo-h / 2 tall (44px desktop, 36px mobile) without editing the asset. */
+.logo { --logo-h: 88px; height: var(--logo-h); width: auto; max-width: none; margin: calc(var(--logo-h) * -.2458) calc(var(--logo-h) * -.2208) calc(var(--logo-h) * -.2448) calc(var(--logo-h) * -.2271); }
+.site-footer .logo, .print-head .logo { --logo-h: 72px; }
+@media (max-width: 40rem) { .site-nav .logo { --logo-h: 72px; } }
 .nav-links { display: none; align-items: center; gap: 1.5rem; }
 .nav-links a { font-size: .75rem; letter-spacing: .09em; text-transform: uppercase; text-decoration: none; color: var(--muted); font-weight: 500; }
 .nav-links a:hover, .nav-links a[aria-current='page'] { color: var(--navy-deep); }
@@ -145,10 +156,10 @@ form.card { padding: 1.75rem; }
 .field.full { grid-column: 1 / -1; }
 .field label, .field .lbl { font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; font-weight: 600; color: var(--muted); }
 .field input, .field select, .field textarea {
-  font: 400 1rem var(--sans); color: var(--ink); background: #fff; border: 1px solid #b9b3a3; border-radius: 2px; padding: .7rem .8rem; width: 100%;
+  font: 400 1rem var(--sans); color: var(--ink); background: var(--paper); border: 1px solid var(--sky); border-radius: 2px; padding: .7rem .8rem; width: 100%;
 }
 .field textarea { min-height: 7rem; resize: vertical; }
-.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--navy); outline: 3px solid rgba(12, 59, 110, .25); outline-offset: 0; }
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--navy); outline: 3px solid color-mix(in srgb, var(--navy) 25%, transparent); outline-offset: 0; }
 .field .err { color: var(--err); font-size: .8rem; min-height: 1em; }
 .phone-row { display: grid; grid-template-columns: minmax(0, 12rem) minmax(0, 1fr); gap: .5rem; }
 @media (max-width: 420px) { .phone-row { grid-template-columns: 1fr; } }
@@ -185,13 +196,13 @@ form.card { padding: 1.75rem; }
 .brief th, .brief td { text-align: left; padding: .6rem .75rem; border-bottom: 1px solid var(--line); vertical-align: top; }
 .brief th { font-size: .68rem; letter-spacing: .12em; text-transform: uppercase; color: var(--navy); font-weight: 600; }
 .brief .meta { font-size: .8rem; color: var(--muted); display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; margin-top: 1rem; }
-.stale-banner { border: 1px solid var(--gold); background: #fbf5e8; padding: 1rem 1.25rem; margin-top: 1.5rem; font-size: .9rem; color: var(--ink); }
+.stale-banner { border: 1px solid var(--gold); background: var(--brass-tint); padding: 1rem 1.25rem; margin-top: 1.5rem; font-size: .9rem; color: var(--ink); }
 .table-scroll { overflow-x: auto; }
 .cite { font-size: .7rem; margin-left: .15rem; } .cite a, .src a { color: var(--navy); }
 .src a + a { margin-left: .4rem; }
 @media print {
   .site-nav, .mobile-menu, footer, .skip, .actions, .noprint { display: none !important; }
-  body { background: #fff; }
+  body { background: var(--paper); }
   .brief h2 { break-after: avoid; }
   .brief table, .card { break-inside: avoid; }
 }
@@ -200,14 +211,14 @@ form.card { padding: 1.75rem; }
 .fab-stack { position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 40; display: flex; flex-direction: column; align-items: center; gap: .75rem; }
 .fab {
   width: 3.25rem; height: 3.25rem; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
-  border: 0; cursor: pointer; text-decoration: none; box-shadow: 0 4px 14px rgba(7, 30, 56, .22); transition: transform .15s, background .15s;
+  border: 0; cursor: pointer; text-decoration: none; box-shadow: 0 4px 14px color-mix(in srgb, var(--ink) 22%, transparent); transition: transform .15s, background .15s;
 }
 .fab svg { width: 55%; height: 55%; }
 .fab[hidden] { display: none; }
 .fab:hover { transform: translateY(-2px); }
 /* WhatsApp green, darkened just enough for 3:1 icon contrast (standard utility icon, not a brand element). */
-.fab--wa { background: #1fa855; color: #fff; }
-.fab--wa:hover { background: #178a45; color: #fff; }
+.fab--wa { background: var(--wa); color: var(--paper); }
+.fab--wa:hover { background: var(--wa-hover); color: var(--paper); }
 .fab--top { width: 2.75rem; height: 2.75rem; background: var(--navy); color: var(--ivory); border: 1.5px solid var(--gold); }
 .fab--top:hover { background: var(--navy-deep); }
 @media (max-width: 40rem) { .fab-stack { right: 1rem; bottom: 1rem; } }
@@ -224,7 +235,7 @@ form.card { padding: 1.75rem; }
   padding: 1.25rem 0; font-family: var(--serif); font-size: 1.35rem; line-height: 1.3; color: var(--navy-deep);
 }
 .faq summary::-webkit-details-marker { display: none; }
-.faq summary::after { content: '+'; font-family: var(--sans); font-size: 1.4rem; font-weight: 300; color: var(--gold); flex: none; transition: transform .15s; }
+.faq summary::after { content: '+'; font-family: var(--sans); font-size: 1.4rem; font-weight: 300; color: var(--brass-deep); flex: none; transition: transform .15s; }
 .faq details[open] summary::after { transform: rotate(45deg); }
 .faq summary:hover { color: var(--navy); }
 .faq .answer { padding: 0 0 1.5rem; color: var(--ink); }
@@ -234,13 +245,12 @@ form.card { padding: 1.75rem; }
 .print-only { display: none; }
 @media print {
   .fab-stack, .read-progress { display: none !important; }
-  html, body { background: #fff !important; color: #000; }
-  .band, .band--navy { background: #fff !important; color: var(--ink) !important; border-color: var(--line) !important; }
+  html, body { background: var(--paper) !important; color: var(--ink); }
+  .band, .band--navy { background: var(--paper) !important; color: var(--ink) !important; border-color: var(--line) !important; }
   .band--navy h1, .band--navy h2, .band--navy p, .band--navy .lede, .band--navy a { color: var(--ink) !important; }
-  .card { background: #fff; }
+  .card { background: var(--paper); }
   .print-only { display: block; }
   .print-head { display: flex; align-items: center; gap: .6rem; font-family: var(--serif); font-size: 1.15rem; color: var(--navy-deep); padding-bottom: .75rem; margin-bottom: 1rem; border-bottom: 1px solid var(--line); }
-  .print-head svg { width: 1.6rem; height: 1.6rem; }
   .print-foot { margin-top: 2rem; padding-top: .75rem; border-top: 1px solid var(--line); font-size: .8rem; color: var(--muted); }
   .print-foot p { margin: .2rem 0 0; }
   .faq summary::after { content: none; }

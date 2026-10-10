@@ -7,8 +7,9 @@ const env = import.meta.env;
 
 export const SITE = {
   name: 'Sharjeel Hashmat',
-  // Owner decision 2026-09-20: title is "Real Estate Consultant" only (SCA regulates investment advisers).
-  title: 'Real Estate Consultant',
+  // Owner decision 2026-10-10 (Brand v3.0): title is "Property Consultant", shown as "Property Consultant · UAE" with the
+  // geography. Never "Broker"; no adviser wording (SCA regulates investment advisers).
+  title: 'Property Consultant',
   origin: 'https://www.sharjeelhashmat.com',
   // Owner decision 2026-10-10: no agency is named until the owner confirms the new one. Single source of truth: set it here
   // once confirmed. The "Working with … · BRN …" line renders only when both this and the BRN are set (AFFILIATION_LINE).
