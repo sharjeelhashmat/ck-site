@@ -37,8 +37,7 @@ export const FAQS: Faq[] = [
   },
   {
     q: 'How quickly do you respond to enquiries?',
-    a: 'Enquiries submitted through the contact form or investor profile are typically followed up within one business day.',
-    links: { 'contact form': '/contact' },
+    a: "Enquiries sent through the website's forms are answered within 24 hours, by the contact method you choose.",
   },
 ];
 

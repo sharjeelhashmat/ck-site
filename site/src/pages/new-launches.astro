@@ -1,18 +1,85 @@
 ---
+// New Launches: an "ask me" page with its own question form (owner-approved copy and layout, 2026-10-10). Same layout
+// and styles as About: plain text under H2s at the page H2 size, no cards except the form. No project names, prices or
+// images anywhere on the page (Rules Sections 2 and 8c). tests/new-launches.test.mjs checks the copy and the form.
 import Base from '../layouts/Base.astro';
-import { waLink } from '../lib/site';
+import LeadForm from '../components/LeadForm.astro';
+
+const SOURCES = [
+  { label: 'Law No. 8 of 2007 (escrow accounts), Articles 7 and 9', href: 'https://dlp.dubai.gov.ae/Legislation%20Reference/2007/Law%20No.%20(8)%20of%202007.html' },
+  { label: 'Law No. 13 of 2008 (Interim Real Property Register), Article 3', href: 'https://dlp.dubai.gov.ae/Legislation%20Reference/2008/Law%20No.%20(13)%20of%202008.html' },
+  { label: 'Law No. 9 of 2009, amended Article 11', href: 'https://dlp.dubai.gov.ae/Legislation%20Reference/2009/Law%20No.%20(9)%20of%202009%20Amending%20Law%20No.%20(13)%20of%202008.html' },
+  { label: 'Law No. 6 of 2019 (jointly owned property), Article 27', href: 'https://dlp.dubai.gov.ae/Legislation%20Reference/2019/Law%20No.%20(6)%20of%202019%20Concerning%20Ownership%20of%20Jointly%20Owned%20Real%20Property%20in%20the%20Emirate%20of%20Dubai.html' },
+];
+const FACTS = [
+  { lead: 'You pay before it is built.', text: 'Payments for off-plan units go into an escrow account opened for that project, not to the developer directly.' },
+  { lead: 'The sale must be registered.', text: "An off-plan sale is void unless it is entered in the Land Department's Interim Real Property Register." },
+  { lead: 'Paying late has a cost.', text: 'If a buyer defaults, the developer can keep some or all of what was paid. How much depends on how far construction has progressed.' },
+  { lead: 'The service charge is not final.', text: 'It is set later through a budget that RERA must approve after an audit firm signs it off.' },
+];
+const QUESTIONS = [
+  'Is the launch price fair against what comparable units nearby actually sold for?',
+  'Has this developer delivered on time before?',
+  'Which escrow account belongs to this project, and is the sale registered?',
+  'Does the payment plan follow construction, or are most payments due early?',
+  'What will the service charge really be?',
+  'Can I sell before handover, and what will it cost me?',
+  'Who buys this unit from me later, and at what price?',
+  'What happens if handover is late, or the project is cancelled?',
+];
 ---
-<!-- No launches exist yet, so this page is noindex and out of the sitemap. Remove `noindex` when real launches are added. -->
-<Base title="New Launches" description="Handpicked new project launches from major developers across the UAE." noindex>
+<!-- noindex: remove with the site-wide indexing switch at go-live. -->
+<Base title="New Launches: Ask Before You Commit" description="Thinking about a Dubai off-plan launch? Ask before you commit. The facts every buyer should know, the questions worth asking, and a straight answer within 24 hours." noindex>
   <section class="section">
-    <div class="wrap">
+    <div class="narrow launches">
       <p class="eyebrow">New Launches</p>
-      <h1 style="max-width:20ch">What the major developers <em>just released.</em></h1>
-      <p class="lede">Handpicked from major developers across UAE — tracked so you don't have to.</p>
-      <div class="card empty" style="margin-top:2.5rem">
-        <p>No launches listed yet — ask Sharjeel what's currently on the market.</p>
-        <div class="actions" style="justify-content:center"><a class="btn btn--ghost" href={waLink('Hi Sharjeel, what new launches are you tracking right now?')} target="_blank" rel="noopener">Ask Sharjeel →</a></div>
+      <h1>New launches, checked.</h1>
+      <p class="lede">Every launch comes with a brochure. Few come with straight answers. Ask me anything about a launch.</p>
+      <div class="actions"><a class="btn" href="#ask">Ask me about a launch →</a></div>
+
+      <h2 class="nl-h2">Why a launch needs a different check</h2>
+      <p>With a ready home, you can see what you are buying. With a launch, you are paying for a building that does not exist yet. In Dubai, four things change:</p>
+      <ul class="nl-list">
+        {FACTS.map((f, i) => (
+          <li><strong>{f.lead}</strong> {f.text}<sup class="nl-ref"><a href={`#source-${i + 1}`} id={`ref-${i + 1}`} aria-label={`Source ${i + 1}`}>{i + 1}</a></sup></li>
+        ))}
+      </ul>
+
+      <h2 class="nl-h2">Questions worth asking before you commit</h2>
+      <ol class="nl-list">
+        {QUESTIONS.map((q) => <li>{q}</li>)}
+      </ol>
+      <p><strong>Not sure of the answer for the launch you're looking at? Ask me.</strong></p>
+
+      <h2 class="nl-h2" id="ask">Ask me about a launch</h2>
+      <p>Tell me what you want to know. I'll answer within 24 hours.</p>
+      {/* Compliance: this form and "Send my question" are a service call to action. They are acceptable only because the
+          site cannot go public before the agency, BRN and Advertiser Permit are in place. */}
+      <div class="nl-form"><LeadForm mode="launch" defaultIntent="invest" submitLabel="Send my question" /></div>
+
+      <div class="nl-sources">
+        <h2 class="nl-sources-title">Sources</h2>
+        <ol>
+          {SOURCES.map((s, i) => <li id={`source-${i + 1}`}><a href={s.href} target="_blank" rel="noopener">{s.label}</a></li>)}
+        </ol>
+        <p>General information on new launches in Dubai, citing the law as at October 2026. Not a recommendation of any project. Laws change, so check the current text on the Dubai Legislation Portal.</p>
       </div>
     </div>
   </section>
 </Base>
+
+<style>
+  /* The About page rhythm: every H2 at the page H2 size with the same space above it; paragraphs at the normal size. */
+  .launches .lede { margin-top: 2rem; }
+  .nl-h2 { margin-top: 3rem; margin-bottom: 0; scroll-margin-top: 6rem; }
+  .nl-list { margin: 1rem 0 0; padding-left: 1.25rem; display: grid; gap: .5rem; }
+  .nl-ref { font-size: .7em; line-height: 0; margin-left: .15em; }
+  .nl-ref a { color: var(--brass-deep); }
+  .nl-form { margin-top: 1.5rem; }
+  .nl-sources { margin-top: 3rem; font-size: .85rem; color: var(--ink); }
+  /* "Sources" is the fourth H2 for the outline, set in the small source text rather than the page H2 size. */
+  .nl-sources .nl-sources-title { font-family: var(--sans); font-size: .85rem; font-weight: 600; line-height: 1.4; color: var(--ink); margin: 0; }
+  .nl-sources ol { margin: .5rem 0 0; padding-left: 1.25rem; display: grid; gap: .25rem; }
+  .nl-sources li { scroll-margin-top: 6rem; }
+  .nl-sources p:last-child { margin-top: 1rem; font-size: .85rem; }
+</style>

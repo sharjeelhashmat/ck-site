@@ -15,8 +15,8 @@ const dist = join(root, 'dist');
 const read = (p) => readFileSync(join(dist, p), 'utf8');
 const formPages = readdirSync(dist).filter((f) => f.endsWith('.html') && read(f).includes('id="lead-form"'));
 
-test('the enquiry form exists on /contact and /sell', () => {
-  assert.deepEqual(formPages.sort(), ['contact.html', 'sell.html']);
+test('the enquiry form exists on /contact, /sell and /new-launches', () => {
+  assert.deepEqual(formPages.sort(), ['contact.html', 'new-launches.html', 'sell.html']);
 });
 
 test('form: mobile number is required, with an all-countries code select defaulting to United Arab Emirates +971', () => {
