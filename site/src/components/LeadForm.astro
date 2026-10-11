@@ -1,12 +1,17 @@
 ---
-// One form component, two modes. Both post to the lead Worker (POST /lead) with a Turnstile token.
-// Field names and enums match worker/src/types.ts and worker/src/firewall.ts exactly.
+// One form component, three modes: general (/contact), sell (/sell) and launch (the /new-launches question form). All post
+// to the lead Worker (POST /lead) with a Turnstile token. Field names and enums match worker/src/types.ts and
+// worker/src/firewall.ts exactly. Launch sends intent "invest" (owner decision 2026-10-10) and no budget, timeline,
+// funding or country; its project and question travel in the message (lib/lead-submit.mjs composeMessage).
 import { INTENTS, SITE, waLink } from '../lib/site';
 import { PROFILE_ENABLED, PROFILE_INTENTS } from '../lib/profile';
 import { dialCodes } from '../lib/phone.mjs';
-interface Props { mode?: 'general' | 'sell'; defaultIntent?: string; submitLabel?: string }
+import { BOX_MAX, CONTACT_CHOICES } from '../lib/lead-submit.mjs';
+interface Props { mode?: 'general' | 'sell' | 'launch'; defaultIntent?: string; submitLabel?: string }
 const { mode = 'general', defaultIntent = 'buy', submitLabel = 'Send' } = Astro.props;
 const sell = mode === 'sell';
+const launch = mode === 'launch';
+const general = mode === 'general';
 // Country-code select for the mobile number (all countries; default United Arab Emirates +971).
 const dials = dialCodes();
 const defaultDial = dials.find((d) => d.cc === 'AE')?.dial ?? '971';
@@ -41,15 +46,26 @@ const countries = [
       </div>
       <span class="err" id="f-phone-err" data-err="phone" role="alert"></span>
     </div>
-    <div class="field">
-      <label for="f-country">Where are you based?</label>
-      <select id="f-country" name="country">
-        <option value="">Select</option>
-        {countries.map(([v, l]) => <option value={v}>{l}</option>)}
-      </select>
-    </div>
+    <fieldset class="field pref">
+      <legend class="lbl">Preferred contact</legend>
+      <div class="pills">
+        {CONTACT_CHOICES.map((c) => <label class="pill"><input type="radio" name="preferred_contact" value={c.value} required /><span>{c.label}</span></label>)}
+      </div>
+      <span class="err" data-err="preferred_contact" role="alert"></span>
+    </fieldset>
+    {!launch && (
+      <div class="field">
+        <label for="f-country">Where are you based?</label>
+        <select id="f-country" name="country">
+          <option value="">Select</option>
+          {countries.map(([v, l]) => <option value={v}>{l}</option>)}
+        </select>
+      </div>
+    )}
     {sell ? (
       <input type="hidden" name="intent" value="sell" />
+    ) : launch ? (
+      <input type="hidden" name="intent" value="invest" />
     ) : (
       <div class="field">
         <label for="f-intent">What are you looking to do?</label>
@@ -58,7 +74,7 @@ const countries = [
         </select>
       </div>
     )}
-    {!sell && (
+    {general && (
       <div class="field">
         <label for="f-budget">Budget (optional)</label>
         <select id="f-budget" name="budget_band">
@@ -70,17 +86,19 @@ const countries = [
         </select>
       </div>
     )}
-    <div class="field">
-      <label for="f-timeline">Timeline</label>
-      <select id="f-timeline" name="timeline">
-        <option value="exploring">Just exploring</option>
-        <option value="now">Now</option>
-        <option value="3m">Within 3 months</option>
-        <option value="6m">Within 6 months</option>
-        <option value="12m_plus">12 months or later</option>
-      </select>
-    </div>
-    {!sell && (
+    {!launch && (
+      <div class="field">
+        <label for="f-timeline">Timeline</label>
+        <select id="f-timeline" name="timeline">
+          <option value="exploring">Just exploring</option>
+          <option value="now">Now</option>
+          <option value="3m">Within 3 months</option>
+          <option value="6m">Within 6 months</option>
+          <option value="12m_plus">12 months or later</option>
+        </select>
+      </div>
+    )}
+    {general && (
       <div class="field">
         <label for="f-funding">Funding (optional)</label>
         <select id="f-funding" name="funding">
@@ -104,10 +122,25 @@ const countries = [
         <div class="field"><label for="s-price">Expected price, AED (optional)</label><input id="s-price" name="s_price" type="text" maxlength="20" /></div>
       </>
     )}
-    <div class="field full">
-      <label for="f-message">{sell ? 'Anything else' : 'Tell me more'}</label>
-      <textarea id="f-message" name="message" maxlength={sell ? 550 : 1000} placeholder={sell ? 'Reason for selling, timing, anything useful' : 'Objective, location preference, anything else useful'}></textarea>
-    </div>
+    {launch ? (
+      <>
+        <div class="field full">
+          <label for="f-project">Project name (optional)</label>
+          <input id="f-project" name="project" type="text" maxlength="120" placeholder="e.g. the project or developer name" autocomplete="off" />
+        </div>
+        <div class="field full">
+          <label for="f-question">Your question</label>
+          <textarea id="f-question" name="question" rows="4" required placeholder="e.g. Is the payment plan on this launch fair for a 2-bed?" aria-describedby="f-question-err"></textarea>
+          <span class="err" id="f-question-err" data-err="question" role="alert"></span>
+        </div>
+      </>
+    ) : (
+      <div class="field full">
+        <label for="f-message">{sell ? 'Anything else' : 'Tell me more'}</label>
+        <textarea id="f-message" name="message" maxlength={BOX_MAX} placeholder={sell ? 'Reason for selling, timing, anything useful' : 'Objective, location preference, anything else useful'} aria-describedby="f-message-err"></textarea>
+        <span class="err" id="f-message-err" data-err="message" role="alert"></span>
+      </div>
+    )}
   </div>
 
   <div class="hp" aria-hidden="true"><label>Website <input type="text" name="company_website" tabindex="-1" autocomplete="off" /></label></div>
@@ -128,7 +161,7 @@ const countries = [
   <div class="lead-alert" id="lead-alert" role="alert"></div>
   <template id="lead-alert-tpl"><p>Your message could not be sent. Please try again, or contact me directly on <a href={waLink("Hi Sharjeel, I'd like to discuss UAE real estate.")} target="_blank" rel="noopener">WhatsApp</a> or at <a href={`mailto:${SITE.email}`}>{SITE.email}</a>.</p></template>
   {PROFILE_ENABLED && <p class="fine" id="lead-next" hidden style="margin-top:1rem"></p>}
-  <p class="fine" style="margin-top:1rem">Prefer WhatsApp? <a href={waLink("Hi Sharjeel, I'd like to discuss UAE real estate.")} target="_blank" rel="noopener">Message me directly</a> or call {SITE.phoneDisplay}.</p>
+  {!launch && <p class="fine" style="margin-top:1rem">Prefer WhatsApp? <a href={waLink("Hi Sharjeel, I'd like to discuss UAE real estate.")} target="_blank" rel="noopener">Message me directly</a> or call {SITE.phoneDisplay}.</p>}
 </form>
 
 <style is:global>
@@ -141,18 +174,30 @@ const countries = [
   /* scroll-margin keeps the panel clear of the fixed header when focus moves to it. */
   .lead-success { border-left: 3px solid var(--ok); scroll-margin-top: 6rem; }
   .lead-success > p:first-child { margin: 0; color: var(--ok); font-size: 1.05rem; font-weight: 500; }
+  /* Preferred contact: three pill radios. The native radios stay in the page (visually hidden, still focusable and
+     announced); the pill shows the state. Ink on white, selected Ink with Ivory text, the site's focus ring. */
+  .pref { border: 0; padding: 0; margin: 0; min-width: 0; }
+  .pref legend { padding: 0; margin-bottom: .4rem; }
+  .pref .pills { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .pref .pill { position: relative; display: inline-flex; text-transform: none; letter-spacing: normal; font-size: .95rem; font-weight: 500; color: var(--ink); }
+  .pref .pill input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; opacity: 0; cursor: pointer; }
+  .pref .pill span { display: inline-flex; align-items: center; min-height: 44px; padding: 0 1.15rem; border: 1px solid var(--ink); border-radius: var(--r-pill); background: var(--paper); color: var(--ink); transition: background .15s, color .15s; }
+  .pref .pill input:checked + span { background: var(--ink); color: var(--ivory); }
+  .pref .pill input:focus-visible + span { outline: 3px solid var(--navy); outline-offset: 3px; }
 </style>
 
 <script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <script>
   import { toE164 } from '../lib/phone.mjs';
   import { attributionFields } from '../lib/attribution.mjs';
-  import { MESSAGES, sendLead } from '../lib/lead-submit.mjs';
+  import { composeMessage, contactLabel, lengthProblem, sendLead, successText } from '../lib/lead-submit.mjs';
   const form = document.getElementById('lead-form') as HTMLFormElement | null;
   if (form) {
     const status = document.getElementById('lead-status')!;
     const btn = document.getElementById('lead-submit') as HTMLButtonElement;
-    const sell = form.dataset.mode === 'sell';
+    const mode = (form.dataset.mode ?? 'general') as 'general' | 'sell' | 'launch';
+    const sell = mode === 'sell';
+    const launch = mode === 'launch';
     const workerUrl = form.dataset.worker!;
     const alertBox = document.getElementById('lead-alert')!;
     const alertTpl = document.getElementById('lead-alert-tpl') as HTMLTemplateElement;
@@ -175,6 +220,8 @@ const countries = [
       form.querySelector('#f-phone')?.removeAttribute('aria-invalid');
     };
     const phoneErr = (msg: string) => { setErr('phone', msg); form.querySelector('#f-phone')?.setAttribute('aria-invalid', 'true'); };
+    const choiceOf = () => form.querySelector<HTMLInputElement>('input[name="preferred_contact"]:checked')?.value ?? '';
+    form.querySelectorAll('input[name="preferred_contact"]').forEach((r) => r.addEventListener('change', () => setErr('preferred_contact', '')));
 
     // The closed country-code control shows only the dial code; the native select sits over it (opacity 0).
     const ccSelect = form.querySelector<HTMLSelectElement>('#f-phone-cc');
@@ -200,6 +247,18 @@ const countries = [
       const phone = toE164(national, ccSel.value);
       if (!national) { phoneErr('Enter your mobile number.'); bad = true; }
       else if (!phone) { phoneErr(`Enter a valid mobile number for ${ccSel.selectedOptions[0]?.text ?? 'the selected country'}.`); bad = true; }
+      const choice = choiceOf();
+      if (!contactLabel(choice)) { setErr('preferred_contact', 'Please choose how I should contact you.'); bad = true; }
+      // The visitor's own text (the question on launch) and the one-line message the Worker receives.
+      const box = launch ? val('question') : val('message');
+      if (launch && !box) { setErr('question', 'Enter your question.'); bad = true; }
+      const message = composeMessage(mode, {
+        choice, message: val('message'), project: val('project'), question: val('question'),
+        sellParts: sell ? [['Location', val('s_location')], ['Project', val('s_project')], ['Type', val('s_type')], ['Bedrooms', val('s_bed')],
+          ['Size sq ft', val('s_size')], ['Occupancy', val('s_occ')], ['Expected AED', val('s_price')]] as [string, string][] : undefined,
+      });
+      const tooLong = lengthProblem(mode, box, message);
+      if (tooLong) { setErr(launch ? 'question' : 'message', tooLong.message); bad = true; }
       const consent = (form.elements.namedItem('consent_contact') as HTMLInputElement).checked;
       if (!consent) { setErr('consent_contact', 'Please confirm so I can reply to you.'); bad = true; }
       if (bad) { say('Please fix the highlighted fields.', false); return; }
@@ -207,23 +266,14 @@ const countries = [
       const token = (form.querySelector('[name="cf-turnstile-response"]') as HTMLInputElement | null)?.value ?? '';
       if (!token) { say('Please wait for the security check to finish, then send again.', false); return; }
 
-      let message = val('message');
-      if (sell) {
-        const parts = [
-          ['Location', val('s_location')], ['Project', val('s_project')], ['Type', val('s_type')], ['Bedrooms', val('s_bed')],
-          ['Size sq ft', val('s_size')], ['Occupancy', val('s_occ')], ['Expected AED', val('s_price')],
-        ].filter(([, v]) => v).map(([k, v]) => `${k}: ${v}`);
-        message = (parts.join(' | ') + (message ? ' || ' + message : '')).slice(0, 1000);
-      }
-
       const payload = {
         name, email,
         phone,
         country: val('country') || undefined,
-        intent: sell ? 'sell' : val('intent') || 'buy',
-        budget_band: sell ? undefined : val('budget_band') || 'unspecified',
-        timeline: val('timeline') || 'exploring',
-        funding: sell ? undefined : val('funding') || 'unsure',
+        intent: sell ? 'sell' : launch ? 'invest' : val('intent') || 'buy',
+        budget_band: mode === 'general' ? val('budget_band') || 'unspecified' : undefined,
+        timeline: launch ? undefined : val('timeline') || 'exploring',
+        funding: mode === 'general' ? val('funding') || 'unsure' : undefined,
         message,
         consent_contact: true,
         consent_nurture: (form.elements.namedItem('consent_nurture') as HTMLInputElement).checked,
@@ -244,7 +294,7 @@ const countries = [
         panel.setAttribute('role', 'status');
         panel.tabIndex = -1;
         const p = document.createElement('p');
-        p.textContent = MESSAGES.success;
+        p.textContent = successText(launch ? 'question' : 'enquiry', choice);
         panel.append(p);
         // Optional step 2: only when the feature is switched on, and only for enquiries where a profile helps.
         const profileIntents = (form.dataset.profile ?? '').split(',').filter(Boolean);
