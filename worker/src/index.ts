@@ -2,6 +2,7 @@ import { readConfig } from './config';
 import { sha256Hex } from './hash';
 import { subscribe, unsubscribeFeedbackForm, validateFeedback, type NewsletterDeps } from './newsletter';
 import { processLead, type AlertPayload, type Deps, type LeadRow } from './pipeline';
+import { handleMarket } from './market';
 import { MAX_PROFILE_BODY, saveProfile, type ProfileDeps } from './profile';
 import { sendEmail } from './send';
 import templatesJson from '../templates/lead-replies.v1.json';
@@ -234,6 +235,10 @@ export default {
     const leadCors = corsOrigin ?? (staging ? origin : undefined);
 
     if (url.pathname === '/health') return json({ ok: true }, 200, leadCors);
+
+    // Read-only market figures (aggregates only) for the site's /areas, area guide and /new-launches pages.
+    const market = await handleMarket(req, url, env.DB, leadCors);
+    if (market) return market;
 
     if (url.pathname === '/lead') {
       const corsOrigin = leadCors;
