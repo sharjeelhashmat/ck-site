@@ -1,0 +1,14 @@
+# as: other-lint.yml
+# expect: R12
+name: other
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  lint:
+    runs-on: [self-hosted, ck-uae]
+    permissions:
+      contents: read
+    steps:
+      - run: echo hi
