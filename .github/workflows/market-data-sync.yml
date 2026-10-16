@@ -1,9 +1,11 @@
 name: market-data-sync
-# Daily market-data sync (owner EXECUTE 2026-10-11; guard exception 2026-10-16). Downloads the public DLD open-data CSVs
-# and the ADREC year-to-date feed, aggregates them on the runner, and writes ONLY aggregates to D1 (ck-leads) through one
-# fixed SQL file. No project or developer names, no raw rows, no secrets or signed URLs in the logs.
-# Runs in the "market-data" environment with a D1-only token (CF_D1_TOKEN); the deploy token is never used here.
-# Any failure (download, sanity guard, ADREC) is recorded in D1 and then fails the "Check" step, so GitHub emails the owner.
+# Daily market-data sync (owner EXECUTE 2026-10-11; guard exception 2026-10-16; UAE runner, option A, 2026-10-16).
+# Data.Dubai serves its open data to UAE requests only, so the DLD download runs on the owner's PC in the UAE
+# (self-hosted runner, labels self-hosted + ck-uae) with no secrets, and hands over an aggregate-only JSON. The apply job
+# (GitHub-hosted, environment market-data, D1-only token) validates that JSON as untrusted input, fetches the ADREC feed
+# itself and writes ONLY aggregates to D1 through one fixed SQL file. If the PC is off or the DLD job fails, apply still
+# writes the ADREC update and a failure row; Dubai keeps its last good data. Any recorded failure fails the Check step,
+# so GitHub emails the owner. No project or developer names, no raw rows, no secrets or signed URLs in the logs.
 on:
   schedule:
     - cron: '23 2 * * *'
@@ -14,10 +16,39 @@ concurrency:
   group: market-data-sync
   cancel-in-progress: false
 jobs:
-  sync:
+  dld:
     if: github.ref == 'refs/heads/phase2-site'
+    runs-on: [self-hosted, ck-uae]
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    defaults:
+      run:
+        # Windows: cmd.exe is always present (no PowerShell execution-policy or pwsh-install dependency). One command per step.
+        shell: cmd
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version-file: .node-version
+      - run: npm ci --no-audit --no-fund
+      # Downloads the public DLD files (about 700 MB) and writes only aggregates; no credentials anywhere in this job.
+      - name: Download and aggregate DLD open data
+        run: npx --no-install tsx scripts/market-sync/sync.ts dld --out market-dld.json
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: market-dld
+          path: worker/market-dld.json
+          retention-days: 1
+          if-no-files-found: error
+
+  apply:
+    needs: dld
+    # always(): runs even when the UAE PC was off or the dld job failed, so ADREC still updates and the failure is recorded.
+    if: github.ref == 'refs/heads/phase2-site' && always()
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 20
     environment: market-data
     defaults:
       run:
@@ -49,9 +80,16 @@ jobs:
             [ "$(grep -cFx -- "$line" wrangler.toml)" = "1" ] || { echo "wrangler.toml must contain exactly once: $line"; exit 1; }
           done
           echo "preflight ok"
-      # Download and aggregate. No credentials in this step. Always writes market-sync.sql: the data, or a failure record.
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        if: needs.dld.result == 'success'
+        with:
+          name: market-dld
+          path: worker
+      # Validates the artifact as untrusted input, fetches ADREC, and always writes market-sync.sql (data or failure record).
       - name: Build SQL
-        run: npx --no-install tsx scripts/market-sync/sync.ts build --sql market-sync.sql --state market-sync.state.json
+        env:
+          DLD_RESULT: ${{ needs.dld.result }}
+        run: npx --no-install tsx scripts/market-sync/sync.ts apply --dld market-dld.json --sql market-sync.sql --state market-sync.state.json
       - name: Apply
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_D1_TOKEN }}

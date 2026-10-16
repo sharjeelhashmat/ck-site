@@ -1,14 +1,17 @@
-// Market-data sync, run by .github/workflows/market-data-sync.yml (working directory worker/):
-//   npx --no-install tsx scripts/market-sync/sync.ts build --sql market-sync.sql --state market-sync.state.json
-//   npx --no-install tsx scripts/market-sync/sync.ts check --sql market-sync.sql --state market-sync.state.json
-// "build" downloads the public DLD open data (no login, no key) and the ADREC year-to-date feed, aggregates on the runner
-// and writes the SQL file. It always writes a file: the data, or a failure record. It needs no credentials and reads none.
-// Logs show host and path only, never a signed URL or a query string.
-import { appendFileSync, readFileSync, writeFileSync } from 'node:fs';
-import { createInterface } from 'node:readline';
-import { Readable } from 'node:stream';
-import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
-import { badRowsProblem, DldProjectsAggregator, DldTxAggregator, parseAdrec, safeUrl, type AdrecYtd, type ProjectsStats } from './dld';
+// Market-data sync, run by .github/workflows/market-data-sync.yml from the worker/ directory, in two jobs:
+//
+//   job "dld" (the owner's PC in the UAE; Data.Dubai serves UAE requests only; no secrets):
+//     npx --no-install tsx scripts/market-sync/sync.ts dld --out market-dld.json
+//   job "apply" (GitHub-hosted, environment market-data):
+//     npx --no-install tsx scripts/market-sync/sync.ts apply --dld market-dld.json --sql market-sync.sql --state market-sync.state.json
+//     npx --no-install tsx scripts/market-sync/sync.ts check --sql market-sync.sql --state market-sync.state.json
+//
+// "dld" downloads the public DLD open data (no login, no key), parses it as RFC 4180 CSV in a stream and writes only
+// aggregates. "apply" validates that file as untrusted input, fetches the ADREC feed itself and always writes the SQL
+// file: the data, or a failure record (Dubai then keeps its last good data). Logs show host and path only.
+import { appendFileSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { buildArtifact, cleanError, MAX_ARTIFACT_BYTES, validateArtifact, type ValidDld } from './artifact';
+import { badRowsProblem, CsvParser, DldProjectsAggregator, DldTxAggregator, parseAdrec, safeUrl, type AdrecYtd } from './dld';
 import { buildSql, checkSql } from './sql';
 
 export const DLD_LIST_URL = (datasetId: number) =>
@@ -21,6 +24,9 @@ type Fetch = typeof fetch;
 export interface Ctx { fetch: Fetch; log: (s: string) => void; now: () => Date; uuid: () => string }
 
 interface CsvPart { name: string; url: string; size: number }
+
+export const dubaiDate = (d: Date) => new Date(d.getTime() + 4 * 3600_000).toISOString().slice(0, 10);
+const message = (e: unknown) => cleanError(e instanceof Error ? e.message : String(e));
 
 /** Lists the CSV parts of a dataset. The file URLs are signed and short-lived: never logged, used immediately. */
 export async function listParts(ctx: Ctx, datasetId: number): Promise<CsvPart[]> {
@@ -36,80 +42,118 @@ export async function listParts(ctx: Ctx, datasetId: number): Promise<CsvPart[]>
   return parts;
 }
 
-/** Streams one CSV line by line; the file is never held in memory. */
-export async function streamLines(ctx: Ctx, url: string, onLine: (line: string) => void): Promise<void> {
+/** Streams one CSV through the RFC 4180 parser; the file is never held in memory. */
+export async function streamRecords(ctx: Ctx, url: string, onRecord: (fields: string[] | null) => void): Promise<number> {
   const res = await ctx.fetch(url);
   if (!res.ok || !res.body) throw new Error(`download ${safeUrl(url)} returned HTTP ${res.status}`);
-  const rl = createInterface({ input: Readable.fromWeb(res.body as unknown as NodeReadableStream), crlfDelay: Infinity });
-  for await (const line of rl) onLine(line.charCodeAt(0) === 0xfeff ? line.slice(1) : line);
+  const parser = new CsvParser(onRecord);
+  const decoder = new TextDecoder('utf-8');
+  let bytes = 0;
+  for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
+    bytes += chunk.byteLength;
+    parser.feed(decoder.decode(chunk, { stream: true }));
+  }
+  parser.feed(decoder.decode());
+  parser.end();
+  return bytes;
 }
 
 /** Every part is listed again right before it is fetched, because each signed URL is valid for 600 seconds. */
-async function eachPart(ctx: Ctx, datasetId: number, onLine: (line: string) => void): Promise<number> {
+async function eachPart(ctx: Ctx, datasetId: number, onRecord: (fields: string[] | null) => void): Promise<{ parts: number; bytes: number }> {
   const first = await listParts(ctx, datasetId);
+  let bytes = 0;
   for (let i = 0; i < first.length; i++) {
     const fresh = i === 0 ? first : await listParts(ctx, datasetId);
     const part = fresh.find((p) => p.name === first[i]!.name) ?? fresh[i];
     if (!part) throw new Error(`dataset ${datasetId}: part ${i + 1} disappeared between listings`);
-    ctx.log(`dataset ${datasetId}: part ${i + 1}/${first.length} ${part.name} (${Math.round(part.size / 1e6)} MB) from ${safeUrl(part.url)}`);
-    await streamLines(ctx, part.url, onLine);
+    ctx.log(`dataset ${datasetId}: part ${i + 1}/${first.length} ${part.name} from ${safeUrl(part.url)}`);
+    bytes += await streamRecords(ctx, part.url, onRecord);
   }
-  return first.length;
+  return { parts: first.length, bytes };
 }
 
-const dubaiDate = (d: Date) => new Date(d.getTime() + 4 * 3600_000).toISOString().slice(0, 10);
-const message = (e: unknown) => (e instanceof Error ? e.message : String(e)).replace(/https?:\/\/\S+/g, (u) => safeUrl(u));
+// ---- job "dld" ------------------------------------------------------------------------------------------------------
 
-export interface BuildResult { sql: string; runId: string; summary: Record<string, string | number> }
-
-export async function build(ctx: Ctx): Promise<BuildResult> {
-  const started = ctx.now();
-  const t0 = started.getTime();
-  const today = dubaiDate(started);
-  const runId = ctx.uuid();
-  const errors: string[] = [];
-  const summary: Record<string, string | number> = { run_id: runId };
+export async function runDld(ctx: Ctx) {
+  const now = ctx.now();
+  const t0 = now.getTime();
+  const today = dubaiDate(now);
+  const summary: Record<string, string | number> = { today };
 
   const tx = new DldTxAggregator(today);
-  let dld: Parameters<typeof buildSql>[0]['dld'] = null;
+  let txPart: Parameters<typeof buildArtifact>[0]['tx'];
   try {
-    summary.dld_parts = await eachPart(ctx, DLD_TX_DATASET, (l) => tx.line(l));
-    const problem = badRowsProblem(tx.rowsTotal, tx.rowsBad);
-    if (problem) errors.push(problem);
-    else dld = { rowsTotal: tx.rowsTotal, rowsBad: tx.rowsBad, asOf: tx.asOf, areaMonths: tx.areaMonths(), monthTotals: tx.monthTotals() };
+    const { parts, bytes } = await eachPart(ctx, DLD_TX_DATASET, (r) => tx.record(r));
+    summary.transactions_download_mb = Math.round(bytes / 1e6);
+    const problem = badRowsProblem('dld_transactions', tx.rowsTotal, tx.rowsBad);
+    txPart = problem
+      ? { ok: false, rowsTotal: tx.rowsTotal, rowsBad: tx.rowsBad, error: problem }
+      : { ok: true, rowsTotal: tx.rowsTotal, rowsBad: tx.rowsBad, asOf: tx.asOf, parts, areaMonths: tx.areaMonths(), monthTotals: tx.monthTotals() };
   } catch (e) {
-    errors.push(message(e));
+    txPart = { ok: false, rowsTotal: tx.rowsTotal, rowsBad: tx.rowsBad, error: message(e) };
   }
   Object.assign(summary, { rows_total: tx.rowsTotal, rows_bad: tx.rowsBad, as_of: tx.asOf || 'n/a' });
 
-  let projects: ProjectsStats | null = null;
   const pa = new DldProjectsAggregator(today);
+  let projPart: Parameters<typeof buildArtifact>[0]['projects'];
   try {
-    await eachPart(ctx, DLD_PROJECTS_DATASET, (l) => pa.line(l));
-    projects = pa.stats();
-    summary.projects = `${projects.new_projects_90d} new in 90 days, ${projects.active_projects} active${projects.pipeline_units !== undefined ? `, ${projects.pipeline_units} units` : ''}`;
+    const { bytes } = await eachPart(ctx, DLD_PROJECTS_DATASET, (r) => pa.record(r));
+    summary.projects_download_mb = Math.round((bytes / 1e6) * 10) / 10;
+    const problem = badRowsProblem('dld_projects', pa.rowsTotal, pa.rowsBad);
+    projPart = problem ? { ok: false, columns: pa.header ?? [], error: problem } : { ok: true, rowsTotal: pa.rowsTotal, rowsBad: pa.rowsBad, columns: pa.header ?? [], stats: pa.stats() };
   } catch (e) {
-    errors.push(message(e));
+    projPart = { ok: false, columns: pa.header ?? [], error: message(e) };
   }
-  // Column NAMES only (never values): the first run reports the real header so the projects mapping can be confirmed.
-  if (pa.header) summary.projects_columns = pa.header.join(', ');
+  Object.assign(summary, { projects_rows: pa.rowsTotal, projects_rows_bad: pa.rowsBad });
+  // Column NAMES only (never values), so the header can be checked against DLD_PROJECT_COLUMNS.
+  const cols = (pa.header ?? []).filter((c) => /^[A-Za-z0-9_ ]{1,64}$/.test(c)).slice(0, 100);
+  projPart = { ...projPart, columns: cols };
+  summary.projects_columns = cols.join(', ') || 'n/a';
+  summary.seconds = Math.round((ctx.now().getTime() - t0) / 1000);
+  summary.errors = [txPart.ok ? '' : txPart.error, projPart.ok ? '' : projPart.error].filter(Boolean).join(' | ') || 'none';
+  return { artifact: buildArtifact({ today, now, tx: txPart, projects: projPart }), summary };
+}
 
+// ---- job "apply" ----------------------------------------------------------------------------------------------------
+
+export const DLD_RESULTS = ['success', 'failure', 'cancelled', 'skipped'] as const;
+
+/** Reads the artifact only when the dld job succeeded and the file exists and is not oversized. */
+export function readDld(path: string, dldResult: string, today: string): ValidDld {
+  const none = (why: string): ValidDld => ({ today, tx: null, rowsTotal: 0, rowsBad: 0, projects: null, projectsColumns: [], errors: [why] });
+  if (dldResult !== 'success') return none(`dld job: ${DLD_RESULTS.includes(dldResult as never) ? dldResult : 'unknown result'} (the UAE runner did not deliver data)`);
+  if (!existsSync(path)) return none('dld job: no artifact');
+  if (statSync(path).size > MAX_ARTIFACT_BYTES) return none('dld artifact: too large');
+  let raw: unknown;
+  try { raw = JSON.parse(readFileSync(path, 'utf8')); } catch { return none('dld artifact: not JSON'); }
+  return validateArtifact(raw, today);
+}
+
+export async function runApply(ctx: Ctx, dld: ValidDld) {
+  const started = ctx.now();
+  const runId = ctx.uuid();
+  const errors = [...dld.errors];
   let adrec: AdrecYtd | null = null;
   try {
     const res = await ctx.fetch(ADREC_URL, { headers: { accept: 'application/json' }, signal: AbortSignal.timeout(30_000) });
     if (!res.ok) throw new Error(`adrec: ${safeUrl(ADREC_URL)} returned HTTP ${res.status}`);
-    adrec = parseAdrec(await res.json(), Number(today.slice(0, 4)));
-    summary.adrec = `sales ${adrec.sales_value_aed}, transactions ${adrec.transaction_value_aed}, mortgages ${adrec.mortgage_value_aed} (AED)`;
+    adrec = parseAdrec(await res.json(), Number(dubaiDate(started).slice(0, 4)));
   } catch (e) {
     errors.push(message(e));
   }
-
   const finished = ctx.now();
-  summary.seconds = Math.round((finished.getTime() - t0) / 1000);
-  summary.errors = errors.length ? errors.join(' | ') : 'none';
-  const sql = buildSql({ runId, startedAt: started.toISOString(), finishedAt: finished.toISOString(), dld, rowsTotal: tx.rowsTotal, rowsBad: tx.rowsBad, projects, adrec, errors, uuid: ctx.uuid });
+  const sql = buildSql({ runId, startedAt: started.toISOString(), finishedAt: finished.toISOString(), dld: dld.tx, rowsTotal: dld.rowsTotal, rowsBad: dld.rowsBad, projects: dld.projects, adrec, errors, uuid: ctx.uuid });
+  const summary: Record<string, string | number> = {
+    run_id: runId, dld_as_of: dld.tx?.asOf ?? 'n/a', rows_total: dld.rowsTotal, rows_bad: dld.rowsBad,
+    area_months: dld.tx?.areaMonths.length ?? 0, projects: dld.projects ? `${dld.projects.new_projects_90d} new in 90 days, ${dld.projects.active_projects} active` : 'n/a',
+    projects_columns: dld.projectsColumns.join(', ') || 'n/a',
+    adrec: adrec ? `sales ${adrec.sales_value_aed}, transactions ${adrec.transaction_value_aed}, mortgages ${adrec.mortgage_value_aed} (AED)` : 'n/a',
+    errors: errors.length ? errors.join(' | ') : 'none',
+  };
   return { sql, runId, summary };
 }
+
+// ---- CLI ------------------------------------------------------------------------------------------------------------
 
 function arg(name: string): string {
   const i = process.argv.indexOf(name);
@@ -118,28 +162,39 @@ function arg(name: string): string {
   return v;
 }
 
+function report(title: string, summary: Record<string, string | number>) {
+  const rows = Object.entries(summary).map(([k, v]) => `| ${k} | ${String(v).replace(/\|/g, '\\|')} |`);
+  const md = [`## ${title}`, '', '| field | value |', '|---|---|', ...rows, ''].join('\n');
+  console.log(md);
+  if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, md + '\n');
+}
+
 async function main(): Promise<number> {
   const mode = process.argv[2];
-  const sqlPath = arg('--sql');
-  const statePath = arg('--state');
   const ctx: Ctx = { fetch, log: (s) => console.log(s), now: () => new Date(), uuid: () => crypto.randomUUID() };
-  if (mode === 'build') {
-    const r = await build(ctx);
-    writeFileSync(sqlPath, r.sql);
-    writeFileSync(statePath, JSON.stringify({ run_id: r.runId }) + '\n');
-    const rows = Object.entries(r.summary).map(([k, v]) => `| ${k} | ${String(v).replace(/\|/g, '\\|')} |`);
-    const md = ['## market-data-sync', '', '| field | value |', '|---|---|', ...rows, ''].join('\n');
-    console.log(md);
-    if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, md + '\n');
+  if (mode === 'dld') {
+    const { artifact, summary } = await runDld(ctx);
+    writeFileSync(arg('--out'), JSON.stringify(artifact));
+    report('market-data-sync: DLD (UAE runner)', summary);
+    return 0;
+  }
+  if (mode === 'apply') {
+    const dldResult = process.env.DLD_RESULT ?? '';
+    const dld = readDld(arg('--dld'), dldResult, dubaiDate(ctx.now()));
+    const r = await runApply(ctx, dld);
+    writeFileSync(arg('--sql'), r.sql);
+    writeFileSync(arg('--state'), JSON.stringify({ run_id: r.runId }) + '\n');
+    report('market-data-sync: apply', r.summary);
     if (r.summary.errors !== 'none') console.log(`::warning title=market-data-sync::${String(r.summary.errors).slice(0, 500)} (recorded in D1; the Check step will fail this run)`);
     return 0;
   }
   if (mode === 'check') {
-    const { run_id } = JSON.parse(readFileSync(statePath, 'utf8')) as { run_id: string };
-    writeFileSync(sqlPath, checkSql(run_id, new Date().toISOString()));
+    const { run_id } = JSON.parse(readFileSync(arg('--state'), 'utf8')) as { run_id: string };
+    if (!/^[0-9a-f-]{36}$/.test(run_id)) throw new Error('state: bad run id');
+    writeFileSync(arg('--sql'), checkSql(run_id, new Date().toISOString()));
     return 0;
   }
-  console.error('usage: sync.ts build|check --sql <file> --state <file>');
+  console.error('usage: sync.ts dld --out <file> | apply --dld <file> --sql <file> --state <file> | check --sql <file> --state <file>');
   return 2;
 }
 

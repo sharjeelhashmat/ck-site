@@ -30,6 +30,7 @@ export interface AdrecFile {
   period: string;
   published: string | null;
   total_res_bn: number | null;
+  prior_total_res_bn?: number | null;
   source_url: string;
   areas: AdrecArea[];
 }

@@ -4,3 +4,4 @@ node_modules/
 *.log
 market-sync.sql
 market-sync.state.json
+market-dld.json

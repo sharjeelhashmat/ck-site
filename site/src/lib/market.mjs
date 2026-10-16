@@ -36,6 +36,13 @@ export function priorPeriodId(id) {
   return `${p.year - 1}-${p.span}`;
 }
 
+/** The name ADREC gives the report: "2026-H1" -> "H1 2026", "2026-Q3" -> "Q3 2026". @param {string} id */
+export function reportName(id) {
+  const p = parsePeriod(id);
+  if (!p) throw new Error(`bad period ${id}`);
+  return `${p.span} ${p.year}`;
+}
+
 /** @param {string} id */
 export const isHalfYear = (id) => /-H[12]$/.test(id);
 
@@ -151,7 +158,6 @@ export function renderChange(emirate, d) {
   const areas = (d?.areas ?? []).filter((a) => a.value_bn > 0);
   const ranked = rankByChange(areas);
   if (!ranked.length || !parsePeriod(d.period)) return '';
-  const label = periodLabel(d.period);
   const missing = emirate === 'abu_dhabi' ? areas.length - ranked.length : 0;
   const rows = ranked.map(({ a, c }, i) => `<tr><td class="mk-num">${i + 1}</td><td><span class="mk-tarea">${esc(a.area)}</span>${a.label ? `<span class="mk-label">${esc(a.label)}</span>` : ''}</td><td class="mk-num">${fmtBn(a.value_bn)}</td><td class="mk-num">${changeSpan(c)}</td></tr>`).join('');
   const np = missing > 0
@@ -159,7 +165,7 @@ export function renderChange(emirate, d) {
     : '';
   const source = emirate === 'dubai'
     ? `Source: Dubai Land Department, <a href="${SOURCES.dubaiTx.url}" target="_blank" rel="noopener">Real Estate Transactions open data</a> via Data.Dubai (Open Data Licence). Residential sales value. Area names as registered by DLD.`
-    : `Source: <a href="${esc(d.source_url ?? SOURCES.adrec.url)}" target="_blank" rel="noopener">Abu Dhabi Real Estate Centre (ADREC)</a>, ${esc(label)} market report${d.published ? ` (published ${esc(fmtDate(d.published))})` : ''}. Residential sales value.`;
+    : `Source: <a href="${esc(d.source_url ?? SOURCES.adrec.url)}" target="_blank" rel="noopener">Abu Dhabi Real Estate Centre (ADREC)</a>, ${esc(reportName(d.period))} market report${d.published ? ` (published ${esc(fmtDate(d.published))})` : ''}. Residential sales value.`;
   return `<section class="mk-block" aria-labelledby="mk-chg-${emirate}">
 <h2 id="mk-chg-${emirate}" class="mk-h2">Change vs last year · ${EMIRATES[emirate]}</h2>
 <div class="mk-table-card"><div class="mk-table-scroll"><table class="mk-table">
@@ -190,7 +196,7 @@ export function renderGuideCard(emirate, d) {
   const c = formatChange(a);
   const source = emirate === 'dubai'
     ? `Source: Dubai Land Department, <a href="${SOURCES.dubaiTx.url}" target="_blank" rel="noopener">Real Estate Transactions open data</a> via Data.Dubai (Open Data Licence). Residential sales value${d.dldArea ? ` for the DLD area ${esc(d.dldArea)}` : ''}.`
-    : `Source: <a href="${esc(d.source_url ?? SOURCES.adrec.url)}" target="_blank" rel="noopener">Abu Dhabi Real Estate Centre (ADREC)</a>, ${esc(label)} market report${d.published ? ` (published ${esc(fmtDate(d.published))})` : ''}. Residential sales value.`;
+    : `Source: <a href="${esc(d.source_url ?? SOURCES.adrec.url)}" target="_blank" rel="noopener">Abu Dhabi Real Estate Centre (ADREC)</a>, ${esc(reportName(d.period))} market report${d.published ? ` (published ${esc(fmtDate(d.published))})` : ''}. Residential sales value.`;
   return `<p class="mk-chip">${esc(label)} vs ${esc(prior)}</p>
 <p class="mk-value">${fmtBn(a.value_bn)}</p>
 <p class="mk-tile-label">residential sales value, ${esc(label)}</p>
@@ -249,7 +255,14 @@ export function checkAdrecAreas(f, guideSlugs) {
   if (f.areas.length % 2) e.push('keep the card count even');
   if (f.areas.length) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(f.published ?? '')) e.push('published (YYYY-MM-DD) is required once areas are listed');
-    if (!/^https:\/\/adrec\.gov\.ae\//.test(f.source_url ?? '')) e.push("source_url must be ADREC's own page");
+    if (!/^https:\/\/adrec\.gov\.ae\//.test(f.source_url ?? '')) e.push("source_url must be ADREC's own page or report");
+    if (!(f.total_res_bn > 0)) e.push('total_res_bn is required once areas are listed');
+  }
+  // Shares are value / emirate total, one decimal: a typo in either shows up here.
+  if (f.total_res_bn > 0) {
+    f.areas.forEach((a, i) => {
+      if (a.value_bn > 0 && Math.abs(Math.round((a.value_bn / f.total_res_bn) * 1000) / 10 - a.share_pct) > 0.1) e.push(`areas[${i}]: share_pct ${a.share_pct} does not match value_bn / total_res_bn`);
+    });
   }
   f.areas.forEach((a, i) => {
     const at = `areas[${i}]`;

@@ -2,7 +2,7 @@
 import { env } from 'cloudflare:workers';
 import { describe, expect, it } from 'vitest';
 import worker, { type Env } from '../src/index';
-import { DldTxAggregator } from '../scripts/market-sync/dld';
+import { DldTxAggregator, parseCsv } from '../scripts/market-sync/dld';
 import { buildSql } from '../scripts/market-sync/sql';
 import { fixtureLines } from '../test/market-fixture';
 
@@ -16,7 +16,7 @@ const uuid = () => `run-${++n}`;
 
 async function seed(opts: { projects?: boolean; adrec?: boolean } = {}) {
   const a = new DldTxAggregator('2026-10-16');
-  for (const l of fixtureLines()) a.line(l);
+  for (const r of parseCsv(fixtureLines().join('\r\n'))) a.record(r);
   const sql = buildSql({
     runId: uuid(), startedAt: '2026-10-16T02:23:00.000Z', finishedAt: '2026-10-16T02:30:00.000Z',
     dld: { rowsTotal: a.rowsTotal, rowsBad: a.rowsBad, asOf: a.asOf, areaMonths: a.areaMonths(), monthTotals: a.monthTotals() },

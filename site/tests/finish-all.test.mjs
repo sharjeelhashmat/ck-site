@@ -187,11 +187,11 @@ test('E: Abu Dhabi: ≈N× text ranks first, n/p areas are left out with the not
     { rank: 3, area: 'Al Ramhan Island', value_bn: 2.9, share_pct: 4.1, change_pct: null, guide: 'ramhan-island' },
     { rank: 4, area: 'Zayed City', value_bn: 1.9, share_pct: 2.7, change_pct: null, guide: 'zayed-city' },
   ];
-  const d = { period: '2026-H1', published: '2026-08-21', source_url: 'https://adrec.gov.ae/en/news/x', areas };
+  const d = { period: '2026-H1', published: '2026-08-18', total_res_bn: 70.4, source_url: 'https://adrec.gov.ae/en/news/x', areas };
   const html = renderChange('abu_dhabi', d);
   assert.deepEqual([...html.matchAll(/<span class="mk-tarea">([^<]+)<\/span>/g)].map((m) => m[1]), ['Hudayriyat Island', 'Saadiyat Island']);
   assert.match(text(html), /ADREC did not publish a year-on-year change for 2 of the top areas \(n\/p = not published\)\. They are left out of this ranking rather than estimated\./);
-  assert.match(text(html), /Source: Abu Dhabi Real Estate Centre \(ADREC\), Jan–Jun 2026 market report \(published 21 Aug 2026\)\. Residential sales value\./);
+  assert.match(text(html), /Source: Abu Dhabi Real Estate Centre \(ADREC\), H1 2026 market report \(published 18 Aug 2026\)\. Residential sales value\./);
   assert.match(text(renderTop('abu_dhabi', d)), /#3 Al Ramhan Island AED 2\.9bn 4\.1% of total change n\/p/);
   assert.equal(rankByChange(areas).length, 2);
   // A file that is odd-sized, or points at a guide that does not exist, fails the build.
@@ -243,12 +243,37 @@ test('E: /areas title, meta, eyebrow, H1, lede, closing line and switch markup a
   assert.match(text(m), /Area guides · Abu Dhabi/);
 });
 
-test('E: Abu Dhabi area figures appear only as confirmed in adrec-areas.json (empty today: nothing is rendered)', () => {
-  assert.equal(ADREC.period, '2026-H1');
+test('E: adrec-areas.json holds exactly the figures confirmed in ADREC\'s own H1 2026 report (Coordinator, 2026-10-16)', () => {
+  assert.deepEqual(ADREC, {
+    period: '2026-H1', published: '2026-08-18', total_res_bn: 70.4, prior_total_res_bn: 25.3,
+    source_url: 'https://adrec.gov.ae/-/media/adrec/market-reports/marketreportslatest/adrec-h1-2026-spread-3.pdf',
+    areas: [
+      { rank: 1, area: 'Hudayriyat Island', value_bn: 19.0, share_pct: 27.0, change_text: '≈8×', guide: 'hudayriyat-island' },
+      { rank: 2, area: 'Saadiyat Island', value_bn: 13.3, share_pct: 18.9, change_pct: 63, guide: 'saadiyat-island' },
+      { rank: 3, area: 'Al Reem Island + Al Maryah Island', value_bn: 10.5, share_pct: 14.9, change_pct: 153, guide: 'al-reem-al-maryah-island' },
+      { rank: 4, area: 'Yas Island', value_bn: 7.3, share_pct: 10.4, change_pct: 91, guide: 'yas-island' },
+      { rank: 5, area: 'Al Ramhan Island', value_bn: 2.9, share_pct: 4.1, change_pct: null, guide: 'ramhan-island' },
+      { rank: 6, area: 'Al Fahid Island', value_bn: 2.9, share_pct: 4.1, change_pct: null, guide: 'fahid-island' },
+      { rank: 7, area: 'Ghadeer Al Tayr', value_bn: 2.4, share_pct: 3.4, change_pct: null, guide: 'ghadeer-al-tayr' },
+      { rank: 8, area: 'Zayed City', value_bn: 1.9, share_pct: 2.7, change_pct: null, guide: 'zayed-city' },
+    ],
+  });
   assert.deepEqual(checkAdrecAreas(ADREC, GUIDES.filter((g) => g.emirate === 'abu_dhabi').map((g) => g.slug)), []);
+  assert.match(checkAdrecAreas({ ...ADREC, areas: [{ ...ADREC.areas[0], share_pct: 25 }, ADREC.areas[1]] }, ['hudayriyat-island', 'saadiyat-island']).join(), /share_pct 25 does not match/);
+  // Rendered at build time on /areas (Abu Dhabi panel): 8 cards, the change table, the n/p note and the report line.
   const m = main('areas.html');
-  if (ADREC.areas.length === 0) assert.doesNotMatch(m, /mk-card|mk-table/);
-  else assert.equal([...m.matchAll(/<article class="mk-card">/g)].length, ADREC.areas.length);
+  const panel = m.match(/<div class="mk-panel" data-emirate="abu_dhabi"[\s\S]*?<p class="mk-ask"/)[0];
+  assert.equal([...panel.matchAll(/<article class="mk-card">/g)].length, 8);
+  const t = text(panel);
+  assert.match(t, /#1 Hudayriyat Island AED 19\.0bn 27\.0% of total ≈8×/);
+  assert.match(t, /#5 Al Ramhan Island AED 2\.9bn 4\.1% of total change n\/p/);
+  assert.match(t, /1 Hudayriyat Island AED 19\.0bn ≈8× 2 Al Reem Island \+ Al Maryah Island AED 10\.5bn \+153% 3 Yas Island AED 7\.3bn \+91% 4 Saadiyat Island AED 13\.3bn \+63%/);
+  assert.match(t, /ADREC did not publish a year-on-year change for 4 of the top areas \(n\/p = not published\)\./);
+  assert.match(t, /Source: Abu Dhabi Real Estate Centre \(ADREC\), H1 2026 market report \(published 18 Aug 2026\)\. Residential sales value\./);
+  assert.match(panel, /href="https:\/\/adrec\.gov\.ae\/-\/media\/adrec\/market-reports\/marketreportslatest\/adrec-h1-2026-spread-3\.pdf"/);
+  // And on each Abu Dhabi guide page.
+  assert.match(text(main('areas/saadiyat-island.html')), /Jan–Jun 2026 vs Jan–Jun 2025 AED 13\.3bn residential sales value, Jan–Jun 2026 18\.9% of Abu Dhabi's total \+63% Source: Abu Dhabi Real Estate Centre \(ADREC\), H1 2026 market report \(published 18 Aug 2026\)\./);
+  assert.match(text(main('areas/zayed-city.html')), /AED 1\.9bn residential sales value, Jan–Jun 2026 2\.7% of Abu Dhabi's total change n\/p/);
 });
 
 test('E: Rules 1c only: no #B3261E, no green, no Slate text on light in the market styles', () => {

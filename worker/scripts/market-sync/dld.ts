@@ -16,22 +16,100 @@ export const DLD_TX_COLUMN_COUNT = 47;
 export const DLD_SINCE = '2025-01-01';
 
 /**
- * DLD Real Estate Projects (datasetId 467654). The CSV header was not confirmed before this was written (the source
- * was unreachable from the build session), so each field lists the names accepted; the first one present wins. A run
- * whose header has none of the names for a required field fails and prints the header, so the next fix is exact.
+ * DLD Real Estate Projects (datasetId 467654), columns confirmed by the Coordinator on the real file (2026-10-16:
+ * 38 columns). project_name / developer_name exist in the file and are never read.
  */
 export const DLD_PROJECT_COLUMNS = {
-  status: ['project_status', 'project_status_en'],
-  start: ['project_start_date', 'start_date', 'registration_date', 'adoption_date'],
-  area: ['area_name_en'],
-  units: ['no_of_units', 'number_of_units', 'units'],
+  status: 'project_status',
+  start: 'project_start_date',
+  area: 'area_name_en',
+  units: 'no_of_units',
 } as const;
 
-/** One CSV record per line, every field quoted: strip the outer quotes and split on '","'. Null when not quoted. */
-export function splitLine(line: string): string[] | null {
-  const t = line.endsWith('\r') ? line.slice(0, -1) : line;
-  if (t.length < 2 || !t.startsWith('"') || !t.endsWith('"')) return null;
-  return t.slice(1, -1).split('","');
+/**
+ * Streaming RFC 4180 parser. Feed text chunks in any size; complete records are passed to onRecord. Handles quoted and
+ * unquoted fields, empty unquoted fields (a,,b), commas, doubled quotes and newlines inside quotes, and CRLF or LF
+ * line ends. A record with a stray quote (inside an unquoted field, or text after a closing quote) is reported as
+ * malformed (fields = null) and parsing resumes at the next line end outside quotes.
+ */
+export class CsvParser {
+  private field = '';
+  private fields: string[] = [];
+  private inQuotes = false;
+  private afterQuote = false; // just closed a quoted field: only , or a line end may follow
+  private bad = false;
+  private pendingQuote = false; // a quote seen inside quotes, at the end of a chunk: escape or close, decided by the next char
+  private pendingCr = false;
+  private started = false;
+
+  constructor(private readonly onRecord: (fields: string[] | null) => void) {}
+
+  private endField(): void {
+    this.fields.push(this.field);
+    this.field = '';
+    this.afterQuote = false;
+  }
+
+  private endRecord(): void {
+    this.endField();
+    const empty = this.fields.length === 1 && this.fields[0] === '' && !this.bad;
+    if (!empty) this.onRecord(this.bad ? null : this.fields);
+    this.fields = [];
+    this.bad = false;
+    this.started = false;
+  }
+
+  feed(chunk: string): void {
+    for (let i = 0; i < chunk.length; i++) {
+      const c = chunk[i]!;
+      if (!this.started && c === '﻿') continue; // BOM
+      if (this.pendingCr) {
+        this.pendingCr = false;
+        if (c === '\n') continue; // CRLF: the record already ended at the CR
+      }
+      if (this.pendingQuote) {
+        this.pendingQuote = false;
+        if (c === '"') { this.field += '"'; continue; } // "" inside quotes
+        this.inQuotes = false;
+        this.afterQuote = true;
+      }
+      this.started = true;
+      if (this.inQuotes) {
+        if (c === '"') this.pendingQuote = true;
+        else this.field += c;
+        continue;
+      }
+      if (c === ',') { this.endField(); continue; }
+      if (c === '\n' || c === '\r') {
+        this.endRecord();
+        if (c === '\r') this.pendingCr = true;
+        continue;
+      }
+      if (this.afterQuote) { this.bad = true; continue; }
+      if (c === '"') {
+        if (this.field === '') { this.inQuotes = true; continue; }
+        this.bad = true;
+        continue;
+      }
+      this.field += c;
+    }
+  }
+
+  /** Flushes the last record (a file without a final line end). An unterminated quote is a malformed record. */
+  end(): void {
+    if (this.pendingQuote) { this.pendingQuote = false; this.inQuotes = false; this.afterQuote = true; }
+    if (this.inQuotes) { this.bad = true; this.inQuotes = false; }
+    if (this.started || this.field !== '' || this.fields.length) this.endRecord();
+  }
+}
+
+/** Parses a whole CSV string (tests and small inputs). */
+export function parseCsv(text: string): (string[] | null)[] {
+  const out: (string[] | null)[] = [];
+  const p = new CsvParser((r) => out.push(r));
+  p.feed(text);
+  p.end();
+  return out;
 }
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -49,18 +127,19 @@ export interface MonthTotal { month: string; trans_group: string; value: number;
 
 type TxIndex = Record<keyof typeof DLD_TX_COLUMNS, number>;
 
-/** Streams transaction lines (header lines included, one per CSV part) into the aggregates. */
+/** Takes parsed transaction records (a header at the top of every CSV part) and keeps only the aggregates. */
 export class DldTxAggregator {
   rowsTotal = 0;
   rowsBad = 0;
   asOf = '';
   private idx: TxIndex | null = null;
+  private width = DLD_TX_COLUMN_COUNT;
   private areaMonth = new Map<string, AreaMonth>();
   private totals = new Map<string, MonthTotal>();
 
   constructor(private readonly today: string) {}
 
-  /** A header line (re)sets the column positions. Throws when a column this sync reads is missing. */
+  /** A header record (re)sets the column positions. Throws when a column this sync reads is missing. */
   private header(fields: string[]): void {
     const idx = {} as TxIndex;
     const missing: string[] = [];
@@ -70,16 +149,16 @@ export class DldTxAggregator {
       idx[k] = i;
     }
     if (missing.length) throw new Error(`dld_transactions: column(s) not found: ${missing.join(', ')}`);
+    if (fields.length !== DLD_TX_COLUMN_COUNT) throw new Error(`dld_transactions: header has ${fields.length} columns, expected ${DLD_TX_COLUMN_COUNT}`);
     this.idx = idx;
+    this.width = fields.length;
   }
 
-  line(line: string): void {
-    if (!line) return;
-    const f = splitLine(line);
+  record(f: string[] | null): void {
     if (f && (f.includes(DLD_TX_COLUMNS.area) || f.includes(DLD_TX_COLUMNS.date))) { this.header(f); return; }
     if (!this.idx) throw new Error('dld_transactions: data before the header');
     this.rowsTotal++;
-    if (!f || f.length !== DLD_TX_COLUMN_COUNT) { this.rowsBad++; return; }
+    if (!f || f.length !== this.width) { this.rowsBad++; return; }
     const i = this.idx;
     const date = isoDate(f[i.date]!);
     if (!date || date > this.today) return;
@@ -117,10 +196,10 @@ export class DldTxAggregator {
   }
 }
 
-/** Sanity guard, part 1 (no history needed): more than 1% bad rows, or no rows at all, blocks the DLD write. */
-export function badRowsProblem(rowsTotal: number, rowsBad: number): string | null {
-  if (rowsTotal === 0) return 'dld_transactions: no rows';
-  if (rowsBad > rowsTotal * 0.01) return `dld_transactions: ${rowsBad} bad rows of ${rowsTotal} (over 1%)`;
+/** Sanity guard, the part that needs no history (applied to each file): more than 1% bad rows, or no rows, blocks it. */
+export function badRowsProblem(file: string, rowsTotal: number, rowsBad: number): string | null {
+  if (rowsTotal === 0) return `${file}: no rows`;
+  if (rowsBad > rowsTotal * 0.01) return `${file}: ${rowsBad} bad rows of ${rowsTotal} (over 1%)`;
   return null;
 }
 
@@ -144,20 +223,13 @@ export class DldProjectsAggregator {
     this.since = d.toISOString().slice(0, 10);
   }
 
-  private pick(fields: string[], names: readonly string[]): number {
-    for (const n of names) { const i = fields.indexOf(n); if (i >= 0) return i; }
-    return -1;
-  }
-
-  line(line: string): void {
-    if (!line) return;
-    const f = splitLine(line);
+  record(f: string[] | null): void {
     if (!this.header) {
-      if (!f) throw new Error('dld_projects: header is not a quoted CSV line');
+      if (!f) throw new Error('dld_projects: the header is not a valid CSV record');
       this.header = f;
-      const col = { status: this.pick(f, DLD_PROJECT_COLUMNS.status), start: this.pick(f, DLD_PROJECT_COLUMNS.start), area: this.pick(f, DLD_PROJECT_COLUMNS.area), units: this.pick(f, DLD_PROJECT_COLUMNS.units) };
-      const missing = (['status', 'start', 'area'] as const).filter((k) => col[k] < 0);
-      if (missing.length) throw new Error(`dld_projects: required column(s) not found (${missing.map((k) => DLD_PROJECT_COLUMNS[k].join('|')).join('; ')})`);
+      const col = { status: f.indexOf(DLD_PROJECT_COLUMNS.status), start: f.indexOf(DLD_PROJECT_COLUMNS.start), area: f.indexOf(DLD_PROJECT_COLUMNS.area), units: f.indexOf(DLD_PROJECT_COLUMNS.units) };
+      const missing = (Object.keys(col) as (keyof typeof col)[]).filter((k) => col[k] < 0).map((k) => DLD_PROJECT_COLUMNS[k]);
+      if (missing.length) throw new Error(`dld_projects: column(s) not found: ${missing.join(', ')}`);
       this.col = col;
       return;
     }
@@ -165,10 +237,10 @@ export class DldProjectsAggregator {
     this.rowsTotal++;
     if (!f || f.length !== this.header.length || !this.col) { this.rowsBad++; return; }
     const c = this.col;
-    const isActive = f[c.status]!.trim().toUpperCase() === 'ACTIVE';
-    if (isActive) {
+    // Active projects are status ACTIVE only (values seen: ACTIVE, FINISHED, PENDING, CONDITIONAL_ACTIVATING).
+    if (f[c.status]!.trim().toUpperCase() === 'ACTIVE') {
       this.active++;
-      const u = c.units >= 0 ? Number(f[c.units]) : NaN;
+      const u = Number(f[c.units]);
       if (Number.isFinite(u) && u > 0) this.units += u;
     }
     const start = isoDate(f[c.start]!);
@@ -182,13 +254,7 @@ export class DldProjectsAggregator {
   stats(): ProjectsStats {
     if (!this.header) throw new Error('dld_projects: empty file');
     const top = [...this.newByArea.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 5).map(([area_en, count]) => ({ area_en, count }));
-    return {
-      new_projects_90d: this.newCount,
-      top_areas_90d: top,
-      active_projects: this.active,
-      ...(this.col && this.col.units >= 0 ? { pipeline_units: Math.round(this.units) } : {}),
-      as_of: this.today,
-    };
+    return { new_projects_90d: this.newCount, top_areas_90d: top, active_projects: this.active, pipeline_units: Math.round(this.units), as_of: this.today };
   }
 }
 
