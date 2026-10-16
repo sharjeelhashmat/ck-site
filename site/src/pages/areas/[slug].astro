@@ -1,50 +1,75 @@
 ---
+// Area guide (Part F): the same template for all 16 guides. The copy is owner-approved (2026-10-16) and has no figures;
+// the live figures card carries every number. Abu Dhabi figures come from src/data/adrec-areas.json at build time; Dubai
+// figures come from the Worker (/market/area/<DLD area>) in the browser. The card stays hidden when there is no data.
 import Base from '../../layouts/Base.astro';
-import { AREAS } from '../../lib/areas';
-import { areaSnapshotState, SNAPSHOT_FIELDS } from '../../lib/intel.mjs';
-import { today } from '../../lib/intel-data.mjs';
-import { waLink } from '../../lib/site';
+import '../../styles/market.css';
+import { ADREC, GUIDES, PERIOD, VIEW_HEADING, type Guide } from '../../lib/area-guides';
+import { EMIRATES, renderGuideCard } from '../../lib/market.mjs';
+import { SITE } from '../../lib/site';
 
 export function getStaticPaths() {
-  return AREAS.map((area) => ({ params: { slug: area.slug }, props: { area } }));
+  return GUIDES.map((guide) => ({ params: { slug: guide.slug }, props: { guide } }));
 }
-const { area } = Astro.props;
-const FIELDS = [
-  ['buyerProfile', 'Who Buys Here'], ['priceRange', 'Price Range'], ['rentalProfile', 'Rental Profile'],
-  ['investmentCase', 'Investment Case'], ['risks', 'Things to Consider'], ['sharjeelView', "Sharjeel's View"],
-] as const;
-// Decision 5 (2026-09-21): an area page is indexable only when every snapshot figure is sourced, verified and inside its
-// 90-day window. Until then it stays noindex and out of the sitemap. A snapshot that goes stale drops back to noindex.
-const snap = areaSnapshotState(area, today());
-const noindex = !snap.live;
-const claims = SNAPSHOT_FIELDS.map((f) => ({ ...f, c: area.details.snapshot?.[f.key as 'priceSqft' | 'rent' | 'netYield'] })).filter((x) => x.c);
+const { guide } = Astro.props as { guide: Guide };
+const emirate = EMIRATES[guide.emirate];
+const ad = guide.emirate === 'abu_dhabi' ? ADREC.areas.find((a) => a.guide === guide.slug) : undefined;
+const adCard = ad
+  ? renderGuideCard('abu_dhabi', { period: ADREC.period, published: ADREC.published, source_url: ADREC.source_url, area: { ...ad, label: null } })
+  : '';
 ---
-<Base title={area.name} description={area.overview} noindex={noindex}>
+<Base title={guide.h1} description={guide.one_liner}>
   <section class="section">
-    <div class="wrap" style="max-width:56rem">
-      <p class="eyebrow">Area Guide</p>
-      <h1>{area.name}</h1>
-      <p class="lede">{area.overview}</p>
-      {claims.length > 0 && (
-        <div style="margin-top:2.5rem">
-          <p class="kicker">Snapshot</p>
-          <div class="grid grid--3">
-            {claims.map(({ label, c }) => (
-              <div class="card">
-                <p class="kicker" style="margin:0">{label}</p>
-                <p class="figure">{c!.value}</p>
-                <p class="src"><a href={c!.sourceUrl} rel="noopener" target="_blank">{c!.sourceName}</a> · published {c!.publishedOn} · verified {c!.verifiedOn}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+    <div class="narrow guide">
+      <p class="eyebrow">Area guide · {emirate}</p>
+      <h1>{guide.h1}</h1>
+      <p class="lede">{guide.one_liner}</p>
+
+      {guide.emirate === 'abu_dhabi' && adCard && <div class="mk-guide-card" set:html={adCard} />}
+      {guide.emirate === 'dubai' && (
+        <div class="mk-guide-card" id="guide-figures" hidden data-worker={SITE.workerUrl} data-area={guide.dld_area} data-period={PERIOD}></div>
       )}
-      <div class="grid grid--2" style="margin-top:2.5rem">
-        {FIELDS.map(([k, label]) => (
-          <div class="card"><p class="kicker" style="margin:0">{label}</p><p>{area.details[k] || 'Ask Sharjeel for current data on this.'}</p></div>
-        ))}
-      </div>
-      <div class="actions"><a class="btn" href={waLink(`Hi Sharjeel, I'd like to know more about ${area.name}.`)} target="_blank" rel="noopener">Ask Sharjeel about {area.name}</a></div>
+
+      <h2 class="guide-h2">What it is</h2>
+      <p>{guide.what_it_is}</p>
+      <h2 class="guide-h2">Who buys here</h2>
+      <p>{guide.who_buys}</p>
+      <h2 class="guide-h2">Things to consider</h2>
+      <ul class="guide-list">{guide.things_to_consider.map((t) => <li>{t}</li>)}</ul>
+      <h2 class="guide-h2">{VIEW_HEADING}</h2>
+      <p>{guide.my_view}</p>
+
+      <p class="lede guide-close"><a href="/contact">Ask me</a> about {guide.h1}.</p>
     </div>
   </section>
 </Base>
+
+<style>
+  .guide .lede { margin-top: 1.25rem; }
+  .guide-h2 { margin-top: 3rem; margin-bottom: 0; }
+  .guide-list { margin: 1rem 0 0; padding-left: 1.25rem; display: grid; gap: .5rem; }
+  .guide .guide-close { margin-top: 3rem; }
+</style>
+
+<script>
+  import { renderGuideCard } from '../../lib/market.mjs';
+  // Dubai guides: live figures from the Worker. Any failure leaves the card hidden (no spinner, no error box).
+  const card = document.getElementById('guide-figures');
+  if (card) {
+    const { worker, area, period } = card.dataset;
+    fetch(`${worker}/market/area/${encodeURIComponent(area ?? '')}?period=${encodeURIComponent(period ?? '')}`, { signal: AbortSignal.timeout(8000) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => {
+        if (!b?.area) return;
+        const html = renderGuideCard('dubai', {
+          period: b.period,
+          dldArea: area,
+          area: { rank: b.area.rank, area: b.area.area_en, label: b.area.label, value_bn: b.area.value_bn, share_pct: b.area.share_pct, change_pct: b.area.change_pct, prior_zero: b.area.prior_zero },
+        });
+        if (!html) return;
+        card.innerHTML = html;
+        card.hidden = false;
+      })
+      .catch(() => {});
+  }
+</script>

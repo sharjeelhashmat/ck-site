@@ -10,7 +10,7 @@ const id = `nl-${variant}`;
 <div class={`nl nl--${variant} noprint`}>
   <p class="kicker">The Investor's Brief</p>
   <p class="nl-lede">An occasional note on the UAE property market. Sourced figures, the analysis that matters, nothing else.</p>
-  <form class="nl-form" novalidate data-worker={SITE.workerUrl} data-sitekey={SITE.turnstileSiteKey} data-source={source}>
+  <form class="nl-form" data-newsletter novalidate data-worker={SITE.workerUrl} data-sitekey={SITE.turnstileSiteKey} data-source={source}>
     <label class="nl-label" for={`${id}-email`}>Email</label>
     <div class="nl-row">
       <input id={`${id}-email`} name="email" type="email" autocomplete="email" required maxlength="254" placeholder="you@example.com" />
@@ -59,24 +59,39 @@ const id = `nl-${variant}`;
   const w = window as unknown as { turnstile?: Turnstile };
   const SRC = 'https://challenges.cloudflare.com/turnstile/v0/api.js';
 
+  // One loader for every signup on the page. On pages with the enquiry form, api.js is already in the page (and may have
+  // finished loading before anyone touches the signup), so readiness is polled rather than taken from a load event. A
+  // failed attempt is not remembered: the next attempt tries again instead of repeating the old error.
   let loading: Promise<Turnstile> | null = null;
   function loadTurnstile(): Promise<Turnstile> {
     if (w.turnstile) return Promise.resolve(w.turnstile);
-    loading ??= new Promise((resolve, reject) => {
+    loading ??= new Promise<Turnstile>((resolve, reject) => {
       let s = document.querySelector<HTMLScriptElement>(`script[src^="${SRC}"]`);
+      const ours = !s;
       if (!s) {
         s = document.createElement('script');
         s.src = `${SRC}?render=explicit`;
         s.async = true;
         document.head.appendChild(s);
       }
-      s.addEventListener('load', () => (w.turnstile ? resolve(w.turnstile) : reject(new Error('turnstile'))));
-      s.addEventListener('error', () => reject(new Error('turnstile')));
-    });
+      const script = s;
+      const started = Date.now();
+      let done = false;
+      const fail = () => { if (done) return; done = true; if (ours) script.remove(); reject(new Error('turnstile')); };
+      script.addEventListener('error', fail);
+      const tick = () => {
+        if (done) return;
+        if (w.turnstile) { done = true; resolve(w.turnstile); return; }
+        if (Date.now() - started > 15000) { fail(); return; }
+        setTimeout(tick, 100);
+      };
+      tick();
+    }).catch((e: unknown) => { loading = null; throw e; });
     return loading;
   }
 
-  document.querySelectorAll<HTMLFormElement>('.nl-form').forEach((form) => {
+  // Only the newsletter forms (data-newsletter): never another element that happens to share a class name.
+  document.querySelectorAll<HTMLFormElement>('form[data-newsletter]').forEach((form) => {
     const box = form.closest('.nl')!;
     const status = form.querySelector<HTMLElement>('.status')!;
     const btn = form.querySelector<HTMLButtonElement>('button[type="submit"]')!;
@@ -85,10 +100,12 @@ const id = `nl-${variant}`;
     let widget: Promise<{ t: Turnstile; id: string }> | null = null;
 
     const ensureWidget = () => {
-      widget ??= loadTurnstile().then((t) => ({
-        t,
-        id: t.render(form.querySelector<HTMLElement>('.nl-turnstile')!, { sitekey: form.dataset.sitekey, appearance: 'interaction-only', theme: 'light' }),
-      }));
+      widget ??= loadTurnstile()
+        .then((t) => ({
+          t,
+          id: t.render(form.querySelector<HTMLElement>('.nl-turnstile')!, { sitekey: form.dataset.sitekey, appearance: 'interaction-only', theme: 'light' }),
+        }))
+        .catch((e: unknown) => { widget = null; throw e; });
       return widget;
     };
     form.addEventListener('focusin', () => { ensureWidget().catch(() => {}); }, { once: true });

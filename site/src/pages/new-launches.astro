@@ -4,6 +4,19 @@
 // images anywhere on the page (Rules Sections 2 and 8c). tests/new-launches.test.mjs checks the copy and the form.
 import Base from '../layouts/Base.astro';
 import LeadForm from '../components/LeadForm.astro';
+import '../styles/market.css';
+import reviews from '../data/launch-reviews.json';
+import { GOLIVE, LAUNCH_CARDS_ALLOWED } from '../lib/golive';
+import { checkLaunchReviews } from '../lib/market.mjs';
+import { SITE } from '../lib/site';
+
+// "Launches I'm watching" (Part A.9): built now, hidden until the agency, BRN and advertiser permit exist (golive.ts).
+// The data file ships empty. Every item must carry its permit number and QR and the agency name and BRN; Abu Dhabi
+// items are refused until GOLIVE.abuDhabiLicensed. At most five are shown.
+interface Review { emirate: 'dubai' | 'abu_dhabi'; project: string; area: string; note: string; permit_number: string; permit_qr: string; agency_name: string; agency_brn: string }
+const reviewProblems = checkLaunchReviews(reviews, GOLIVE);
+if (reviewProblems.length) throw new Error(`launch-reviews.json:\n- ${reviewProblems.join('\n- ')}`);
+const watching = LAUNCH_CARDS_ALLOWED ? (reviews as Review[]).slice(0, 5) : [];
 
 const SOURCES = [
   { label: 'Law No. 8 of 2007 (escrow accounts), Articles 7 and 9', href: 'https://dlp.dubai.gov.ae/Legislation%20Reference/2007/Law%20No.%20(8)%20of%202007.html' },
@@ -37,6 +50,29 @@ const QUESTIONS = [
       <p class="lede">Every launch comes with a brochure. Few come with straight answers. Ask me anything about a launch.</p>
       <div class="actions"><a class="btn" href="#ask">Ask me about a launch →</a></div>
 
+      {/* Launch activity (Part A): aggregated public figures only, loaded from the Worker. Hidden when neither emirate has data. */}
+      <section class="launch-activity" id="launch-activity" hidden data-worker={SITE.workerUrl} aria-labelledby="launch-activity-h">
+        <h2 class="nl-h2" id="launch-activity-h">Launch activity</h2>
+        <div data-slot="cards"></div>
+        <p class="launch-close">Figures update automatically. Want to know what they mean for a specific launch? <a href="#ask">Ask me</a>.</p>
+      </section>
+
+      {watching.length > 0 && (
+        <section aria-labelledby="watching-h">
+          <h2 class="nl-h2" id="watching-h">Launches I'm watching</h2>
+          <div class="lw-grid">
+            {watching.map((r) => (
+              <article class="lw-card">
+                <h3>{r.project}</h3>
+                <p class="small">{r.area}</p>
+                <p>{r.note}</p>
+                <div class="lw-permit"><img src={r.permit_qr} alt={`Permit ${r.permit_number} QR code`} width="72" height="72" /><span>Permit {r.permit_number}<br />{r.agency_name} · BRN {r.agency_brn}</span></div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
       <h2 class="nl-h2">Why a launch needs a different check</h2>
       <p>With a ready home, you can see what you are buying. With a launch, you are paying for a building that does not exist yet. In Dubai, four things change:</p>
       <ul class="nl-list">
@@ -55,7 +91,7 @@ const QUESTIONS = [
       <p>Tell me what you want to know. I'll answer within 24 hours.</p>
       {/* Compliance: this form and "Send my question" are a service call to action. They are acceptable only because the
           site cannot go public before the agency, BRN and Advertiser Permit are in place. */}
-      <div class="nl-form"><LeadForm mode="launch" defaultIntent="invest" submitLabel="Send my question" /></div>
+      <div class="launch-form"><LeadForm mode="launch" defaultIntent="invest" submitLabel="Send my question" /></div>
 
       <div class="nl-sources">
         <h2 class="nl-sources-title">Sources</h2>
@@ -75,11 +111,31 @@ const QUESTIONS = [
   .nl-list { margin: 1rem 0 0; padding-left: 1.25rem; display: grid; gap: .5rem; }
   .nl-ref { font-size: .7em; line-height: 0; margin-left: .15em; }
   .nl-ref a { color: var(--brass-deep); }
-  .nl-form { margin-top: 1.5rem; }
+  /* Not "nl-form": that class belongs to the newsletter signup (see NewsletterSignup.astro). */
+  .launch-form { margin-top: 1.5rem; }
   .nl-sources { margin-top: 3rem; font-size: .85rem; color: var(--ink); }
   /* "Sources" is the fourth H2 for the outline, set in the small source text rather than the page H2 size. */
   .nl-sources .nl-sources-title { font-family: var(--sans); font-size: .85rem; font-weight: 600; line-height: 1.4; color: var(--ink); margin: 0; }
   .nl-sources ol { margin: .5rem 0 0; padding-left: 1.25rem; display: grid; gap: .25rem; }
   .nl-sources li { scroll-margin-top: 6rem; }
   .nl-sources p:last-child { margin-top: 1rem; font-size: .85rem; }
+  .launch-close { margin-top: 1.25rem; }
+  .launch-close a { color: var(--brass-deep); }
 </style>
+
+<script>
+  import { renderLaunchPanel } from '../lib/market.mjs';
+  // Any failure, or no data for either emirate, leaves the panel hidden.
+  const panel = document.getElementById('launch-activity');
+  if (panel) {
+    fetch(`${panel.dataset.worker}/market/launches`, { signal: AbortSignal.timeout(8000) })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((b) => {
+        const html = renderLaunchPanel(b);
+        if (!html) return;
+        panel.querySelector('[data-slot="cards"]')!.innerHTML = html;
+        panel.hidden = false;
+      })
+      .catch(() => {});
+  }
+</script>

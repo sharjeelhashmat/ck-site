@@ -70,11 +70,11 @@ test('new launches: every approved line is there, verbatim and in order', () => 
   assert.doesNotMatch(ol, /<sup|<a /, 'questions: no answers, no source marks');
 });
 
-test('new launches: exactly four H2s; the three content H2s use the About rhythm, the third is #ask, then Sources', () => {
+test('new launches: five H2s (Launch activity first, Part A); the content H2s use the About rhythm, the fourth is #ask, then Sources', () => {
   const h2 = [...main('new-launches.html').matchAll(/<h2([^>]*)>([^<]*)<\/h2>/g)];
-  assert.deepEqual(h2.map((x) => x[2]), ['Why a launch needs a different check', 'Questions worth asking before you commit', 'Ask me about a launch', 'Sources']);
-  assert.deepEqual(h2.map((x) => x[1].match(/class="([^"]*)"/)?.[1]), ['nl-h2', 'nl-h2', 'nl-h2', 'nl-sources-title']);
-  assert.match(h2[2][1], /\bid="ask"/);
+  assert.deepEqual(h2.map((x) => x[2]), ['Launch activity', 'Why a launch needs a different check', 'Questions worth asking before you commit', 'Ask me about a launch', 'Sources']);
+  assert.deepEqual(h2.map((x) => x[1].match(/class="([^"]*)"/)?.[1]), ['nl-h2', 'nl-h2', 'nl-h2', 'nl-h2', 'nl-sources-title']);
+  assert.match(h2[3][1], /\bid="ask"/);
   const css = src('src/pages/new-launches.astro');
   assert.match(css, /\.nl-h2 \{ margin-top: 3rem; margin-bottom: 0;/, 'same spacing as the About H2s');
   assert.match(src('src/pages/about.astro'), /\.about-h2 \{ margin-top: 3rem; margin-bottom: 0; \}/);

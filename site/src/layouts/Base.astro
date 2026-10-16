@@ -5,6 +5,7 @@ import FloatingActions from '../components/FloatingActions.astro';
 import PrintFrame from '../components/PrintFrame.astro';
 import Footer from '../components/Footer.astro';
 import { AFFILIATION_LINE, ANALYTICS_TOKEN, SITE } from '../lib/site';
+import { GOLIVE } from '../lib/golive';
 
 interface Props { title?: string; description?: string; noindex?: boolean; path?: string }
 const DEFAULT_DESC =
@@ -15,6 +16,11 @@ const pathname = Astro.url.pathname.replace(/\/$/, '') || '/';
 const canonical = SITE.origin + (pathname === '/' ? '' : pathname);
 // Only a production-indexable build (which requires a BRN) may be indexed, and only for pages with real content.
 const robots = SITE.indexable && !noindex ? 'index,follow,max-image-preview:large' : 'noindex,nofollow';
+const identifiers = [
+  ...(AFFILIATION_LINE ? [{ '@type': 'PropertyValue', name: 'BRN', value: SITE.brn }] : []),
+  ...(AFFILIATION_LINE && GOLIVE.brokerCardNo ? [{ '@type': 'PropertyValue', name: 'RERA card', value: GOLIVE.brokerCardNo }] : []),
+  ...(GOLIVE.advertiserPermitNo ? [{ '@type': 'PropertyValue', name: 'UAE Media Council advertiser permit', value: GOLIVE.advertiserPermitNo }] : []),
+];
 const ld = {
   '@context': 'https://schema.org',
   '@type': 'RealEstateAgent',
@@ -26,8 +32,10 @@ const ld = {
   areaServed: SITE.areasServed,
   knowsLanguage: SITE.languages,
   sameAs: [SITE.instagram, SITE.linkedin],
-  // Like the visible line: the BRN is published only once the agency is confirmed too (owner decision 2026-10-10).
-  ...(AFFILIATION_LINE ? { identifier: { '@type': 'PropertyValue', name: 'BRN', value: SITE.brn } } : {}),
+  // Like the visible lines (golive.ts): the BRN and RERA card only once the agency is confirmed too (owner decision
+  // 2026-10-10); the advertiser permit once issued.
+  ...(AFFILIATION_LINE ? { worksFor: { '@type': 'RealEstateAgent', name: SITE.brokerage } } : {}),
+  ...(identifiers.length ? { identifier: identifiers } : {}),
 };
 ---
 <!doctype html>

@@ -1,18 +1,89 @@
 ---
+// /areas (Part E, owner-approved preview 2026-10-16). Dubai and Abu Dhabi measured the same way: residential sales value
+// for the same period, against the same period a year earlier. The period is the one in src/data/adrec-areas.json (the
+// latest ADREC publishes by area); Dubai is computed for that same period by the Worker from DLD open data.
+// Abu Dhabi areas render at build time; Dubai figures and both year-to-date rows load in the browser. An emirate with no
+// data is not shown; with one emirate left the switch is hidden. Nothing renders as empty, zero or "loading".
 import Base from '../../layouts/Base.astro';
-import { AREAS } from '../../lib/areas';
+import '../../styles/market.css';
+import { ADREC, PERIOD, guidesFor, type Emirate } from '../../lib/area-guides';
+import { EMIRATES, renderChange, renderTop } from '../../lib/market.mjs';
+import { SITE } from '../../lib/site';
+
+const adData = { period: ADREC.period, published: ADREC.published, source_url: ADREC.source_url, areas: ADREC.areas.map((a) => ({ ...a, label: null })) };
+const adTop = renderTop('abu_dhabi', adData);
+const adChange = renderChange('abu_dhabi', adData);
+const emirates: Emirate[] = ['dubai', 'abu_dhabi'];
 ---
-<Base title="Dubai Areas" description="Area guides for Downtown Dubai, Dubai Marina, Dubai Hills and more.">
-  <section class="section">
+<Base title="Areas: Dubai and Abu Dhabi" description="Where Dubai and Abu Dhabi property money is going: top areas by residential sales value, change against last year, and area guides. From official records.">
+  <section class="section mk-page">
     <div class="wrap">
       <p class="eyebrow">Areas</p>
       <h1 style="max-width:20ch">Where to buy <em>matters as much as what.</em></h1>
-      <p class="lede">Every area has a different buyer profile, price range and investment case. Guides below cover what each one actually is — the property-specific numbers come from Sharjeel directly.</p>
-      <div class="grid grid--2" style="margin-top:2.5rem">
-        {AREAS.map((a) => (
-          <a class="card" href={`/areas/${a.slug}`}><h2>{a.name}</h2><p>{a.overview}</p></a>
-        ))}
+      <p class="lede">Where the money is going, and how each area is moving against last year. Dubai and Abu Dhabi measured the same way, from official records. What it means for a specific unit comes from me.</p>
+    </div>
+
+    <div class="mk-switch-bar" id="mk-switch" hidden>
+      <div class="wrap mk-switch-row">
+        <span class="mk-switch-label" id="mk-switch-label">Show figures for</span>
+        <div class="mk-pills" role="radiogroup" aria-labelledby="mk-switch-label">
+          {emirates.map((e, i) => (
+            <button type="button" role="radio" class="mk-pill" data-emirate={e} aria-checked={i === 0 ? 'true' : 'false'} tabindex={i === 0 ? 0 : -1}>{EMIRATES[e]}</button>
+          ))}
+        </div>
       </div>
+    </div>
+
+    <div class="wrap" id="mk-root" data-worker={SITE.workerUrl} data-period={PERIOD}>
+      <div class="mk-panel" data-emirate="dubai" hidden>
+        <div data-slot="ytd"></div>
+        <div data-slot="top"></div>
+        <div data-slot="change"></div>
+      </div>
+      <div class="mk-panel" data-emirate="abu_dhabi" hidden data-static={adTop ? 'yes' : 'no'}>
+        <div data-slot="ytd"></div>
+        <div data-slot="top" set:html={adTop}></div>
+        <div data-slot="change" set:html={adChange}></div>
+      </div>
+      <p class="mk-ask" id="mk-ask" hidden>Want to know what these numbers mean for a specific unit? <a href="/contact">Ask me.</a></p>
+
+      {emirates.map((e) => (
+        <section class="mk-guides" data-emirate={e} aria-labelledby={`mk-guides-${e}`}>
+          <h2 class="mk-h2" id={`mk-guides-${e}`}>Area guides · {EMIRATES[e]}</h2>
+          <div class="mk-guide-grid">
+            {guidesFor(e).map((g) => (
+              <a class="card mk-guide" href={`/areas/${g.slug}`}><h3>{g.h1}</h3><p>{g.one_liner}</p></a>
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   </section>
 </Base>
+
+<script>
+  import { dubaiRows, renderChange, renderTop, renderYtd } from '../../lib/market.mjs';
+  import { initAreasPage } from '../../lib/areas-page.mjs';
+
+  const root = document.getElementById('mk-root')!;
+  const worker = root.dataset.worker;
+  const period = root.dataset.period ?? '';
+  const get = (path: string) =>
+    fetch(`${worker}${path}`, { signal: AbortSignal.timeout(8000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+
+  Promise.all([get(`/market/areas?period=${encodeURIComponent(period)}`), get('/market/launches')]).then(([areas, launches]) => {
+    const dubai = areas?.dubai ?? null;
+    const dubaiData = dubai ? { period: areas.period, areas: dubaiRows(areas) } : null;
+    const ad = launches?.abu_dhabi ?? null;
+    initAreasPage(document, {
+      dubai: {
+        ytd: renderYtd('dubai', dubai?.ytd ?? null),
+        top: dubaiData ? renderTop('dubai', dubaiData) : '',
+        change: dubaiData ? renderChange('dubai', dubaiData) : '',
+      },
+      abu_dhabi: {
+        ytd: renderYtd('abu_dhabi', ad ? { sales_bn: ad.sales_value_bn, total_bn: ad.transaction_value_bn, mortgages_bn: ad.mortgage_value_bn, as_of: ad.as_of, year: ad.year } : null),
+      },
+    });
+  });
+</script>

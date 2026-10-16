@@ -2,6 +2,7 @@
 // or from an owner decision recorded in the Project memory. Nothing invented.
 
 import { affiliationLine } from './affiliation.mjs';
+import { GOLIVE } from './golive';
 
 const env = import.meta.env;
 
@@ -11,9 +12,9 @@ export const SITE = {
   // geography. Never "Broker"; no adviser wording (SCA regulates investment advisers).
   title: 'Property Consultant',
   origin: 'https://www.sharjeelhashmat.com',
-  // Owner decision 2026-10-10: no agency is named until the owner confirms the new one. Single source of truth: set it here
-  // once confirmed. The "Working with … · BRN …" line renders only when both this and the BRN are set (AFFILIATION_LINE).
-  brokerage: '',
+  // Owner decision 2026-10-10: no agency is named until the owner confirms the new one. Set it in golive.ts (Part B).
+  // The "Working with … · BRN …" line renders only when both the agency and the BRN are set (AFFILIATION_LINE).
+  brokerage: GOLIVE.agencyName,
   phoneDisplay: '+971 55 541 4468',
   phoneE164: '971555414468',
   // Owner decision 2026-09-19: hello@ replaces the Gmail address publicly.
@@ -28,8 +29,9 @@ export const SITE = {
   workerUrl: (env.PUBLIC_WORKER_URL as string | undefined) ?? 'https://ck-lead-worker.sharjeelhashmat.workers.dev',
   // Public by design (Turnstile site keys are embedded in pages).
   turnstileSiteKey: (env.PUBLIC_TURNSTILE_SITE_KEY as string | undefined) ?? '0x4AAAAAAE9Ndhe9on1juQ_h',
-  brn: ((env.PUBLIC_BRN as string | undefined) ?? '').trim(),
-  indexable: env.PUBLIC_INDEXABLE === 'true',
+  brn: GOLIVE.agencyBrn,
+  // Indexing needs both the go-live setting and the deploy-time public switch (deploy-site input "public").
+  indexable: GOLIVE.indexing && env.PUBLIC_INDEXABLE === 'true',
   // Cloudflare Web Analytics (cookieless). Set by the owner as repo variable CF_ANALYTICS_TOKEN; the build receives it as
   // PUBLIC_CF_ANALYTICS_TOKEN (same pattern as BRN). Public by design: the beacon token is embedded in every page.
   cfAnalyticsToken: ((env.PUBLIC_CF_ANALYTICS_TOKEN as string | undefined) ?? '').trim(),
@@ -37,6 +39,10 @@ export const SITE = {
 
 // Rendered wherever the agency + BRN line appears; '' (render nothing) unless both are set.
 export const AFFILIATION_LINE = affiliationLine(SITE.brokerage, SITE.brn);
+// RERA card number, shown only after the agency + BRN line. "Broker" is never shown (Rules 1b).
+export const CARD_LINE = AFFILIATION_LINE && GOLIVE.brokerCardNo ? `RERA card ${GOLIVE.brokerCardNo}` : '';
+// UAE Media Council advertiser permit (Rules 8c.2: in the website footer once issued).
+export const PERMIT_LINE = GOLIVE.advertiserPermitNo ? `UAE Media Council advertiser permit ${GOLIVE.advertiserPermitNo}` : '';
 
 // The beacon is emitted only on the public (indexable) build and only with a well-formed token, so an unset
 // variable never blocks a build and staging traffic never pollutes the production numbers.

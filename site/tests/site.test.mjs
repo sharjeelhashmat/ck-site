@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
+import { GOLIVE_TEST } from './helpers/golive.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const dist = join(root, 'dist');
@@ -57,7 +58,9 @@ test('owner decisions hold: no Gmail, no "Investment Advisor", no Firebase, no "
 
 test('sitemap lists only pages with real content', () => {
   const s = read('sitemap-0.xml');
-  for (const p of ['/new-launches', '/investor-profile', '/areas/downtown-dubai']) assert.doesNotMatch(s, new RegExp(p + '<'), p);
+  for (const p of ['/new-launches', '/investor-profile']) assert.doesNotMatch(s, new RegExp(p + '<'), p);
+  // The 16 area guides (owner-approved copy, 2026-10-16) are listed like every other page.
+  for (const p of ['/areas', '/areas/downtown-dubai', '/areas/hudayriyat-island', '/areas/zayed-city']) assert.match(s, new RegExp(p + '<'), p);
   // Decision 5: Insights enters the sitemap once 3 non-stale articles are published (true since 2026-09-21).
   for (const p of ['/insights', '/insights/dubai-q1-2026-who-is-buying']) assert.match(s, new RegExp(p + '<'), p);
   for (const p of ['/buy', '/invest', '/investment-approach', '/contact']) assert.match(s, new RegExp(p + '<'), p);
@@ -125,7 +128,7 @@ test('analytics: the beacon ships only on a public build with a token, and the C
   const token = 'abcdef0123456789abcdef0123456789';
 
   const pub = '/tmp/ck-site-analytics-public';
-  assert.equal(build(pub, { PUBLIC_INDEXABLE: 'true', PUBLIC_BRN: 'TEST-123', PUBLIC_CF_ANALYTICS_TOKEN: token }).status, 0);
+  assert.equal(build(pub, { PUBLIC_INDEXABLE: 'true', GOLIVE_OVERRIDES: GOLIVE_TEST, PUBLIC_CF_ANALYTICS_TOKEN: token }).status, 0);
   for (const f of walk(pub).filter((p) => p.endsWith('.html'))) {
     assert.match(readFileSync(f, 'utf8'), new RegExp(`data-cf-beacon="\\{(&#34;|&quot;)token\\1:\\1${token}\\1\\}"`), `${f}: beacon`);
   }
@@ -139,10 +142,14 @@ test('analytics: the beacon ships only on a public build with a token, and the C
   for (const f of walk(staging).filter((p) => p.endsWith('.html'))) assert.doesNotMatch(readFileSync(f, 'utf8'), /cloudflareinsights/, f);
 });
 
-test('a production-indexable build refuses to run without a BRN', () => {
-  const r = spawnSync('npx', ['astro', 'build', '--outDir', '/tmp/ck-site-brn-test'], { cwd: root, env: { ...process.env, PUBLIC_INDEXABLE: 'true', PUBLIC_BRN: '' }, encoding: 'utf8' });
-  assert.notEqual(r.status, 0);
-  assert.match(r.stdout + r.stderr, /requires PUBLIC_BRN/);
+test('a production-indexable build refuses to run until golive.ts has indexing, the agency, its BRN and the permit', () => {
+  const run = (overrides) => spawnSync('npx', ['astro', 'build', '--outDir', '/tmp/ck-site-brn-test'], { cwd: root, env: { ...process.env, PUBLIC_INDEXABLE: 'true', GOLIVE_OVERRIDES: overrides }, encoding: 'utf8' });
+  const none = run('');
+  assert.notEqual(none.status, 0);
+  assert.match(none.stdout + none.stderr, /requires golive\.ts: indexing, agencyName, agencyBrn, advertiserPermitNo/);
+  const noBrn = run(JSON.stringify({ ...JSON.parse(GOLIVE_TEST), agencyBrn: '' }));
+  assert.notEqual(noBrn.status, 0);
+  assert.match(noBrn.stdout + noBrn.stderr, /requires golive\.ts: agencyBrn\./);
 });
 
 
@@ -202,9 +209,9 @@ test('built site names no previous agency and never shows "BRN pending"', () => 
   }
 });
 
-test('with the agency (SITE.brokerage) empty, no page renders a "Working with" line', () => {
-  const site = readFileSync(join(root, 'src/lib/site.ts'), 'utf8');
-  assert.match(site, /^\s*brokerage: '',/m, 'SITE.brokerage must stay empty until the owner confirms the agency');
+test('with the agency (GOLIVE.agencyName) empty, no page renders a "Working with" line', () => {
+  const golive = readFileSync(join(root, 'src/lib/golive.ts'), 'utf8');
+  assert.match(golive, /^\s*agencyName: '',/m, 'GOLIVE.agencyName must stay empty until the owner confirms the agency');
   for (const f of htmlFiles) {
     const h = readFileSync(f, 'utf8');
     assert.doesNotMatch(h, /Working with/, `${f}: agency line must be hidden`);

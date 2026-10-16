@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { GOLIVE_TEST } from './helpers/golive.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const read = (p) => readFileSync(join(root, p), 'utf8');
@@ -14,7 +15,7 @@ function build(flag) {
   const out = mkdtempSync(join(tmpdir(), 'ck-profile-out-'));
   const r = spawnSync('npx', ['astro', 'build', '--outDir', out], {
     cwd: root, encoding: 'utf8',
-    env: { ...process.env, PUBLIC_PROFILE_ENABLED: flag, PUBLIC_INDEXABLE: 'true', PUBLIC_BRN: 'TEST-BRN' },
+    env: { ...process.env, PUBLIC_PROFILE_ENABLED: flag, PUBLIC_INDEXABLE: 'true', GOLIVE_OVERRIDES: GOLIVE_TEST },
   });
   return { out, status: r.status, log: r.stdout + r.stderr };
 }
