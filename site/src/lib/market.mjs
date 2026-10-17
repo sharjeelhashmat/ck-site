@@ -53,6 +53,12 @@ export function fmtDate(iso) {
   return `${Number(m[3])} ${MONTHS[Number(m[2]) - 1]} ${m[1]}`;
 }
 
+/** "2026-06-20" -> "Jun 2026". @param {string} iso */
+export function fmtMonth(iso) {
+  const m = /^(\d{4})-(\d{2})-\d{2}/.exec(iso ?? '');
+  return m ? `${MONTHS[Number(m[2]) - 1]} ${m[1]}` : '';
+}
+
 /** One decimal, AED billions. @param {number} x */
 export const fmtBn = (x) => `AED ${x.toFixed(1)}bn`;
 
@@ -210,8 +216,14 @@ export function renderGuideCard(emirate, d) {
 const int = (n) => n.toLocaleString('en-GB');
 const plural = (n, one, many) => `${int(n)} ${n === 1 ? one : many}`;
 
-export function renderLaunchDubai(d) {
-  if (!d) return '';
+/** The DLD projects dataset is not refreshed every week: older than this, the Dubai card is not shown at all. */
+export const LAUNCH_MAX_AGE_DAYS = 120;
+const todayIso = () => new Date().toISOString().slice(0, 10);
+const daysBetween = (a, b) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / 86400000);
+
+/** @param {any} d @param {string} [today] YYYY-MM-DD */
+export function renderLaunchDubai(d, today = todayIso()) {
+  if (!d || !fmtMonth(d.as_of) || !(daysBetween(d.as_of, today) <= LAUNCH_MAX_AGE_DAYS)) return '';
   const lines = [];
   if (d.new_projects_90d > 0) lines.push(`<p class="mk-lead">${plural(d.new_projects_90d, 'new project', 'new projects')} registered in the last 90 days</p>`);
   const top = (d.top_areas_90d ?? []).filter((a) => a.count > 0).slice(0, 5);
@@ -220,9 +232,10 @@ export function renderLaunchDubai(d) {
   }
   if (d.active_projects > 0) lines.push(`<p class="mk-line">${plural(d.active_projects, 'active project', 'active projects')}</p>`);
   if (d.pipeline_units > 0) lines.push(`<p class="mk-line">${plural(d.pipeline_units, 'unit', 'units')} across active projects</p>`);
-  if (!lines.length || !fmtDate(d.as_of)) return '';
+  if (!lines.length) return '';
+  // The month the data is from (the dataset's load date), never the day the sync ran.
   return `<article class="mk-launch"><h3>Dubai</h3>${lines.join('')}
-<p class="mk-src">Source: Dubai Land Department, <a href="${esc(d.source_url)}" target="_blank" rel="noopener">Real Estate Projects open data</a> via Data.Dubai (Open Data Licence), as of ${esc(fmtDate(d.as_of))}.</p></article>`;
+<p class="mk-src">Source: Dubai Land Department, <a href="${esc(d.source_url)}" target="_blank" rel="noopener">Real Estate Projects open data</a> via Data.Dubai (Open Data Licence), as of ${esc(fmtMonth(d.as_of))}.</p></article>`;
 }
 
 export function renderLaunchAbuDhabi(d) {
@@ -234,9 +247,9 @@ export function renderLaunchAbuDhabi(d) {
 <p class="mk-src">Source: <a href="${esc(d.source_url)}" target="_blank" rel="noopener">Abu Dhabi Real Estate Centre (ADREC)</a>, published year-to-date figures, as of ${esc(fmtDate(d.as_of))}.</p></article>`;
 }
 
-/** Both cards, or one full-width card, or '' (panel hidden). */
-export function renderLaunchPanel(body) {
-  const cards = [renderLaunchDubai(body?.dubai), renderLaunchAbuDhabi(body?.abu_dhabi)].filter(Boolean);
+/** Both cards, or one full-width card, or '' (panel hidden). @param {any} body @param {string} [today] YYYY-MM-DD */
+export function renderLaunchPanel(body, today = todayIso()) {
+  const cards = [renderLaunchDubai(body?.dubai, today), renderLaunchAbuDhabi(body?.abu_dhabi)].filter(Boolean);
   if (!cards.length) return '';
   return `<div class="mk-launch-grid${cards.length === 1 ? ' mk-launch-grid--one' : ''}">${cards.join('')}</div>`;
 }

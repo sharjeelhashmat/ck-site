@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GOLIVE_TEST } from './helpers/golive.mjs';
 import {
-  checkAdrecAreas, checkLaunchReviews, dubaiRows, formatChange, fmtDate, isHalfYear, periodLabel, priorPeriodId, rankByChange,
+  checkAdrecAreas, checkLaunchReviews, dubaiRows, formatChange, fmtDate, fmtMonth, isHalfYear, periodLabel, priorPeriodId, rankByChange,
   renderChange, renderGuideCard, renderLaunchPanel, renderTop, renderYtd,
 } from '../src/lib/market.mjs';
 import { decide } from '../src/lib/areas-page.mjs';
@@ -369,16 +369,35 @@ test('A.8: Launch activity panel: under the hero, hidden by default, both cards 
   assert.match(m, /<a href="#ask"[^>]*>Ask me<\/a>\./);
   const dubai = { new_projects_90d: 12, top_areas_90d: [{ area_en: 'Palm Deira', label: 'Dubai Islands', count: 4 }, { area_en: 'Business Bay', label: null, count: 3 }], active_projects: 1, pipeline_units: 52000, as_of: '2026-10-16', source_url: 'https://data.dubai/en/l/467654' };
   const ad = { transaction_value_bn: 117.04, sales_value_bn: 86.1, mortgage_value_bn: 25.5, year: 2026, as_of: '2026-10-16', source_url: 'https://adrec.gov.ae/en' };
-  const both = renderLaunchPanel({ dubai, abu_dhabi: ad });
+  const both = renderLaunchPanel({ dubai, abu_dhabi: ad }, '2026-10-17');
   assert.match(both, /class="mk-launch-grid"/);
   const t = text(both);
   assert.match(t, /Dubai 12 new projects registered in the last 90 days Top areas Palm Deira Dubai Islands 4 Business Bay 3 1 active project 52,000 units across active projects/);
   assert.match(t, /Abu Dhabi AED 86\.1bn in sales, 2026 to date AED 117\.0bn total transactions AED 25\.5bn mortgages/);
-  assert.match(t, /Source: Dubai Land Department, Real Estate Projects open data via Data\.Dubai \(Open Data Licence\), as of 16 Oct 2026\./);
-  assert.match(renderLaunchPanel({ dubai: null, abu_dhabi: ad }), /mk-launch-grid mk-launch-grid--one/);
+  assert.match(t, /Source: Dubai Land Department, Real Estate Projects open data via Data\.Dubai \(Open Data Licence\), as of Oct 2026\./);
+  assert.match(renderLaunchPanel({ dubai: null, abu_dhabi: ad }, '2026-10-17'), /mk-launch-grid mk-launch-grid--one/);
   assert.equal(renderLaunchPanel(null), '');
   // No project names or developer names reach the panel: the Worker sends area counts only.
   assert.doesNotMatch(src('src/lib/market.mjs'), /project_name|developer/);
+});
+
+test('A.8 freshness: the Dubai card shows the month its data is from, hides past 120 days, "new projects" only when > 0', () => {
+  const ad = { transaction_value_bn: 117.04, sales_value_bn: 86.1, mortgage_value_bn: 25.5, year: 2026, as_of: '2026-10-17', source_url: 'https://adrec.gov.ae/en' };
+  // The real case on 2026-10-17: the projects file was loaded in June, nothing started in the 90 days to its load date.
+  const june = { new_projects_90d: 0, top_areas_90d: [], active_projects: 865, pipeline_units: 52000, as_of: '2026-06-20', source_url: 'https://data.dubai/en/l/467654' };
+  const shown = text(renderLaunchPanel({ dubai: june, abu_dhabi: ad }, '2026-10-17')); // 119 days old
+  assert.match(shown, /Dubai 865 active projects 52,000 units across active projects Source: Dubai Land Department, Real Estate Projects open data via Data\.Dubai \(Open Data Licence\), as of Jun 2026\./);
+  assert.doesNotMatch(shown, /new project|17 Oct 2026 \.|20 Jun/);
+  assert.match(text(renderLaunchPanel({ dubai: { ...june, as_of: '2026-06-19' }, abu_dhabi: ad }, '2026-10-17')), /^\s*Dubai /); // 120 days: shown
+  // 121 days: no Dubai card, Abu Dhabi alone at full width (no empty column).
+  const stale = renderLaunchPanel({ dubai: { ...june, as_of: '2026-06-18', new_projects_90d: 3 }, abu_dhabi: ad }, '2026-10-17');
+  assert.match(stale, /^<div class="mk-launch-grid mk-launch-grid--one"><article class="mk-launch"><h3>Abu Dhabi<\/h3>/);
+  assert.doesNotMatch(stale, /Dubai Land Department|<h3>Dubai/);
+  assert.equal(renderLaunchPanel({ dubai: { ...june, as_of: '2026-06-18' }, abu_dhabi: null }, '2026-10-17'), '');
+  // "new projects" appears only when there are some in the 90 days ending at the data's date.
+  assert.match(text(renderLaunchPanel({ dubai: { ...june, new_projects_90d: 1 }, abu_dhabi: null }, '2026-10-17')), /^\s*Dubai 1 new project registered in the last 90 days 865 active projects/);
+  assert.equal(fmtMonth('2026-06-20'), 'Jun 2026');
+  assert.equal(fmtMonth('bad'), '');
 });
 
 // ---------- Whole build ----------
