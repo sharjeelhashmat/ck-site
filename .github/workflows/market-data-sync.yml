@@ -7,9 +7,11 @@ name: market-data-sync
 # Data.Dubai serves its open data to UAE requests only, so the DLD download runs on the owner's PC in the UAE
 # (self-hosted runner, labels self-hosted + ck-uae) with no secrets, and hands over an aggregate-only JSON. The apply job
 # (GitHub-hosted, environment market-data, D1-only token) validates that JSON as untrusted input, fetches the ADREC feed
-# itself and writes ONLY aggregates to D1 through one fixed SQL file. If the PC is off (dld cancelled or skipped), apply
-# still writes the ADREC update and records DLD as waiting_for_runner: not a failure, the Check step passes, no email.
-# If dld fails or its file does not validate, that is recorded as a failure. Dubai keeps its last good data either way.
+# itself and writes ONLY aggregates to D1 through one fixed SQL file. dld's first step only marks that the job reached the
+# PC (job output started=true). If dld did not succeed and never started (PC off: GitHub reports cancelled, skipped or
+# failure), apply still writes the ADREC update and records DLD as waiting_for_runner: not a failure, the Check step
+# passes, no email. If dld started and did not succeed, or its file does not validate, that is recorded as a failure.
+# Dubai keeps its last good data either way.
 # Any recorded failure fails the Check step, so GitHub emails the owner. No project or developer names, no raw rows, no
 # secrets or signed URLs in the logs.
 on:
@@ -56,7 +58,14 @@ jobs:
         # Windows: cmd.exe is always present (no PowerShell execution-policy or pwsh-install dependency). One command per step.
         shell: cmd
         working-directory: worker
+    outputs:
+      started: ${{ steps.started.outputs.started }}
     steps:
+      # First step, before checkout: only marks that the job reached the PC. apply reads it to tell an offline PC
+      # (never started: waiting_for_runner) from a run that started and failed (failure).
+      - id: started
+        working-directory: .
+        run: echo started=true>>"%GITHUB_OUTPUT%"
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
@@ -74,7 +83,7 @@ jobs:
 
   apply:
     needs: [gate, dld]
-    # always(): runs even when the UAE PC was off (dld cancelled or skipped) or dld failed, so ADREC still updates and the
+    # always(): runs even when the UAE PC was off (dld never started) or dld failed, so ADREC still updates and the
     # DLD outcome is recorded. Only in a week the gate opened.
     if: github.ref == 'refs/heads/phase2-site' && always() && needs.gate.outputs.run == 'true'
     runs-on: ubuntu-24.04
@@ -119,6 +128,7 @@ jobs:
       - name: Build SQL
         env:
           DLD_RESULT: ${{ needs.dld.result }}
+          DLD_STARTED: ${{ needs.dld.outputs.started }}
         run: npx --no-install tsx scripts/market-sync/sync.ts apply --dld market-dld.json --sql market-sync.sql --state market-sync.state.json
       - name: Apply
         env:

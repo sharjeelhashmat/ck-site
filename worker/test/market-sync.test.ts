@@ -287,21 +287,35 @@ describe('artifact: built on the UAE runner, validated as untrusted on the apply
     expect(v.errors[0]).toBe('dld job: listing data.dubai/o/x returned HTTP 403 Request Rejected');
   });
 
-  it('apply side: no artifact, a failed or skipped dld job, an oversized or non-JSON file all mean "no DLD data" with the reason', () => {
+  it('classification: success -> validated; not success and never started -> waiting; not success after starting -> failure', () => {
     const dir = mkdtempSync(join(tmpdir(), 'ck-dld-'));
     const ok = join(dir, 'ok.json');
     writeFileSync(ok, JSON.stringify(artifactFrom(aggregate())));
-    expect(readDld(ok, 'success', TODAY).errors).toEqual([]);
-    expect(readDld(ok, 'failure', TODAY).errors[0]).toMatch(/dld job: failure \(the UAE runner did not deliver data\)/);
-    expect(readDld(ok, 'skipped', TODAY).tx).toBeNull();
-    expect(readDld(ok, '', TODAY).errors[0]).toMatch(/unknown result/);
-    expect(readDld(join(dir, 'missing.json'), 'success', TODAY).errors[0]).toMatch(/no artifact/);
+    // success: the artifact is read and validated (started is always true then; it is not needed).
+    const good = readDld(ok, 'success', 'true', TODAY);
+    expect([good.errors, good.waiting, good.tx !== null]).toEqual([[], undefined, true]);
+    // Never reached the PC: waiting, whatever GitHub reports for an expired or skipped queued job.
+    for (const result of ['cancelled', 'skipped', 'failure', '']) {
+      const w = readDld(ok, result, '', TODAY);
+      expect([w.waiting, w.errors, w.tx], result).toEqual([true, [], null]);
+    }
+    // Started on the PC, then did not succeed: a failure.
+    for (const result of ['failure', 'cancelled']) {
+      const f = readDld(ok, result, 'true', TODAY);
+      expect([f.waiting, f.tx, f.errors], result).toEqual([undefined, null, [`dld job: ${result} after starting on the UAE runner`]]);
+    }
+    expect(readDld(ok, 'odd', 'true', TODAY).errors[0]).toMatch(/unknown result after starting/);
+  });
+
+  it('apply side: a missing, oversized or non-JSON artifact after a successful dld job is a failure with the reason', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ck-dld-'));
+    expect(readDld(join(dir, 'missing.json'), 'success', 'true', TODAY).errors[0]).toMatch(/no artifact/);
     const bad = join(dir, 'bad.json');
     writeFileSync(bad, '{not json');
-    expect(readDld(bad, 'success', TODAY).errors[0]).toMatch(/not JSON/);
+    expect(readDld(bad, 'success', 'true', TODAY).errors[0]).toMatch(/not JSON/);
     const big = join(dir, 'big.json');
     writeFileSync(big, ' '.repeat(10 * 1024 * 1024 + 1));
-    expect(readDld(big, 'success', TODAY).errors[0]).toMatch(/too large/);
+    expect(readDld(big, 'success', 'true', TODAY).errors[0]).toMatch(/too large/);
   });
 });
 
@@ -315,29 +329,29 @@ describe('SQL generation', () => {
     expect(() => d.exec(checkSql('missing-run', '2026-10-16T02:31:00Z'))).toThrow(/CHECK constraint/);
   });
 
-  it('dld job did not deliver: ADREC is still written, a failure row and event are recorded, Dubai keeps its last data, the check fails', async () => {
+  it('dld job failed after starting on the PC: ADREC is still written, a failure row and event are recorded, Dubai keeps its last data, the check fails', async () => {
     const d = db();
     d.exec(sqlFor(aggregate()));
     const count = d.prepare('SELECT COUNT(*) AS c FROM dld_area_month').get();
     const adrecFeed = [{ transactionValueYtdAed: 117e9, saleValueYtdAed: 86.1e9, mortgageValueYtdAed: 25.5e9, fdiValueYtdAed: 1 }];
     const ctx: Ctx = { fetch: async () => new Response(JSON.stringify(adrecFeed)), log: () => {}, now: () => NOW, uuid };
-    const r = await runApply(ctx, readDld('nope.json', 'failure', TODAY));
+    const r = await runApply(ctx, readDld('nope.json', 'failure', 'true', TODAY));
     d.exec(r.sql);
     expect(d.prepare('SELECT COUNT(*) AS c FROM dld_area_month').get()).toEqual(count);
     expect(d.prepare("SELECT COUNT(*) AS c FROM market_stats WHERE source = 'adrec_ytd'").get()).toEqual({ c: 1 });
-    expect(d.prepare('SELECT ok, dld_written, dld_status, error FROM market_sync_runs WHERE run_id = ?').get(r.runId)).toEqual({ ok: 0, dld_written: 0, dld_status: 'failed', error: 'dld job: failure (the UAE runner did not deliver data)' });
+    expect(d.prepare('SELECT ok, dld_written, dld_status, error FROM market_sync_runs WHERE run_id = ?').get(r.runId)).toEqual({ ok: 0, dld_written: 0, dld_status: 'failed', error: 'dld job: failure after starting on the UAE runner' });
     expect(d.prepare("SELECT COUNT(*) AS c FROM events WHERE type = 'market_sync_failed'").get()).toEqual({ c: 1 });
     expect(() => d.exec(checkSql(r.runId, 'now'))).toThrow(/CHECK constraint/);
   });
 
-  for (const result of ['cancelled', 'skipped']) {
-    it(`dld job ${result} (UAE PC offline or queue expired): ADREC written, DLD "waiting_for_runner", no failure, the check passes`, async () => {
+  for (const result of ['cancelled', 'skipped', 'failure']) {
+    it(`dld job ${result} without ever starting (UAE PC offline, queue expired): ADREC written, DLD "waiting_for_runner", no failure, the check passes`, async () => {
       const d = db();
       d.exec(sqlFor(aggregate()));
       const count = d.prepare('SELECT COUNT(*) AS c FROM dld_area_month').get();
       const adrecFeed = [{ transactionValueYtdAed: 117e9, saleValueYtdAed: 86.1e9, mortgageValueYtdAed: 25.5e9 }];
       const ctx: Ctx = { fetch: async () => new Response(JSON.stringify(adrecFeed)), log: () => {}, now: () => NOW, uuid };
-      const r = await runApply(ctx, readDld('market-dld.json', result, TODAY));
+      const r = await runApply(ctx, readDld('market-dld.json', result, '', TODAY));
       expect(r.summary.errors).toBe('none');
       d.exec(r.sql);
       expect(d.prepare('SELECT ok, dld_written, dld_status, adrec_ok, error FROM market_sync_runs WHERE run_id = ?').get(r.runId))
@@ -352,7 +366,7 @@ describe('SQL generation', () => {
   it('dld job cancelled but ADREC down: that is a failure, the check fails', async () => {
     const d = db();
     const ctx: Ctx = { fetch: async () => new Response('', { status: 503 }), log: () => {}, now: () => NOW, uuid };
-    const r = await runApply(ctx, readDld('market-dld.json', 'cancelled', TODAY));
+    const r = await runApply(ctx, readDld('market-dld.json', 'cancelled', '', TODAY));
     d.exec(r.sql);
     expect(d.prepare('SELECT ok, dld_status, adrec_ok FROM market_sync_runs WHERE run_id = ?').get(r.runId)).toEqual({ ok: 0, dld_status: 'waiting_for_runner', adrec_ok: 0 });
     expect(() => d.exec(checkSql(r.runId, 'now'))).toThrow(/CHECK constraint/);
@@ -366,7 +380,7 @@ describe('SQL generation', () => {
     bad.tx.area_months[0][0] = '<bad>';
     writeFileSync(f, JSON.stringify(bad));
     const ctx: Ctx = { fetch: async () => new Response(JSON.stringify([{ transactionValueYtdAed: 1, saleValueYtdAed: 1, mortgageValueYtdAed: 1 }])), log: () => {}, now: () => NOW, uuid };
-    const r = await runApply(ctx, readDld(f, 'success', TODAY));
+    const r = await runApply(ctx, readDld(f, 'success', 'true', TODAY));
     d.exec(r.sql);
     expect(d.prepare('SELECT ok, dld_status FROM market_sync_runs WHERE run_id = ?').get(r.runId)).toEqual({ ok: 0, dld_status: 'failed' });
     expect(() => d.exec(checkSql(r.runId, 'now'))).toThrow(/CHECK constraint/);
@@ -379,7 +393,7 @@ describe('SQL generation', () => {
     writeFileSync(f, JSON.stringify(artifactFrom(aggregate())));
     const adrecFeed = [{ transactionValueYtdAed: 117e9, saleValueYtdAed: 86.1e9, mortgageValueYtdAed: 25.5e9 }];
     const ctx: Ctx = { fetch: async () => new Response(JSON.stringify(adrecFeed)), log: () => {}, now: () => NOW, uuid };
-    const r = await runApply(ctx, readDld(f, 'success', TODAY));
+    const r = await runApply(ctx, readDld(f, 'success', 'true', TODAY));
     expect(r.summary.errors).toBe('none');
     d.exec(r.sql);
     expect(d.prepare('SELECT ok, dld_written, dld_status, adrec_ok, as_of FROM market_sync_runs WHERE run_id = ?').get(r.runId)).toEqual({ ok: 1, dld_written: 1, dld_status: 'written', adrec_ok: 1, as_of: '2026-10-09' });

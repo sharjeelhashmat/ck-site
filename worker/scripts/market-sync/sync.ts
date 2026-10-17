@@ -119,15 +119,16 @@ export async function runDld(ctx: Ctx) {
 export const DLD_RESULTS = ['success', 'failure', 'cancelled', 'skipped'] as const;
 
 /**
- * Reads the artifact only when the dld job succeeded and the file exists and is not oversized.
- * cancelled / skipped = the UAE PC was off (or the job's 24-hour queue expired): DLD is "waiting_for_runner", not a
- * failure, so the run stays ok and no email goes out; the gate re-queues the job every 12 hours until the PC is on.
- * failure = the job ran and broke: a failure, as is any artifact that does not validate.
+ * Classifies the dld job by its result AND whether it ever started on the UAE PC (its first step sets started=true,
+ * before anything else), so the outcome never depends on how GitHub reports a job whose 24-hour queue expired:
+ *   success                          -> the artifact is read and validated as untrusted input;
+ *   not success, never started       -> "waiting_for_runner": the PC was off; not a failure, no email, the gate re-queues;
+ *   not success, started on the PC   -> a failure (the Check step fails, GitHub emails the owner).
  */
-export function readDld(path: string, dldResult: string, today: string): ValidDld {
+export function readDld(path: string, dldResult: string, dldStarted: string, today: string): ValidDld {
   const none = (why: string): ValidDld => ({ today, tx: null, rowsTotal: 0, rowsBad: 0, projects: null, projectsColumns: [], errors: [why] });
-  if (dldResult === 'cancelled' || dldResult === 'skipped') return { today, tx: null, rowsTotal: 0, rowsBad: 0, projects: null, projectsColumns: [], errors: [], waiting: true };
-  if (dldResult !== 'success') return none(`dld job: ${DLD_RESULTS.includes(dldResult as never) ? dldResult : 'unknown result'} (the UAE runner did not deliver data)`);
+  if (dldResult !== 'success' && dldStarted !== 'true') return { today, tx: null, rowsTotal: 0, rowsBad: 0, projects: null, projectsColumns: [], errors: [], waiting: true };
+  if (dldResult !== 'success') return none(`dld job: ${DLD_RESULTS.includes(dldResult as never) ? dldResult : 'unknown result'} after starting on the UAE runner`);
   if (!existsSync(path)) return none('dld job: no artifact');
   if (statSync(path).size > MAX_ARTIFACT_BYTES) return none('dld artifact: too large');
   let raw: unknown;
@@ -185,8 +186,7 @@ async function main(): Promise<number> {
     return 0;
   }
   if (mode === 'apply') {
-    const dldResult = process.env.DLD_RESULT ?? '';
-    const dld = readDld(arg('--dld'), dldResult, dubaiDate(ctx.now()));
+    const dld = readDld(arg('--dld'), process.env.DLD_RESULT ?? '', process.env.DLD_STARTED ?? '', dubaiDate(ctx.now()));
     const r = await runApply(ctx, dld);
     writeFileSync(arg('--sql'), r.sql);
     writeFileSync(arg('--state'), JSON.stringify({ run_id: r.runId }) + '\n');
