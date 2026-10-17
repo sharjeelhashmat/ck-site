@@ -38,6 +38,7 @@ export const FAQS: Faq[] = [
   {
     q: 'How quickly do you respond to enquiries?',
     a: "Enquiries sent through the website's forms are answered within 24 hours, by the contact method you choose.",
+    links: { "website's forms": '/contact' },
   },
 ];
 

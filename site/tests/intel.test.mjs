@@ -15,6 +15,7 @@ import {
 const root = fileURLToPath(new URL('../', import.meta.url));
 const TODAY = '2026-09-21';
 import { claim, validOpp, validArticle } from './helpers/fixtures.mjs';
+import { GOLIVE_TEST } from './helpers/golive.mjs';
 
 // ---------- rules ----------
 test('a complete, fresh opportunity is publishable', () => {
@@ -159,7 +160,7 @@ function build(dataDir, { today = TODAY, indexable = true } = {}) {
   const out = mkdtempSync(join(tmpdir(), 'ck-intel-out-'));
   const r = spawnSync('npx', ['astro', 'build', '--outDir', out], {
     cwd: root, encoding: 'utf8',
-    env: { ...process.env, INTEL_DATA_DIR: dataDir, INTEL_TODAY: today, PUBLIC_INDEXABLE: indexable ? 'true' : 'false', PUBLIC_BRN: indexable ? 'TEST-BRN' : '' },
+    env: { ...process.env, INTEL_DATA_DIR: dataDir, INTEL_TODAY: today, PUBLIC_INDEXABLE: indexable ? 'true' : 'false', GOLIVE_OVERRIDES: indexable ? GOLIVE_TEST : '' },
   });
   return { out, status: r.status, log: r.stdout + r.stderr };
 }
@@ -178,9 +179,9 @@ test('build: a published opportunity renders the 12-section Brief with sources, 
   for (const id of IDS) assert.match(brief, new RegExp(`<h2 id="${id}"`), `section ${id}`);
   assert.match(brief, /Sample Tower/);
   assert.match(brief, /Permit TEST-PERMIT-1/);
-  // BRN set but no agency: the agency + BRN line must not render at all (owner decision 2026-10-10).
-  assert.match(brief, /Permit TEST-PERMIT-1<\/p>/);
-  assert.doesNotMatch(brief, /Working with|TEST-BRN|BRN pending/);
+  // A public build has the agency and BRN set (golive.ts), so the line follows the permit (owner decision 2026-10-10).
+  assert.match(brief, /Permit TEST-PERMIT-1 · Working with Example Agency · BRN TEST-BRN<\/p>/);
+  assert.doesNotMatch(brief, /BRN pending/);
   assert.match(brief, /Why it could work/); assert.match(brief, /Why it could fail/);
   assert.match(brief, /https:\/\/example\.com\/source/);
   assert.match(brief, /<meta name="robots" content="index,follow/);
@@ -305,7 +306,7 @@ test('build: figure markers link to the numbered Sources table', () => {
 
 test('build: a default build (no INTEL_DATA_DIR) emits a page for every published shipped article', () => {
   const out = mkdtempSync(join(tmpdir(), 'ck-intel-out-'));
-  const env = { ...process.env, PUBLIC_INDEXABLE: 'false', PUBLIC_BRN: '' };
+  const env = { ...process.env, PUBLIC_INDEXABLE: 'false', GOLIVE_OVERRIDES: '' };
   delete env.INTEL_DATA_DIR; delete env.INTEL_TODAY;
   const r = spawnSync('npx', ['astro', 'build', '--outDir', out], { cwd: root, encoding: 'utf8', env });
   assert.equal(r.status, 0, r.stdout + r.stderr);

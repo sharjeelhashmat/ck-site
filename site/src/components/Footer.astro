@@ -1,6 +1,8 @@
 ---
 import NewsletterSignup from './NewsletterSignup.astro';
-import { SITE, AFFILIATION_LINE } from '../lib/site';
+import { SITE, AFFILIATION_LINE, CARD_LINE, PERMIT_LINE } from '../lib/site';
+// Go-live lines (golive.ts): nothing renders while a value is empty.
+const disclosure = [AFFILIATION_LINE, CARD_LINE, PERMIT_LINE].filter(Boolean).join(' · ');
 const year = new Date().getFullYear();
 const social = [
   { name: 'LinkedIn', href: SITE.linkedin },
@@ -33,6 +35,6 @@ const social = [
         <a href="/terms">Terms</a>
       </div>
     </div>
-    {AFFILIATION_LINE && <p class="disclosure">{AFFILIATION_LINE}</p>}
+    {disclosure && <p class="disclosure">{disclosure}</p>}
   </div>
 </footer>

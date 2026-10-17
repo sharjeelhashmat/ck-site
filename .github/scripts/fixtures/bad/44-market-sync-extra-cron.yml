@@ -1,0 +1,150 @@
+# as: market-data-sync.yml
+# expect: R2
+name: market-data-sync
+# Weekly market-data sync (owner EXECUTE 2026-10-11; guard exception 2026-10-16; UAE runner 2026-10-16; weekly 2026-10-17).
+# The update is due every Monday 14:07 Dubai. The workflow fires twice a day (02:07 and 14:07 Dubai) and the gate job
+# decides from the Worker's /market/status whether this week's DLD sync is still missing; if not, nothing else runs.
+# While the UAE PC is off, a dld job is always queued (GitHub drops a self-hosted job after 24 h in the queue; the next
+# 12-hourly run queues a fresh one), so the sync runs as soon as the PC is next on, with no time limit.
+# Data.Dubai serves its open data to UAE requests only, so the DLD download runs on the owner's PC in the UAE
+# (self-hosted runner, labels self-hosted + ck-uae) with no secrets, and hands over an aggregate-only JSON. The apply job
+# (GitHub-hosted, environment market-data, D1-only token) validates that JSON as untrusted input, fetches the ADREC feed
+# itself and writes ONLY aggregates to D1 through one fixed SQL file. dld's first step only marks that the job reached the
+# PC (job output started=true). If dld did not succeed and never started (PC off: GitHub reports cancelled, skipped or
+# failure), apply still writes the ADREC update and records DLD as waiting_for_runner: not a failure, the Check step
+# passes, no email. If dld started and did not succeed, or its file does not validate, that is recorded as a failure.
+# Dubai keeps its last good data either way.
+# Any recorded failure fails the Check step, so GitHub emails the owner. No project or developer names, no raw rows, no
+# secrets or signed URLs in the logs.
+on:
+  schedule:
+    - cron: '7 22 * * *' # 02:07 Dubai
+    - cron: '7 10 * * *' # 14:07 Dubai
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: market-data-sync
+  cancel-in-progress: false
+jobs:
+  # Weekly gate: GitHub-hosted, no secrets, no install. run=true on a manual run, when this week's DLD sync (since the most
+  # recent Monday 14:07 Dubai) is missing, or when /market/status cannot be read (fail open).
+  gate:
+    if: github.ref == 'refs/heads/phase2-site'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      run: ${{ steps.gate.outputs.run }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version-file: .node-version
+      - id: gate
+        working-directory: worker
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: node scripts/market-sync/gate.ts
+
+  dld:
+    needs: gate
+    if: github.ref == 'refs/heads/phase2-site' && needs.gate.outputs.run == 'true'
+    runs-on: [self-hosted, ck-uae]
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    defaults:
+      run:
+        # Windows: cmd.exe is always present (no PowerShell execution-policy or pwsh-install dependency). One command per step.
+        shell: cmd
+        working-directory: worker
+    outputs:
+      started: ${{ steps.started.outputs.started }}
+    steps:
+      # First step, before checkout: only marks that the job reached the PC. apply reads it to tell an offline PC
+      # (never started: waiting_for_runner) from a run that started and failed (failure).
+      - id: started
+        working-directory: .
+        run: echo started=true>>"%GITHUB_OUTPUT%"
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version-file: .node-version
+      - run: npm ci --no-audit --no-fund
+      # Downloads the public DLD files (about 700 MB, once a week) and writes only aggregates; no credentials in this job.
+      - name: Download and aggregate DLD open data
+        run: npx --no-install tsx scripts/market-sync/sync.ts dld --out market-dld.json
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: market-dld
+          path: worker/market-dld.json
+          retention-days: 1
+          if-no-files-found: error
+
+  apply:
+    needs: [gate, dld]
+    # always(): runs even when the UAE PC was off (dld never started) or dld failed, so ADREC still updates and the
+    # DLD outcome is recorded. Only in a week the gate opened.
+    if: github.ref == 'refs/heads/phase2-site' && always() && needs.gate.outputs.run == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: market-data
+    defaults:
+      run:
+        shell: bash
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - name: Assert wrangler 4.124.0
+        run: |
+          v=$(npx --no-install wrangler --version | tr -d '[:space:]')
+          [ "$v" = "4.124.0" ] || { echo "expected 4.124.0, got: $v"; exit 1; }
+          echo "version ok: $v"
+      # Preflight: fail closed, never print secret values.
+      - name: Preflight
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_D1_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          [ -n "$CLOUDFLARE_API_TOKEN" ] || { echo "CF_D1_TOKEN is not set in the market-data environment"; exit 1; }
+          [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || { echo "CLOUDFLARE_ACCOUNT_ID is not set in the market-data environment"; exit 1; }
+          [ "$CLOUDFLARE_ACCOUNT_ID" = "6ae55501743fe5c0e6dc33be902cbace" ] || { echo "CLOUDFLARE_ACCOUNT_ID is not the reviewed account"; exit 1; }
+          for line in 'database_name = "ck-leads"' 'database_id = "20b1180d-b390-4d59-9334-cb536a378147"'; do
+            [ "$(grep -cFx -- "$line" wrangler.toml)" = "1" ] || { echo "wrangler.toml must contain exactly once: $line"; exit 1; }
+          done
+          echo "preflight ok"
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        if: needs.dld.result == 'success'
+        with:
+          name: market-dld
+          path: worker
+      # Validates the artifact as untrusted input, fetches ADREC, and always writes market-sync.sql (data or failure record).
+      - name: Build SQL
+        env:
+          DLD_RESULT: ${{ needs.dld.result }}
+          DLD_STARTED: ${{ needs.dld.outputs.started }}
+        run: npx --no-install tsx scripts/market-sync/sync.ts apply --dld market-dld.json --sql market-sync.sql --state market-sync.state.json
+      - name: Apply
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_D1_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_SEND_METRICS: 'false'
+        run: npx --no-install wrangler d1 execute ck-leads --remote --file market-sync.sql
+      # Fails (and so fails the job) when this run's row in market_sync_runs is not ok, or is missing.
+      - name: Write check SQL
+        run: npx --no-install tsx scripts/market-sync/sync.ts check --sql market-sync.sql --state market-sync.state.json
+      - name: Check
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_D1_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_SEND_METRICS: 'false'
+        run: npx --no-install wrangler d1 execute ck-leads --remote --file market-sync.sql

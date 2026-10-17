@@ -1,0 +1,17 @@
+{
+  "period": "2026-H1",
+  "published": "2026-08-18",
+  "total_res_bn": 70.4,
+  "prior_total_res_bn": 25.3,
+  "source_url": "https://adrec.gov.ae/-/media/adrec/market-reports/marketreportslatest/adrec-h1-2026-spread-3.pdf",
+  "areas": [
+    { "rank": 1, "area": "Hudayriyat Island", "value_bn": 19.0, "share_pct": 27.0, "change_text": "≈8×", "guide": "hudayriyat-island" },
+    { "rank": 2, "area": "Saadiyat Island", "value_bn": 13.3, "share_pct": 18.9, "change_pct": 63, "guide": "saadiyat-island" },
+    { "rank": 3, "area": "Al Reem Island + Al Maryah Island", "value_bn": 10.5, "share_pct": 14.9, "change_pct": 153, "guide": "al-reem-al-maryah-island" },
+    { "rank": 4, "area": "Yas Island", "value_bn": 7.3, "share_pct": 10.4, "change_pct": 91, "guide": "yas-island" },
+    { "rank": 5, "area": "Al Ramhan Island", "value_bn": 2.9, "share_pct": 4.1, "change_pct": null, "guide": "ramhan-island" },
+    { "rank": 6, "area": "Al Fahid Island", "value_bn": 2.9, "share_pct": 4.1, "change_pct": null, "guide": "fahid-island" },
+    { "rank": 7, "area": "Ghadeer Al Tayr", "value_bn": 2.4, "share_pct": 3.4, "change_pct": null, "guide": "ghadeer-al-tayr" },
+    { "rank": 8, "area": "Zayed City", "value_bn": 1.9, "share_pct": 2.7, "change_pct": null, "guide": "zayed-city" }
+  ]
+}

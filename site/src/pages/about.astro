@@ -2,7 +2,7 @@
 // About (owner-approved copy and layout, 2026-10-10). No cards on this page: every section is plain text under an H2 at
 // the page H2 size. The five checks are copied word for word from /investment-approach; tests/about.test.mjs compares them.
 import Base from '../layouts/Base.astro';
-import { SITE, AFFILIATION_LINE } from '../lib/site';
+import { SITE, AFFILIATION_LINE, CARD_LINE } from '../lib/site';
 ---
 <Base title="About" description="Sharjeel Hashmat, Property Consultant in the UAE since 2018. Numbers first, straight answers, and the five checks behind every recommendation.">
   <section class="section">
@@ -35,7 +35,7 @@ import { SITE, AFFILIATION_LINE } from '../lib/site';
       <h2 class="about-h2">What you can expect</h2>
       <p>You deal with me directly, from the first conversation to handover. Straight answers, including the ones you'd rather not hear. No inflated promises. No wasted time.</p>
 
-      {AFFILIATION_LINE && <p class="fine" style="margin-top:2.5rem">{AFFILIATION_LINE}</p>}
+      {AFFILIATION_LINE && <p class="fine" style="margin-top:2.5rem">{[AFFILIATION_LINE, CARD_LINE].filter(Boolean).join(' · ')}</p>}
       <p class="lede about-close">Serious about UAE property? Let's talk. Still deciding? I'll tell you exactly where you stand.</p>
       <div class="actions"><a class="btn" href="/contact">Get in touch</a></div>
     </div>

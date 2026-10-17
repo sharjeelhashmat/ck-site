@@ -5,6 +5,15 @@
 //   node workflow-guard.mjs --mode=audit     report violations, always exit 0
 //   node workflow-guard.mjs --mode=enforce   report violations, exit 1 if any (default when --mode is omitted)
 //
+// Narrow exception (owner EXECUTE 2026-10-16, weekly gate 2026-10-17): market-data-sync.yml, and only that file, may run on
+// two fixed daily crons (02:07 and 14:07 Dubai; its gate job decides whether the weekly update is due)
+// in its own "market-data" environment and write to D1 through one fixed "wrangler d1 execute ... --file" command (R2, R4,
+// R7, R9 below). Every other workflow keeps R2 and R7 unchanged: no schedule, no "d1 execute".
+// Its jobs are exactly gate, dld and apply. "gate" is GitHub-hosted and credential-free; "dld", and only that job anywhere,
+// runs on the owner's self-hosted UAE runner [self-hosted, ck-uae] with no secrets, no environment, no wrangler,
+// read-only permissions and one output (started, set by a fixed first step before checkout); "apply" may use
+// "<ref guard> && always() && <gate open>" (R4, R12).
+//
 // Rules (see RULES below). R0 covers scope (.github/actions/, workflow files outside .github/workflows/) and YAML
 // parsing (any parse error or warning, alias explosion). Rules for deploy/deploy-site/rollback key off the file name
 // stem, case-insensitive, so deploy.yaml and Deploy.yml get the same rules as deploy.yml.
@@ -31,16 +40,32 @@ export const RULES = {
   R9: 'static deploy concurrency',
   R10: 'static working-directory',
   R11: 'rollback.yml structure',
+  R12: 'runner labels; self-hosted only for market-data-sync job dld',
 };
 
 const SECRET_RE = /\$\{\{[\s\S]*?\bsecrets\b[\s\S]*?\}\}/i;
 const GUARD = "github.ref == 'refs/heads/phase2-site'";
 const DEPLOY_STEMS = new Set(['deploy', 'deploy-site', 'rollback']);
 const ROLLBACK_TARGETS = { 'rollback-worker': 'ck-lead-worker', 'rollback-site': 'ck-site-web' };
-const CONCURRENCY = { deploy: 'prod-ck-lead-worker', 'deploy-site': 'prod-ck-site-web' };
+const CONCURRENCY = { deploy: 'prod-ck-lead-worker', 'deploy-site': 'prod-ck-site-web', 'market-data-sync': 'market-data-sync' };
 const ROLLBACK_CONCURRENCY = { 'rollback-worker': 'prod-ck-lead-worker', 'rollback-site': 'prod-ck-site-web' };
 const FORBIDDEN_EVENTS = ['pull_request_target', 'workflow_call', 'workflow_run', 'schedule', 'repository_dispatch'];
 const ACTION_RE = /^actions\/[A-Za-z0-9._-]+@[0-9a-f]{40}$/;
+const MARKET_SYNC = 'market-data-sync';
+const MARKET_SYNC_CRONS = ['7 22 * * *', '7 10 * * *'];
+const MARKET_SYNC_ENV = 'market-data';
+const MARKET_SYNC_D1 = 'npx --no-install wrangler d1 execute ck-leads --remote --file market-sync.sql';
+const MARKET_SYNC_VERSION_RE = /(^|[\s(=])npx --no-install wrangler --version$/;
+const WRANGLER_CMD_RE = /(^|[^\w.\-])wrangler(?=\s|$|[;&|)<>])/i;
+const GATE_JOB = 'gate';
+const UAE_JOB = 'dld';
+const UAE_LABELS = ['self-hosted', 'ck-uae'];
+const APPLY_JOB = 'apply';
+const GATE_OPEN = "needs.gate.outputs.run == 'true'";
+// dld's only output: a first step, before checkout, that marks the job reached the UAE PC (apply tells "PC offline" from
+// "started and failed" with it). Pinned so the PC cannot hand apply anything else through job outputs.
+const UAE_MARKER = { id: 'started', 'working-directory': '.', run: 'echo started=true>>"%GITHUB_OUTPUT%"' };
+const UAE_OUTPUTS = { started: '${{ steps.started.outputs.started }}' };
 
 const isObj = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
 const stemOf = (name) => name.replace(/\.ya?ml$/i, '').toLowerCase();
@@ -151,7 +176,19 @@ export function analyse(fileName, src) {
   }
   // R2
   for (const e of events) {
-    if (FORBIDDEN_EVENTS.includes(e)) add('R2', null, `forbidden trigger: ${e}`, [trigKey, e]);
+    if (FORBIDDEN_EVENTS.includes(e) && !(stem === MARKET_SYNC && e === 'schedule')) add('R2', null, `forbidden trigger: ${e}`, [trigKey, e]);
+  }
+  if (stem === MARKET_SYNC) {
+    if (!same([...new Set(events)].sort(), ['schedule', 'workflow_dispatch'])) {
+      add('R2', null, `market-data-sync triggers must be exactly {schedule, workflow_dispatch}; found {${events.join(', ')}}`, [trigKey]);
+    }
+    if (!isObj(on) || !same(on.schedule, MARKET_SYNC_CRONS.map((cron) => ({ cron })))) {
+      add('R2', null, `market-data-sync schedule must be exactly ${MARKET_SYNC_CRONS.map((c) => `[cron: '${c}']`).join(', ')}`, [trigKey, 'schedule']);
+    }
+    const wd = isObj(on) ? on.workflow_dispatch : undefined;
+    if (!(wd === null || wd === undefined || (isObj(wd) && !Object.keys(wd).length))) {
+      add('R2', null, 'market-data-sync workflow_dispatch must have no inputs', [trigKey, 'workflow_dispatch']);
+    }
   }
   if (stem === 'ci') {
     if (!same([...new Set(events)].sort(), ['pull_request', 'push'])) {
@@ -207,12 +244,17 @@ export function analyse(fileName, src) {
     if (hasSecret || 'environment' in job) {
       const env = job.environment;
       const envName = typeof env === 'string' ? env : isObj(env) && Object.keys(env).every((k) => k === 'name' || k === 'url') ? env.name : undefined;
-      if (envName !== 'production') {
-        add('R4', id, `${hasSecret ? 'job references secrets; ' : ''}environment must be production (found ${JSON.stringify(env ?? null)})`, J(env === undefined ? '' : 'environment').filter(Boolean));
+      const wantEnv = stem === MARKET_SYNC ? MARKET_SYNC_ENV : 'production';
+      if (envName !== wantEnv) {
+        add('R4', id, `${hasSecret ? 'job references secrets; ' : ''}environment must be ${wantEnv} (found ${JSON.stringify(env ?? null)})`, J(env === undefined ? '' : 'environment').filter(Boolean));
       }
       const cond = typeof job.if === 'string' ? unwrapExpr(job.if) : null;
       if (stem === 'rollback' && id in ROLLBACK_TARGETS) {
         const want = `${GUARD} && inputs.target == '${ROLLBACK_TARGETS[id]}'`;
+        if (cond !== want) add('R4', id, `if must be exactly: ${want} (found ${JSON.stringify(job.if ?? null)})`, J('if'));
+      } else if (stem === MARKET_SYNC && id === APPLY_JOB) {
+        // The one always(): apply must run when the UAE job failed or never ran, to record that and update ADREC.
+        const want = `${GUARD} && always() && ${GATE_OPEN}`;
         if (cond !== want) add('R4', id, `if must be exactly: ${want} (found ${JSON.stringify(job.if ?? null)})`, J('if'));
       } else {
         const problems = [];
@@ -235,6 +277,32 @@ export function analyse(fileName, src) {
     if ('permissions' in job && !same(job.permissions, {}) && !same(job.permissions, { contents: 'read' })) {
       add('R5', id, `job permissions must be {} or {contents: read}; found ${JSON.stringify(job.permissions)}`, J('permissions'));
     }
+    // R12: runner labels are static; self-hosted only for market-data-sync's UAE job, which must stay credential-free.
+    const ro = job['runs-on'];
+    const labels = typeof ro === 'string' ? [ro] : Array.isArray(ro) && ro.every((x) => typeof x === 'string') ? ro : null;
+    if (!labels || labels.some((l) => l.includes('${{'))) add('R12', id, `runs-on must be static label(s) (found ${JSON.stringify(ro ?? null)})`, J('runs-on'));
+    const selfHosted = (labels ?? []).some((l) => l.toLowerCase() === 'self-hosted');
+    const uaeJob = stem === MARKET_SYNC && id === UAE_JOB;
+    if (selfHosted && !uaeJob) add('R12', id, 'self-hosted runners are allowed only for job dld in market-data-sync.yml', J('runs-on'));
+    if (uaeJob) {
+      if (!same(labels, UAE_LABELS)) add('R12', id, `runs-on must be exactly [${UAE_LABELS.join(', ')}] (found ${JSON.stringify(ro ?? null)})`, J('runs-on'));
+      if (containsSecret(job)) add('R12', id, 'the UAE job must not reference secrets', J());
+      if ('environment' in job) add('R12', id, 'the UAE job must not use an environment', J('environment'));
+      if (!same(job.permissions, { contents: 'read' })) add('R12', id, 'the UAE job must declare permissions: {contents: read}', J('permissions'));
+      if ('container' in job || 'services' in job) add('R12', id, 'the UAE job must not use container or services', J());
+      if (typeof job.if !== 'string' || unwrapExpr(job.if) !== `${GUARD} && ${GATE_OPEN}`) add('R12', id, `the UAE job if must be exactly: ${GUARD} && ${GATE_OPEN}`, J('if'));
+      if (!same(job.outputs, UAE_OUTPUTS)) add('R12', id, `the UAE job outputs must be exactly ${JSON.stringify(UAE_OUTPUTS)}`, J('outputs'));
+      if (!Array.isArray(job.steps) || !same(job.steps[0], UAE_MARKER)) add('R12', id, `the UAE job's first step must be exactly ${JSON.stringify(UAE_MARKER)}`, J('steps'));
+    }
+    if (stem === MARKET_SYNC && id === GATE_JOB) {
+      // The gate decides on public data only: GitHub-hosted (above), no credentials, no D1, read-only.
+      if (containsSecret(job)) add('R12', id, 'the gate job must not reference secrets', J());
+      if ('environment' in job) add('R12', id, 'the gate job must not use an environment', J('environment'));
+      if (!same(job.permissions, { contents: 'read' })) add('R12', id, 'the gate job must declare permissions: {contents: read}', J('permissions'));
+      if ('container' in job || 'services' in job) add('R12', id, 'the gate job must not use container or services', J());
+      if (typeof job.if !== 'string' || unwrapExpr(job.if) !== GUARD) add('R12', id, `the gate job if must be exactly: ${GUARD}`, J('if'));
+    }
+
     // R10 (job level)
     const jobWd = job.defaults?.run?.['working-directory'];
     if (jobWd !== undefined && (typeof jobWd !== 'string' || jobWd.includes('${{'))) {
@@ -283,7 +351,15 @@ export function analyse(fileName, src) {
       if (stem !== 'rollback' && /(^|\s)--yes(?=\s|=|$)/.test(flat)) add('R7', id, '"--yes" is only allowed in rollback.yml', R);
       if (/\b(curl|wget)\b.*\|\s*(sudo\s+)?(ba|z|da|k)?sh\b/i.test(flat)) add('R7', id, 'piping curl/wget into a shell is forbidden', R);
       if (/\bd1\s+time-travel\s+restore\b/i.test(flat)) add('R7', id, '"wrangler d1 time-travel restore" is forbidden', R);
-      if (/\bd1\s+execute\b/i.test(flat)) add('R7', id, '"wrangler d1 execute" is forbidden', R);
+      if (stem === MARKET_SYNC) {
+        // The exception: exactly one fixed d1 command; wrangler otherwise only for --version.
+        for (const c of commands) {
+          if (/\bd1\s+execute\b/i.test(c) && c !== MARKET_SYNC_D1) add('R7', id, `"d1 execute" must be exactly "${MARKET_SYNC_D1}": "${c}"`, R);
+          else if (WRANGLER_CMD_RE.test(c) && c !== MARKET_SYNC_D1 && !MARKET_SYNC_VERSION_RE.test(c)) {
+            add('R7', id, `wrangler may only run as "${MARKET_SYNC_D1}" or "npx --no-install wrangler --version": "${c}"`, R);
+          }
+        }
+      } else if (/\bd1\s+execute\b/i.test(flat)) add('R7', id, '"wrangler d1 execute" is forbidden', R);
       // R8
       if (typeof step.if === 'string' && /\b(failure|always)\s*\(/i.test(step.if) && /\b(wrangler|npx)\b/i.test(flat)) {
         add('R8', id, 'a failure()/always() step must not run wrangler or npx', S('if'));
@@ -291,6 +367,7 @@ export function analyse(fileName, src) {
       // R11 matcher: wrangler as an invoked command word (bare, after a path, or after ; && | ( $( ), including when
       // followed directly by a redirect (wrangler>file, wrangler<file); not wrangler.toml etc.
       for (const c of commands) if (/(^|[^\w.\-])wrangler(?=\s|$|[;&|)<>])/i.test(c)) wranglerCommands.push({ c, path: R });
+      if (stem === MARKET_SYNC && (id === UAE_JOB || id === GATE_JOB) && /\bwrangler\b/i.test(flat)) add('R12', id, `the ${id} job must not run wrangler`, R);
     });
 
     // R11 (per rollback job)
@@ -305,6 +382,11 @@ export function analyse(fileName, src) {
         if (!names.length || names.some((n) => n !== target)) add('R11', id, `wrangler --name must be ${target}: "${c}"`, p);
       }
     }
+  }
+
+  // R12 (workflow level)
+  if (stem === MARKET_SYNC && !same(Object.keys(jobs ?? {}).sort(), [APPLY_JOB, UAE_JOB, GATE_JOB].sort())) {
+    add('R12', null, `market-data-sync jobs must be exactly ${GATE_JOB}, ${UAE_JOB}, ${APPLY_JOB}; found ${Object.keys(jobs ?? {}).join(', ')}`, ['jobs']);
   }
 
   // R11 (workflow level)
