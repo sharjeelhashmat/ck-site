@@ -21,6 +21,8 @@ export interface ValidDld {
   projects: ProjectsStats | null;
   projectsColumns: string[];
   errors: string[];
+  /** The dld job was cancelled or skipped (UAE PC offline, or its 24-hour queue expired): waiting, not failed. */
+  waiting?: boolean;
 }
 
 /** One line, printable ASCII, no URLs, at most 300 characters. */

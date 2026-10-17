@@ -40,6 +40,9 @@ describe('GET /market/* before any sync', () => {
     expect(await r.json()).toEqual({ dubai: null, abu_dhabi: null });
     expect((await get('/market/areas?period=2026-H1')).status).toBe(404);
     expect((await get('/market/area/Alpha?period=2026-H1')).status).toBe(404);
+    const st = await get('/market/status');
+    expect(st.status).toBe(200);
+    expect(await st.json()).toEqual({ dld_synced_at: null, adrec_synced_at: null });
   });
 
   it('launches: one emirate missing (ADREC stored, no DLD projects yet): that side is null', async () => {
@@ -108,6 +111,20 @@ describe('GET /market/area/<area_en>', () => {
     expect(a9.area).toMatchObject({ rank: 13, area_en: 'Area09', change_pct: 0 });
     expect((await get('/market/area/Nowhere?period=2026-H1')).status).toBe(404);
     expect((await get('/market/area/Alpha?period=2026-H2')).status).toBe(404);
+  });
+});
+
+describe('GET /market/status', () => {
+  it('last successful DLD write and ADREC read, ISO, exactly two fields; site CORS; public cache 5 minutes', async () => {
+    await seed({ adrec: true });
+    const r = await get('/market/status');
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ dld_synced_at: '2026-10-16T02:30:00.000Z', adrec_synced_at: '2026-10-16T02:30:00.000Z' });
+    expect(r.headers.get('cache-control')).toBe('public, max-age=300');
+    expect(r.headers.get('access-control-allow-origin')).toBe(ORIGIN);
+    expect((await get('/market/status', 'https://example.invalid')).headers.get('access-control-allow-origin')).toBeNull();
+    expect((await get('/market/status', STAGING, { STAGING_ORIGIN: STAGING })).headers.get('access-control-allow-origin')).toBe(STAGING);
+    expect((await get('/market/status', ORIGIN, {}, 'POST')).status).toBe(405);
   });
 });
 

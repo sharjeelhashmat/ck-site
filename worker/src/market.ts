@@ -3,6 +3,7 @@
 //   GET /market/launches                     Dubai project activity (DLD) and Abu Dhabi year to date (ADREC)
 //   GET /market/areas?period=2026-H1         Dubai year to date + top 8 areas by residential sales value
 //   GET /market/area/<area_en>?period=...    the same figures for one DLD area (area guide pages)
+//   GET /market/status                       last successful DLD and ADREC sync (the workflow's weekly gate reads it)
 import labelsJson from '../../site/src/data/dld-area-labels.json';
 
 const LABELS = labelsJson as Record<string, string>;
@@ -204,10 +205,18 @@ export async function marketLaunches(db: D1Database): Promise<MarketResult> {
   return { status: 200, body: { dubai: launchesDubai(d), abu_dhabi: launchesAbuDhabi(a) } };
 }
 
+/** Last successful DLD write and last successful ADREC read, as ISO instants; null if never. Nothing else. */
+export async function marketStatus(db: D1Database): Promise<MarketResult> {
+  const t = async (where: string) =>
+    (await db.prepare(`SELECT MAX(finished_at) AS t FROM market_sync_runs WHERE ${where}`).first<{ t: string | null }>())?.t ?? null;
+  return { status: 200, body: { dld_synced_at: await t('dld_written = 1'), adrec_synced_at: await t('adrec_ok = 1') } };
+}
+
 /** Routes /market/*. Returns null for any other path. GET (and OPTIONS) only; read-only, publicly cacheable for an hour. */
 export async function handleMarket(req: Request, url: URL, db: D1Database, corsOrigin: string | undefined): Promise<Response | null> {
   if (!url.pathname.startsWith('/market/')) return null;
-  const headers: Record<string, string> = { 'content-type': 'application/json', 'cache-control': 'public, max-age=3600', vary: 'origin' };
+  const isStatus = url.pathname === '/market/status';
+  const headers: Record<string, string> = { 'content-type': 'application/json', 'cache-control': isStatus ? 'public, max-age=300' : 'public, max-age=3600', vary: 'origin' };
   if (corsOrigin) headers['access-control-allow-origin'] = corsOrigin;
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsOrigin ? { 'access-control-allow-origin': corsOrigin, 'access-control-allow-methods': 'GET', 'access-control-max-age': '86400', vary: 'origin' } : {} });
@@ -216,7 +225,8 @@ export async function handleMarket(req: Request, url: URL, db: D1Database, corsO
   let out: MarketResult;
   try {
     const period = url.searchParams.get('period');
-    if (url.pathname === '/market/launches') out = await marketLaunches(db);
+    if (isStatus) out = await marketStatus(db);
+    else if (url.pathname === '/market/launches') out = await marketLaunches(db);
     else if (url.pathname === '/market/areas') out = await marketAreas(db, period);
     else if (url.pathname.startsWith('/market/area/')) {
       let area = '';
@@ -226,7 +236,9 @@ export async function handleMarket(req: Request, url: URL, db: D1Database, corsO
   } catch (e) {
     // Tables not migrated yet, or D1 unavailable: nothing to show. Never a stack trace.
     console.error('market: read failed', e instanceof Error ? e.message : 'unknown');
-    out = url.pathname === '/market/launches' ? { status: 200, body: { dubai: null, abu_dhabi: null } } : { status: 404, body: { ok: false, error: 'unavailable' } };
+    out = url.pathname === '/market/launches' ? { status: 200, body: { dubai: null, abu_dhabi: null } }
+      : isStatus ? { status: 200, body: { dld_synced_at: null, adrec_synced_at: null } }
+      : { status: 404, body: { ok: false, error: 'unavailable' } };
   }
-  return new Response(JSON.stringify(out.body), { status: out.status, headers: out.status === 200 ? headers : { ...headers, 'cache-control': 'public, max-age=300' } });
+  return new Response(JSON.stringify(out.body), { status: out.status, headers: out.status === 200 || isStatus ? headers : { ...headers, 'cache-control': 'public, max-age=300' } });
 }

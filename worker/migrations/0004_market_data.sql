@@ -34,7 +34,8 @@ CREATE TABLE IF NOT EXISTS market_stats (
 );
 CREATE INDEX IF NOT EXISTS idx_market_stats_source ON market_stats (source, fetched_at);
 
--- One row per sync run. dld_written = 1 when the DLD tables were replaced (the sanity guard passed).
+-- One row per sync run. dld_written = 1 when the DLD tables were replaced (the sanity guard passed). GET /market/status
+-- reads the last DLD and ADREC success from here (the weekly gate in the workflow uses it).
 CREATE TABLE IF NOT EXISTS market_sync_runs (
   run_id TEXT PRIMARY KEY,
   started_at TEXT NOT NULL,
@@ -44,7 +45,9 @@ CREATE TABLE IF NOT EXISTS market_sync_runs (
   rows_bad INTEGER,
   as_of TEXT,
   error TEXT,
-  dld_written INTEGER NOT NULL DEFAULT 0
+  dld_written INTEGER NOT NULL DEFAULT 0,
+  dld_status TEXT,                      -- written | guard_failed | failed | waiting_for_runner (UAE PC offline: not a failure)
+  adrec_ok INTEGER NOT NULL DEFAULT 0   -- the ADREC feed was read in this run
 );
 CREATE INDEX IF NOT EXISTS idx_market_sync_runs_started ON market_sync_runs (dld_written, started_at);
 

@@ -118,9 +118,15 @@ export async function runDld(ctx: Ctx) {
 
 export const DLD_RESULTS = ['success', 'failure', 'cancelled', 'skipped'] as const;
 
-/** Reads the artifact only when the dld job succeeded and the file exists and is not oversized. */
+/**
+ * Reads the artifact only when the dld job succeeded and the file exists and is not oversized.
+ * cancelled / skipped = the UAE PC was off (or the job's 24-hour queue expired): DLD is "waiting_for_runner", not a
+ * failure, so the run stays ok and no email goes out; the gate re-queues the job every 12 hours until the PC is on.
+ * failure = the job ran and broke: a failure, as is any artifact that does not validate.
+ */
 export function readDld(path: string, dldResult: string, today: string): ValidDld {
   const none = (why: string): ValidDld => ({ today, tx: null, rowsTotal: 0, rowsBad: 0, projects: null, projectsColumns: [], errors: [why] });
+  if (dldResult === 'cancelled' || dldResult === 'skipped') return { today, tx: null, rowsTotal: 0, rowsBad: 0, projects: null, projectsColumns: [], errors: [], waiting: true };
   if (dldResult !== 'success') return none(`dld job: ${DLD_RESULTS.includes(dldResult as never) ? dldResult : 'unknown result'} (the UAE runner did not deliver data)`);
   if (!existsSync(path)) return none('dld job: no artifact');
   if (statSync(path).size > MAX_ARTIFACT_BYTES) return none('dld artifact: too large');
@@ -142,9 +148,9 @@ export async function runApply(ctx: Ctx, dld: ValidDld) {
     errors.push(message(e));
   }
   const finished = ctx.now();
-  const sql = buildSql({ runId, startedAt: started.toISOString(), finishedAt: finished.toISOString(), dld: dld.tx, rowsTotal: dld.rowsTotal, rowsBad: dld.rowsBad, projects: dld.projects, adrec, errors, uuid: ctx.uuid });
+  const sql = buildSql({ runId, startedAt: started.toISOString(), finishedAt: finished.toISOString(), dld: dld.tx, rowsTotal: dld.rowsTotal, rowsBad: dld.rowsBad, projects: dld.projects, adrec, errors, uuid: ctx.uuid, dldWaiting: dld.waiting === true });
   const summary: Record<string, string | number> = {
-    run_id: runId, dld_as_of: dld.tx?.asOf ?? 'n/a', rows_total: dld.rowsTotal, rows_bad: dld.rowsBad,
+    run_id: runId, dld: dld.waiting ? 'waiting_for_runner (UAE PC offline; re-queued by the gate)' : dld.tx ? 'delivered' : 'failed', dld_as_of: dld.tx?.asOf ?? 'n/a', rows_total: dld.rowsTotal, rows_bad: dld.rowsBad,
     area_months: dld.tx?.areaMonths.length ?? 0, projects: dld.projects ? `${dld.projects.new_projects_90d} new in 90 days, ${dld.projects.active_projects} active` : 'n/a',
     projects_columns: dld.projectsColumns.join(', ') || 'n/a',
     adrec: adrec ? `sales ${adrec.sales_value_aed}, transactions ${adrec.transaction_value_aed}, mortgages ${adrec.mortgage_value_aed} (AED)` : 'n/a',

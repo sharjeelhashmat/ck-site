@@ -363,7 +363,9 @@ test('A.8: Launch activity panel: under the hero, hidden by default, both cards 
   const m = main('new-launches.html');
   assert.ok(m.indexOf('id="launch-activity"') > m.indexOf('Ask me about a launch →') && m.indexOf('id="launch-activity"') < m.indexOf('Why a launch needs a different check'));
   assert.match(m, /<section class="launch-activity"[^>]*id="launch-activity" hidden/);
-  assert.match(text(m), /Figures update automatically\. Want to know what they mean for a specific launch\? Ask me\./);
+  // Owner decision 2026-10-17: the figures update weekly, and the page says so (the as-of dates stay in the source lines).
+  assert.match(text(m), /Updated weekly\. Want to know what they mean for a specific launch\? Ask me\./);
+  for (const f of htmlFiles) assert.doesNotMatch(readFileSync(f, 'utf8'), /update automatically|updated daily/i, f);
   assert.match(m, /<a href="#ask"[^>]*>Ask me<\/a>\./);
   const dubai = { new_projects_90d: 12, top_areas_90d: [{ area_en: 'Palm Deira', label: 'Dubai Islands', count: 4 }, { area_en: 'Business Bay', label: null, count: 3 }], active_projects: 1, pipeline_units: 52000, as_of: '2026-10-16', source_url: 'https://data.dubai/en/l/467654' };
   const ad = { transaction_value_bn: 117.04, sales_value_bn: 86.1, mortgage_value_bn: 25.5, year: 2026, as_of: '2026-10-16', source_url: 'https://adrec.gov.ae/en' };

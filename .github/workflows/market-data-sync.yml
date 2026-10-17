@@ -1,14 +1,19 @@
 name: market-data-sync
-# Daily market-data sync (owner EXECUTE 2026-10-11; guard exception 2026-10-16; UAE runner, option A, 2026-10-16).
+# Weekly market-data sync (owner EXECUTE 2026-10-11; guard exception 2026-10-16; UAE runner 2026-10-16; weekly 2026-10-17).
+# The update is due every Monday 14:07 Dubai. The workflow fires twice a day (02:07 and 14:07 Dubai) and the gate job
+# decides from the Worker's /market/status whether this week's DLD sync is still missing; if not, nothing else runs.
+# While the UAE PC is off, a dld job is always queued (GitHub drops a self-hosted job after 24 h in the queue; the next
+# 12-hourly run queues a fresh one), so the sync runs as soon as the PC is next on, with no time limit.
 # Data.Dubai serves its open data to UAE requests only, so the DLD download runs on the owner's PC in the UAE
 # (self-hosted runner, labels self-hosted + ck-uae) with no secrets, and hands over an aggregate-only JSON. The apply job
 # (GitHub-hosted, environment market-data, D1-only token) validates that JSON as untrusted input, fetches the ADREC feed
 # itself and writes ONLY aggregates to D1 through one fixed SQL file. If the PC is off or the DLD job fails, apply still
-# writes the ADREC update and a failure row; Dubai keeps its last good data. Any recorded failure fails the Check step,
-# so GitHub emails the owner. No project or developer names, no raw rows, no secrets or signed URLs in the logs.
+# writes the ADREC update and records DLD as waiting_for_runner (not a failure: the Check step passes, no email); Dubai
+# keeps its last good data. Any recorded failure fails the Check step, so GitHub emails the owner. No project or developer names, no raw rows, no secrets or signed URLs in the logs.
 on:
   schedule:
-    - cron: '23 2 * * *'
+    - cron: '7 22 * * *' # 02:07 Dubai
+    - cron: '7 10 * * *' # 14:07 Dubai
   workflow_dispatch:
 permissions:
   contents: read
@@ -16,8 +21,30 @@ concurrency:
   group: market-data-sync
   cancel-in-progress: false
 jobs:
-  dld:
+  # Weekly gate: GitHub-hosted, no secrets, no install. run=true on a manual run, when this week's DLD sync (since the most
+  # recent Monday 14:07 Dubai) is missing, or when /market/status cannot be read (fail open).
+  gate:
     if: github.ref == 'refs/heads/phase2-site'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    outputs:
+      run: ${{ steps.gate.outputs.run }}
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version-file: .node-version
+      - id: gate
+        working-directory: worker
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+        run: node scripts/market-sync/gate.ts
+
+  dld:
+    needs: gate
+    if: github.ref == 'refs/heads/phase2-site' && needs.gate.outputs.run == 'true'
     runs-on: [self-hosted, ck-uae]
     timeout-minutes: 60
     permissions:
@@ -33,7 +60,7 @@ jobs:
         with:
           node-version-file: .node-version
       - run: npm ci --no-audit --no-fund
-      # Downloads the public DLD files (about 700 MB) and writes only aggregates; no credentials anywhere in this job.
+      # Downloads the public DLD files (about 700 MB, once a week) and writes only aggregates; no credentials in this job.
       - name: Download and aggregate DLD open data
         run: npx --no-install tsx scripts/market-sync/sync.ts dld --out market-dld.json
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
@@ -44,9 +71,10 @@ jobs:
           if-no-files-found: error
 
   apply:
-    needs: dld
-    # always(): runs even when the UAE PC was off or the dld job failed, so ADREC still updates and the failure is recorded.
-    if: github.ref == 'refs/heads/phase2-site' && always()
+    needs: [gate, dld]
+    # always(): runs even when the UAE PC was off (dld cancelled or skipped) or dld failed, so ADREC still updates and the
+    # DLD outcome is recorded. Only in a week the gate opened.
+    if: github.ref == 'refs/heads/phase2-site' && always() && needs.gate.outputs.run == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: market-data

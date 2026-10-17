@@ -325,8 +325,50 @@ describe('SQL generation', () => {
     d.exec(r.sql);
     expect(d.prepare('SELECT COUNT(*) AS c FROM dld_area_month').get()).toEqual(count);
     expect(d.prepare("SELECT COUNT(*) AS c FROM market_stats WHERE source = 'adrec_ytd'").get()).toEqual({ c: 1 });
-    expect(d.prepare('SELECT ok, dld_written, error FROM market_sync_runs WHERE run_id = ?').get(r.runId)).toEqual({ ok: 0, dld_written: 0, error: 'dld job: failure (the UAE runner did not deliver data)' });
+    expect(d.prepare('SELECT ok, dld_written, dld_status, error FROM market_sync_runs WHERE run_id = ?').get(r.runId)).toEqual({ ok: 0, dld_written: 0, dld_status: 'failed', error: 'dld job: failure (the UAE runner did not deliver data)' });
     expect(d.prepare("SELECT COUNT(*) AS c FROM events WHERE type = 'market_sync_failed'").get()).toEqual({ c: 1 });
+    expect(() => d.exec(checkSql(r.runId, 'now'))).toThrow(/CHECK constraint/);
+  });
+
+  for (const result of ['cancelled', 'skipped']) {
+    it(`dld job ${result} (UAE PC offline or queue expired): ADREC written, DLD "waiting_for_runner", no failure, the check passes`, async () => {
+      const d = db();
+      d.exec(sqlFor(aggregate()));
+      const count = d.prepare('SELECT COUNT(*) AS c FROM dld_area_month').get();
+      const adrecFeed = [{ transactionValueYtdAed: 117e9, saleValueYtdAed: 86.1e9, mortgageValueYtdAed: 25.5e9 }];
+      const ctx: Ctx = { fetch: async () => new Response(JSON.stringify(adrecFeed)), log: () => {}, now: () => NOW, uuid };
+      const r = await runApply(ctx, readDld('market-dld.json', result, TODAY));
+      expect(r.summary.errors).toBe('none');
+      d.exec(r.sql);
+      expect(d.prepare('SELECT ok, dld_written, dld_status, adrec_ok, error FROM market_sync_runs WHERE run_id = ?').get(r.runId))
+        .toEqual({ ok: 1, dld_written: 0, dld_status: 'waiting_for_runner', adrec_ok: 1, error: null });
+      expect(d.prepare('SELECT COUNT(*) AS c FROM dld_area_month').get()).toEqual(count);
+      expect(d.prepare("SELECT COUNT(*) AS c FROM market_stats WHERE source = 'adrec_ytd'").get()).toEqual({ c: 1 });
+      expect(d.prepare("SELECT COUNT(*) AS c FROM events WHERE type = 'market_sync_failed'").get()).toEqual({ c: 0 });
+      d.exec(checkSql(r.runId, 'now')); // passes: no email for an offline PC
+    });
+  }
+
+  it('dld job cancelled but ADREC down: that is a failure, the check fails', async () => {
+    const d = db();
+    const ctx: Ctx = { fetch: async () => new Response('', { status: 503 }), log: () => {}, now: () => NOW, uuid };
+    const r = await runApply(ctx, readDld('market-dld.json', 'cancelled', TODAY));
+    d.exec(r.sql);
+    expect(d.prepare('SELECT ok, dld_status, adrec_ok FROM market_sync_runs WHERE run_id = ?').get(r.runId)).toEqual({ ok: 0, dld_status: 'waiting_for_runner', adrec_ok: 0 });
+    expect(() => d.exec(checkSql(r.runId, 'now'))).toThrow(/CHECK constraint/);
+  });
+
+  it('an artifact that fails validation is a failure (dld_status failed), the check fails', async () => {
+    const d = db();
+    const dir = mkdtempSync(join(tmpdir(), 'ck-dld-'));
+    const f = join(dir, 'a.json');
+    const bad = artifactFrom(aggregate());
+    bad.tx.area_months[0][0] = '<bad>';
+    writeFileSync(f, JSON.stringify(bad));
+    const ctx: Ctx = { fetch: async () => new Response(JSON.stringify([{ transactionValueYtdAed: 1, saleValueYtdAed: 1, mortgageValueYtdAed: 1 }])), log: () => {}, now: () => NOW, uuid };
+    const r = await runApply(ctx, readDld(f, 'success', TODAY));
+    d.exec(r.sql);
+    expect(d.prepare('SELECT ok, dld_status FROM market_sync_runs WHERE run_id = ?').get(r.runId)).toEqual({ ok: 0, dld_status: 'failed' });
     expect(() => d.exec(checkSql(r.runId, 'now'))).toThrow(/CHECK constraint/);
   });
 
@@ -340,7 +382,7 @@ describe('SQL generation', () => {
     const r = await runApply(ctx, readDld(f, 'success', TODAY));
     expect(r.summary.errors).toBe('none');
     d.exec(r.sql);
-    expect(d.prepare('SELECT ok, dld_written, as_of FROM market_sync_runs WHERE run_id = ?').get(r.runId)).toEqual({ ok: 1, dld_written: 1, as_of: '2026-10-09' });
+    expect(d.prepare('SELECT ok, dld_written, dld_status, adrec_ok, as_of FROM market_sync_runs WHERE run_id = ?').get(r.runId)).toEqual({ ok: 1, dld_written: 1, dld_status: 'written', adrec_ok: 1, as_of: '2026-10-09' });
     expect(d.prepare("SELECT COUNT(*) AS c FROM market_stats").get()).toEqual({ c: 2 });
     d.exec(checkSql(r.runId, 'now'));
   });

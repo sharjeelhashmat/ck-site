@@ -17,6 +17,8 @@ export interface BuildInput {
   adrec: AdrecYtd | null;
   /** Failures found on the runner (download, parsing, bad rows, ADREC, projects). Empty when none. */
   errors: string[];
+  /** The UAE runner did not run this week yet (PC offline, job cancelled or skipped): recorded, not a failure. */
+  dldWaiting?: boolean;
   uuid: () => string;
 }
 
@@ -40,14 +42,16 @@ export function buildSql(x: BuildInput): string {
   const pass = x.dld
     ? `(SELECT CASE WHEN prev IS NULL OR ${x.dld.rowsTotal} >= ${GUARD_RATIO} * prev THEN 1 ELSE 0 END FROM (SELECT (SELECT rows_total FROM market_sync_runs WHERE dld_written = 1 ORDER BY started_at DESC LIMIT 1) AS prev))`
     : '0';
-  const okExpr = x.errors.length ? '0' : 'g.pass';
+  // ok: no failure recorded. A week waiting for the UAE runner is not a failure (no email for an offline PC).
+  const okExpr = x.errors.length ? '0' : x.dld ? 'g.pass' : x.dldWaiting ? '1' : '0';
+  const statusExpr = x.dld ? "CASE WHEN g.pass = 1 THEN 'written' ELSE 'guard_failed' END" : x.dldWaiting ? "'waiting_for_runner'" : "'failed'";
   const errExpr = x.dld
     ? `CASE WHEN g.pass = 1 THEN ${jsError ? q(jsError) : 'NULL'} ELSE ${q([jsError, sanity].filter(Boolean).join('; '))} END`
-    : q(jsError || 'dld_transactions: not read');
+    : jsError ? q(jsError) : x.dldWaiting ? 'NULL' : q('dld_transactions: not read');
   const out: string[] = [
     `-- market-data-sync run ${x.runId}. Generated; applied once with wrangler d1 execute --remote --file.`,
-    `INSERT INTO market_sync_runs (run_id, started_at, finished_at, ok, rows_total, rows_bad, as_of, error, dld_written)
-SELECT ${id}, ${q(x.startedAt)}, ${q(x.finishedAt)}, ${okExpr}, ${x.rowsTotal}, ${x.rowsBad}, ${x.dld ? q(x.dld.asOf) : 'NULL'}, ${errExpr}, g.pass
+    `INSERT INTO market_sync_runs (run_id, started_at, finished_at, ok, rows_total, rows_bad, as_of, error, dld_written, dld_status, adrec_ok)
+SELECT ${id}, ${q(x.startedAt)}, ${q(x.finishedAt)}, ${okExpr}, ${x.rowsTotal}, ${x.rowsBad}, ${x.dld ? q(x.dld.asOf) : 'NULL'}, ${errExpr}, g.pass, ${statusExpr}, ${x.adrec ? 1 : 0}
 FROM (SELECT ${pass} AS pass) AS g;`,
   ];
   if (x.dld) {
