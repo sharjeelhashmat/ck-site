@@ -7,9 +7,11 @@ name: market-data-sync
 # Data.Dubai serves its open data to UAE requests only, so the DLD download runs on the owner's PC in the UAE
 # (self-hosted runner, labels self-hosted + ck-uae) with no secrets, and hands over an aggregate-only JSON. The apply job
 # (GitHub-hosted, environment market-data, D1-only token) validates that JSON as untrusted input, fetches the ADREC feed
-# itself and writes ONLY aggregates to D1 through one fixed SQL file. If the PC is off or the DLD job fails, apply still
-# writes the ADREC update and records DLD as waiting_for_runner (not a failure: the Check step passes, no email); Dubai
-# keeps its last good data. Any recorded failure fails the Check step, so GitHub emails the owner. No project or developer names, no raw rows, no secrets or signed URLs in the logs.
+# itself and writes ONLY aggregates to D1 through one fixed SQL file. If the PC is off (dld cancelled or skipped), apply
+# still writes the ADREC update and records DLD as waiting_for_runner: not a failure, the Check step passes, no email.
+# If dld fails or its file does not validate, that is recorded as a failure. Dubai keeps its last good data either way.
+# Any recorded failure fails the Check step, so GitHub emails the owner. No project or developer names, no raw rows, no
+# secrets or signed URLs in the logs.
 on:
   schedule:
     - cron: '7 22 * * *' # 02:07 Dubai
