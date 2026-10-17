@@ -44,9 +44,9 @@ function sqlFor(a: DldTxAggregator, over: Partial<Parameters<typeof buildSql>[0]
 // real, at the positions this line implies; project and developer name columns are included to prove they are ignored.
 const PROJECT_LINE = '"445","AR AR AR","Jabal Ali First",,,"7904755","AR","951","16","AR","121","AR","121","AR","Al Furjan","1","0","85","0","90.60000","AR","1","N/A","G+1P+10+R,Residential.The project designed.",,"529545309","AR AR 5","2744","2023-07-10","ACTIVE","AR","AR","1","950095296","AR","Trakhees","4","2026-06-15 15:24:01.000"';
 const PROJECT_HEADER = Array.from({ length: 38 }, (_, i) => `col_${i}`);
-Object.assign(PROJECT_HEADER, { 1: 'project_name', 2: 'area_name_en', 6: 'developer_name', 27: 'no_of_units', 28: 'project_start_date', 29: 'project_status' });
-const projectLine = (status: string, start: string, area: string, units: string) =>
-  PROJECT_LINE.replace('"Jabal Ali First"', `"${area}"`).replace('"2744"', `"${units}"`).replace('"2023-07-10"', `"${start}"`).replace('"ACTIVE"', `"${status}"`);
+Object.assign(PROJECT_HEADER, { 1: 'project_name', 2: 'area_name_en', 6: 'developer_name', 27: 'no_of_units', 28: 'project_start_date', 29: 'project_status', 37: 'load_timestamp' });
+const projectLine = (status: string, start: string, area: string, units: string, loaded = '2026-06-15 15:24:01.000') =>
+  PROJECT_LINE.replace('"Jabal Ali First"', `"${area}"`).replace('"2744"', `"${units}"`).replace('"2023-07-10"', `"${start}"`).replace('"ACTIVE"', `"${status}"`).replace('"2026-06-15 15:24:01.000"', `"${loaded}"`);
 
 describe('RFC 4180 parser', () => {
   it('quoted and unquoted fields, empty unquoted fields, commas and doubled quotes inside quotes', () => {
@@ -158,9 +158,10 @@ describe('transactions', () => {
 describe('projects', () => {
   it('counts new projects (90 days), top 5 areas (ties by name), ACTIVE-only projects and units; keeps no names', () => {
     const p = new DldProjectsAggregator(TODAY);
-    for (const r of parseCsv([csvLine(PROJECT_HEADER), projectLine('ACTIVE', '2026-10-01', 'Zeta', '100'), projectLine('ACTIVE', '2026-09-01', 'Alpha', '50'),
-      projectLine('FINISHED', '2026-08-01', 'Alpha', '10'), projectLine('PENDING', '2026-09-02', 'Beta', '7'), projectLine('CONDITIONAL_ACTIVATING', '2026-01-01', 'Beta', '7'),
-      projectLine('ACTIVE', '2026-08-17', 'Zeta', '3'), projectLine('ACTIVE', '2026-07-18', 'Old', '1')].join('\r\n'))) p.record(r);
+    const L = `${TODAY} 02:00:00.000`; // a file loaded today: the 90 days end today
+    for (const r of parseCsv([csvLine(PROJECT_HEADER), projectLine('ACTIVE', '2026-10-01', 'Zeta', '100', L), projectLine('ACTIVE', '2026-09-01', 'Alpha', '50', L),
+      projectLine('FINISHED', '2026-08-01', 'Alpha', '10', L), projectLine('PENDING', '2026-09-02', 'Beta', '7', L), projectLine('CONDITIONAL_ACTIVATING', '2026-01-01', 'Beta', '7', L),
+      projectLine('ACTIVE', '2026-08-17', 'Zeta', '3', L), projectLine('ACTIVE', '2026-07-18', 'Old', '1', L)].join('\r\n'))) p.record(r);
     expect(p.rowsBad).toBe(0);
     const s = p.stats();
     expect(s).toEqual({
@@ -169,6 +170,34 @@ describe('projects', () => {
       active_projects: 4, pipeline_units: 154, as_of: TODAY,
     });
     expect(JSON.stringify(s)).not.toMatch(/AR|Furjan|Trakhees/);
+  });
+
+  it('as_of is the latest load_timestamp, not the run date; the 90 days end at as_of', () => {
+    // The real case (2026-10-17): every row loaded in 2026-06, so the data is as of June, whatever day the sync runs.
+    const p = new DldProjectsAggregator(TODAY);
+    for (const r of parseCsv([csvLine(PROJECT_HEADER),
+      projectLine('ACTIVE', '2026-06-01', 'Alpha', '10', '2026-06-15 15:24:01.000'),
+      projectLine('ACTIVE', '2026-03-23', 'Beta', '10', '2026-06-20 09:00:00.000'), // 89 days before as_of: in
+      projectLine('ACTIVE', '2026-03-22', 'Gamma', '10', '2026-06-01 09:00:00.000'), // 90 days before as_of: out
+      projectLine('ACTIVE', '2026-07-01', 'Delta', '10', '2026-06-02 09:00:00.000'), // after as_of: out
+    ].join('\r\n'))) p.record(r);
+    expect(p.stats()).toMatchObject({ as_of: '2026-06-20', new_projects_90d: 2, top_areas_90d: [{ area_en: 'Alpha', count: 1 }, { area_en: 'Beta', count: 1 }], active_projects: 4 });
+  });
+
+  it('without load_timestamp (column or values), as_of is the latest project_start_date up to today; future dates ignored', () => {
+    const noCol = PROJECT_HEADER.map((c) => (c === 'load_timestamp' ? 'col_37' : c));
+    const a = new DldProjectsAggregator(TODAY);
+    for (const r of parseCsv([csvLine(noCol), projectLine('ACTIVE', '2026-07-01', 'Alpha', '1'), projectLine('ACTIVE', '2026-04-10', 'Beta', '1'), projectLine('PENDING', '2027-01-01', 'Gamma', '1')].join('\r\n'))) a.record(r);
+    expect(a.stats()).toMatchObject({ as_of: '2026-07-01', new_projects_90d: 2 });
+    const b = new DldProjectsAggregator(TODAY);
+    for (const r of parseCsv([csvLine(PROJECT_HEADER), projectLine('ACTIVE', '2026-05-05', 'Alpha', '1', ''), projectLine('ACTIVE', '2026-05-01', 'Beta', '1', '2027-02-01 00:00:00.000')].join('\r\n'))) b.record(r);
+    expect(b.stats().as_of).toBe('2026-05-05');
+  });
+
+  it('a file with no usable date fails rather than taking the run date', () => {
+    const p = new DldProjectsAggregator(TODAY);
+    for (const r of parseCsv([csvLine(PROJECT_HEADER), projectLine('ACTIVE', '', 'Alpha', '1', '')].join('\r\n'))) p.record(r);
+    expect(() => p.stats()).toThrow(/no load_timestamp or project_start_date to date the file/);
   });
 
   it('the old split on "," would have marked the real line bad; the parser does not', () => {
@@ -450,7 +479,10 @@ describe('ADREC parsing and logging', () => {
     expect(summary.projects_rows).toBe(1);
     expect(summary.projects_rows_bad).toBe(0);
     expect(summary.errors).toBe('none');
-    expect(validateArtifact(JSON.parse(JSON.stringify(artifact)), TODAY).errors).toEqual([]);
+    const v = validateArtifact(JSON.parse(JSON.stringify(artifact)), TODAY);
+    expect(v.errors).toEqual([]);
+    // Dated by the file's load_timestamp (15 Jun), not the run date, all the way into the validated artifact.
+    expect(v.projects!.as_of).toBe('2026-06-15');
     expect(safeUrl(SIGNED)).toBe('cdn.data.dubai/files/part-1.csv');
     delete process.env.CLOUDFLARE_API_TOKEN;
   });

@@ -25,6 +25,9 @@ export const DLD_PROJECT_COLUMNS = {
   area: 'area_name_en',
   units: 'no_of_units',
 } as const;
+/** When DLD loaded each row; dates the file (the dataset is not refreshed every week). Optional: without it, or without
+ * any usable value, the file is dated by its latest project_start_date. */
+export const DLD_PROJECT_LOADED = 'load_timestamp';
 
 /**
  * Streaming RFC 4180 parser. Feed text chunks in any size; complete records are passed to onRecord. Handles quoted and
@@ -205,23 +208,23 @@ export function badRowsProblem(file: string, rowsTotal: number, rowsBad: number)
 
 export interface ProjectsStats { new_projects_90d: number; top_areas_90d: { area_en: string; count: number }[]; active_projects: number; pipeline_units?: number; as_of: string }
 
-/** Counts from the projects CSV. Reads only status, start date, area and units; names are never read. */
+/**
+ * Counts from the projects CSV. Reads only status, start date, area, units and load time; names are never read.
+ * as_of is the date of the data, never the run date: the latest load_timestamp up to today, else the latest
+ * project_start_date up to today. "New in 90 days" is the 90 days ending at as_of.
+ */
 export class DldProjectsAggregator {
   header: string[] | null = null;
   rowsTotal = 0;
   rowsBad = 0;
-  private col: { status: number; start: number; area: number; units: number } | null = null;
-  private newByArea = new Map<string, number>();
-  private newCount = 0;
+  private col: { status: number; start: number; area: number; units: number; loaded: number } | null = null;
+  private starts: [string, string][] = [];
+  private maxLoaded = '';
+  private maxStart = '';
   private active = 0;
   private units = 0;
-  private readonly since: string;
 
-  constructor(private readonly today: string) {
-    const d = new Date(`${today}T00:00:00Z`);
-    d.setUTCDate(d.getUTCDate() - 90);
-    this.since = d.toISOString().slice(0, 10);
-  }
+  constructor(private readonly today: string) {}
 
   record(f: string[] | null): void {
     if (!this.header) {
@@ -230,7 +233,7 @@ export class DldProjectsAggregator {
       const col = { status: f.indexOf(DLD_PROJECT_COLUMNS.status), start: f.indexOf(DLD_PROJECT_COLUMNS.start), area: f.indexOf(DLD_PROJECT_COLUMNS.area), units: f.indexOf(DLD_PROJECT_COLUMNS.units) };
       const missing = (Object.keys(col) as (keyof typeof col)[]).filter((k) => col[k] < 0).map((k) => DLD_PROJECT_COLUMNS[k]);
       if (missing.length) throw new Error(`dld_projects: column(s) not found: ${missing.join(', ')}`);
-      this.col = col;
+      this.col = { ...col, loaded: f.indexOf(DLD_PROJECT_LOADED) };
       return;
     }
     if (f && f.join('\u0000') === this.header.join('\u0000')) return; // a repeated header (multi-part files)
@@ -243,18 +246,31 @@ export class DldProjectsAggregator {
       const u = Number(f[c.units]);
       if (Number.isFinite(u) && u > 0) this.units += u;
     }
+    const loaded = c.loaded >= 0 ? isoDate(f[c.loaded]!) : null;
+    if (loaded && loaded <= this.today && loaded > this.maxLoaded) this.maxLoaded = loaded;
     const start = isoDate(f[c.start]!);
-    if (start && start > this.since && start <= this.today) {
-      this.newCount++;
-      const area = f[c.area]!.trim();
-      if (area) this.newByArea.set(area, (this.newByArea.get(area) ?? 0) + 1);
+    if (start && start <= this.today) {
+      if (start > this.maxStart) this.maxStart = start;
+      this.starts.push([start, f[c.area]!.trim()]);
     }
   }
 
   stats(): ProjectsStats {
     if (!this.header) throw new Error('dld_projects: empty file');
-    const top = [...this.newByArea.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 5).map(([area_en, count]) => ({ area_en, count }));
-    return { new_projects_90d: this.newCount, top_areas_90d: top, active_projects: this.active, pipeline_units: Math.round(this.units), as_of: this.today };
+    const asOf = this.maxLoaded || this.maxStart;
+    if (!asOf) throw new Error(`dld_projects: no ${DLD_PROJECT_LOADED} or ${DLD_PROJECT_COLUMNS.start} to date the file`);
+    const d = new Date(`${asOf}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - 90);
+    const since = d.toISOString().slice(0, 10);
+    let newCount = 0;
+    const newByArea = new Map<string, number>();
+    for (const [start, area] of this.starts) {
+      if (start <= since || start > asOf) continue;
+      newCount++;
+      if (area) newByArea.set(area, (newByArea.get(area) ?? 0) + 1);
+    }
+    const top = [...newByArea.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 5).map(([area_en, count]) => ({ area_en, count }));
+    return { new_projects_90d: newCount, top_areas_90d: top, active_projects: this.active, pipeline_units: Math.round(this.units), as_of: asOf };
   }
 }
 

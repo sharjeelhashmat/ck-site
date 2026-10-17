@@ -21,7 +21,7 @@ async function seed(opts: { projects?: boolean; adrec?: boolean } = {}) {
     runId: uuid(), startedAt: '2026-10-16T02:23:00.000Z', finishedAt: '2026-10-16T02:30:00.000Z',
     dld: { rowsTotal: a.rowsTotal, rowsBad: a.rowsBad, asOf: a.asOf, areaMonths: a.areaMonths(), monthTotals: a.monthTotals() },
     rowsTotal: a.rowsTotal, rowsBad: a.rowsBad,
-    projects: opts.projects ? { new_projects_90d: 12, top_areas_90d: [{ area_en: 'Palm Deira', count: 4 }, { area_en: 'Alpha', count: 3 }], active_projects: 340, pipeline_units: 52000, as_of: '2026-10-16' } : null,
+    projects: opts.projects ? { new_projects_90d: 12, top_areas_90d: [{ area_en: 'Palm Deira', count: 4 }, { area_en: 'Alpha', count: 3 }], active_projects: 340, pipeline_units: 52000, as_of: '2026-06-20' } : null,
     adrec: opts.adrec ? { transaction_value_aed: 117.04e9, sales_value_aed: 86.1e9, mortgage_value_aed: 25.5e9, year: 2026 } : null,
     errors: [], uuid,
   });
@@ -129,14 +129,14 @@ describe('GET /market/status', () => {
 });
 
 describe('GET /market/launches', () => {
-  it('shape: Dubai project counts (no names) and Abu Dhabi year to date in AED bn, each with its source', async () => {
+  it('shape: Dubai project counts (no names, as of the data date) and Abu Dhabi year to date in AED bn, each with its source', async () => {
     await seed({ projects: true, adrec: true });
     const b = (await (await get('/market/launches')).json()) as Record<string, unknown>;
     expect(b).toEqual({
       dubai: {
         new_projects_90d: 12,
         top_areas_90d: [{ area_en: 'Palm Deira', label: 'Dubai Islands', count: 4 }, { area_en: 'Alpha', label: null, count: 3 }],
-        active_projects: 340, pipeline_units: 52000, as_of: '2026-10-16',
+        active_projects: 340, pipeline_units: 52000, as_of: '2026-06-20', // the data's date, not the sync date
         source_label: 'Dubai Land Department, Real Estate Projects open data via Data.Dubai (Open Data Licence)', source_url: 'https://data.dubai/en/l/467654',
       },
       abu_dhabi: {

@@ -32,7 +32,8 @@ const top8 = [
 ].map(([area_en, label, value_bn, share_pct, change_pct], i) => ({ rank: i + 1, area_en, label, value_bn, share_pct, change_pct, prior_zero: false, offplan_pct: 50 }));
 const AREAS = { period: '2026-H1', prior_period: '2025-H1', dubai: { ytd: { sales_bn: 391.7, total_bn: 591.6, mortgages_bn: 154.7, as_of: '2026-10-09' }, top8, total_res_bn: 182.9, as_of: '2026-10-09' } };
 const LAUNCHES = {
-  dubai: { new_projects_90d: 41, top_areas_90d: [{ area_en: 'Al Yelayiss 1', label: null, count: 6 }, { area_en: 'Palm Deira', label: 'Dubai Islands', count: 5 }, { area_en: 'Madinat Al Mataar', label: 'Dubai South', count: 4 }, { area_en: 'Wadi Al Safa 3', label: 'Majan', count: 4 }, { area_en: 'Business Bay', label: null, count: 3 }], active_projects: 612, as_of: '2026-10-16', source_label: 'x', source_url: 'https://data.dubai/en/l/467654' },
+  // The Dubai as_of is today: the card hides data more than 120 days old.
+  dubai: { new_projects_90d: 41, top_areas_90d: [{ area_en: 'Al Yelayiss 1', label: null, count: 6 }, { area_en: 'Palm Deira', label: 'Dubai Islands', count: 5 }, { area_en: 'Madinat Al Mataar', label: 'Dubai South', count: 4 }, { area_en: 'Wadi Al Safa 3', label: 'Majan', count: 4 }, { area_en: 'Business Bay', label: null, count: 3 }], active_projects: 612, as_of: new Date().toISOString().slice(0, 10), source_label: 'x', source_url: 'https://data.dubai/en/l/467654' },
   abu_dhabi: { transaction_value_bn: 117.04, sales_value_bn: 86.1, mortgage_value_bn: 25.5, year: 2026, as_of: '2026-10-16', source_label: 'x', source_url: 'https://adrec.gov.ae/en' },
 };
 const TURNSTILE = `(function(){var n=0,w={};window.turnstile={render:function(el,o){if(typeof el==='string')el=document.querySelector(el);if(!el)throw new Error('container');var id='w'+(++n);w[id]='tok';return id;},getResponse:function(id){return id?w[id]:'tok';},reset:function(){}};
