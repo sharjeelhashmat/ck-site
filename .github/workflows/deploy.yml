@@ -69,8 +69,6 @@ jobs:
         shell: bash
         working-directory: worker
     env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       WRANGLER_SEND_METRICS: 'false'
       REASON: ${{ inputs.reason }}
     steps:
@@ -83,7 +81,7 @@ jobs:
           node-version-file: .node-version
           cache: npm
           cache-dependency-path: worker/package-lock.json
-      - run: npm ci --no-audit --no-fund
+      - run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Assert wrangler 4.124.0
         run: |
           v=$(npx --no-install wrangler --version | tr -d '[:space:]')
@@ -92,6 +90,9 @@ jobs:
 
       # b. Preflight: fail closed, never print secret values.
       - name: Preflight
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           REASON_SAFE=$(printf '%s' "$REASON" | tr -cd '[:alnum:] ._-' | cut -c1-200)
           [ -n "${REASON_SAFE// /}" ] || { echo "reason is empty after sanitising"; exit 1; }
@@ -111,6 +112,9 @@ jobs:
       # c. Version currently live, recorded before anything changes.
       - name: Record LAST_GOOD
         id: lastgood
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           id=$(npx --no-install wrangler deployments status --name ck-lead-worker --json | jq -r '.versions[0].version_id // empty')
           [[ "$id" =~ ^[A-Za-z0-9-]+$ ]] || { echo "could not read the live version id"; exit 1; }
@@ -120,6 +124,9 @@ jobs:
       # d. D1 bookmark, before any migration.
       - name: Record D1 bookmark
         id: bookmark
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           b=$(npx --no-install wrangler d1 time-travel info ck-leads --json | jq -r '.bookmark // empty')
           [[ "$b" =~ ^[A-Za-z0-9-]+$ ]] || { echo "could not read the D1 bookmark"; exit 1; }
@@ -128,6 +135,9 @@ jobs:
 
       # e. Pending migrations, verbatim (text output; the command has no --json).
       - name: List pending migrations
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx --no-install wrangler d1 migrations list ck-leads --remote | tee "$RUNNER_TEMP/migrations-pending.txt"
           { echo '### Pending D1 migrations'; echo '```text'; cat "$RUNNER_TEMP/migrations-pending.txt"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
@@ -141,11 +151,17 @@ jobs:
       # g. Apply. On failure the job stops: Worker not deployed, nothing rolled back.
       - name: Apply D1 migrations
         id: apply
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx --no-install wrangler d1 migrations apply ck-leads --remote | tee "$RUNNER_TEMP/migrations-apply.txt"
 
       # h. Deploy.
       - name: Deploy Worker
         id: deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           # Capture wrangler's exit code instead of stopping: wrangler can activate a new version and then fail on a later
           # API call, so the live version is read here, in this same step, before exiting with wrangler's own code.
@@ -162,6 +178,8 @@ jobs:
       - name: Record new version
         id: newversion
         env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           LAST_GOOD: ${{ steps.lastgood.outputs.version_id }}
         run: |
           # Cloudflare can report the previous version for a short while after the deploy; re-read until it changes.
