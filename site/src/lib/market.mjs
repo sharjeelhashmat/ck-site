@@ -62,6 +62,9 @@ export function fmtMonth(iso) {
 /** One decimal, AED billions. @param {number} x */
 export const fmtBn = (x) => `AED ${x.toFixed(1)}bn`;
 
+/** A real, finite number above zero (never a numeric string, NaN or Infinity). @param {unknown} x */
+const pos = (x) => typeof x === 'number' && Number.isFinite(x) && x > 0;
+
 /**
  * Change against the same period last year.
  *   positive "+N%", negative "−N%" (true minus), >= +200% "≈N×" with N = round(1 + pct/100),
@@ -106,8 +109,8 @@ const changeSpan = (c) => `<span class="mk-change mk-${c.dir}">${esc(c.text)}</s
  * @param {{sales_bn: number, total_bn: number, mortgages_bn: number, as_of: string, year?: number}|null} ytd
  */
 export function renderYtd(emirate, ytd) {
-  if (!ytd || !(ytd.sales_bn > 0) || !(ytd.total_bn > 0) || !(ytd.mortgages_bn > 0) || !fmtDate(ytd.as_of)) return '';
-  const year = ytd.year ?? Number(ytd.as_of.slice(0, 4));
+  if (!ytd || !pos(ytd.sales_bn) || !pos(ytd.total_bn) || !pos(ytd.mortgages_bn) || !fmtDate(ytd.as_of)) return '';
+  const year = String(ytd.year ?? Number(ytd.as_of.slice(0, 4)));
   const tiles = [
     [ytd.sales_bn, `sales, ${year} to date`],
     [ytd.total_bn, `total transactions, ${year} to date`],
@@ -117,7 +120,7 @@ export function renderYtd(emirate, ytd) {
     ? `Source: Dubai Land Department, <a href="${SOURCES.dubaiTx.url}" target="_blank" rel="noopener">Real Estate Transactions open data</a> via Data.Dubai (Open Data Licence), 1 Jan – ${esc(fmtDate(ytd.as_of))}.`
     : `Source: <a href="${SOURCES.adrec.url}" target="_blank" rel="noopener">Abu Dhabi Real Estate Centre (ADREC)</a>, published year-to-date figures, as of ${esc(fmtDate(ytd.as_of))}.`;
   return `<section class="mk-block" aria-labelledby="mk-ytd-${emirate}">
-<h2 id="mk-ytd-${emirate}" class="mk-h2">${year} so far · ${EMIRATES[emirate]}</h2>
+<h2 id="mk-ytd-${emirate}" class="mk-h2">${esc(year)} so far · ${EMIRATES[emirate]}</h2>
 <div class="mk-tiles">${tiles.map(([v, l]) => `<div class="mk-tile"><p class="mk-tile-value">${fmtBn(v)}</p><p class="mk-tile-label">${esc(l)}</p></div>`).join('')}</div>
 <p class="mk-src">${source}</p>
 </section>`;
@@ -142,7 +145,7 @@ export function renderTop(emirate, d) {
   const cards = areas.map((a) => {
     const c = formatChange(a);
     return `<article class="mk-card">
-<p class="mk-rank">#${a.rank}</p>
+<p class="mk-rank">#${esc(a.rank)}</p>
 <h3 class="mk-area">${esc(a.area)}</h3>${a.label ? `<p class="mk-label">${esc(a.label)}</p>` : ''}
 <p class="mk-value">${fmtBn(a.value_bn)}</p>
 <div class="mk-bar" aria-hidden="true"><span style="width:${Math.max(2, Math.round((a.value_bn / top) * 100))}%"></span></div>
@@ -181,11 +184,25 @@ ${np}<p class="mk-src">${source}</p>
 </section>`;
 }
 
-/** Dubai /market/areas -> the rows the renderers take. */
+/**
+ * Dubai /market/areas -> the rows the renderers take. A malformed row (rank not a positive whole number, no area name,
+ * value_bn or share_pct not a finite number, change_pct neither a finite number nor null/absent) is dropped, never shown
+ * as NaN or undefined.
+ */
 export function dubaiRows(body) {
   const top = body?.dubai?.top8;
   if (!Array.isArray(top)) return [];
-  return top.map((a) => ({ rank: a.rank, area: a.area_en, label: a.label ?? null, value_bn: a.value_bn, share_pct: a.share_pct, change_pct: a.change_pct, prior_zero: a.prior_zero }));
+  return top
+    .filter((a) => a && typeof a === 'object'
+      && Number.isInteger(a.rank) && a.rank > 0
+      && typeof a.area_en === 'string' && a.area_en.trim() !== ''
+      && pos(a.value_bn)
+      && typeof a.share_pct === 'number' && Number.isFinite(a.share_pct) && a.share_pct >= 0
+      && (a.change_pct == null || (typeof a.change_pct === 'number' && Number.isFinite(a.change_pct))))
+    .map((a) => ({
+      rank: a.rank, area: a.area_en, label: typeof a.label === 'string' && a.label ? a.label : null, value_bn: a.value_bn,
+      share_pct: a.share_pct, change_pct: a.change_pct ?? null, prior_zero: a.prior_zero === true,
+    }));
 }
 
 // ---- Area guide: live figures card ----------------------------------------------------------------------------------

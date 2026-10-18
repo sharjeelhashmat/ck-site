@@ -65,3 +65,21 @@ export async function sendProfile(url, payload, { fetchImpl = (...a) => fetch(..
     clearTimeout(timer);
   }
 }
+
+/** The four required questions, in page order. */
+export const PROFILE_REQUIRED = ['objective', 'property_type', 'risk_tolerance', 'holding_period'];
+export const CHOOSE_ONE = 'Please choose one.';
+
+/**
+ * Every unanswered question, in page order (the first one gets focus). Audit H13.
+ * @param {Record<string, string>} values the select values by name
+ * @param {boolean} otherTicked "Elsewhere in the UAE" is ticked
+ * @param {string} otherText what was typed in "Which area or community?"
+ * @returns {[string, string][]}
+ */
+export function profileProblems(values, otherTicked, otherText) {
+  /** @type {[string, string][]} */
+  const out = PROFILE_REQUIRED.filter((f) => !String(values[f] ?? '').trim()).map((f) => [f, CHOOSE_ONE]);
+  if (otherTicked && !String(otherText ?? '').replace(/\s+/g, ' ').trim()) out.push(['other_area', MESSAGES.otherArea]);
+  return out;
+}

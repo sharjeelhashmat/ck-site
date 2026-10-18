@@ -38,7 +38,7 @@ test('form: mobile number is required, with an all-countries code select default
       assert.doesNotMatch(o[4], /\p{Extended_Pictographic}|\p{Regional_Indicator}/u, `${f}: no emoji in ${o[4]}`);
     }
     assert.match(h, /<input id="f-phone" name="phone_national" type="tel"[^>]*\brequired\b[^>]*aria-describedby="f-phone-err"/, `${f}: required national number input`);
-    assert.match(h, /<span class="err" id="f-phone-err" data-err="phone" role="alert">/, `${f}: accessible error slot`);
+    assert.match(h, /<span class="err" id="f-phone-err" data-err="phone">/, `${f}: accessible error slot`);
   }
 });
 
@@ -57,21 +57,26 @@ test('validation: only a number valid for the chosen country becomes E.164; anyt
 
 test('form script: blocks submit on an invalid phone and sends the E.164 value in "phone"', () => {
   const src = readFileSync(join(root, 'src/components/LeadForm.astro'), 'utf8');
-  assert.match(src, /const phone = toE164\(national, ccSel\.value\);/);
-  assert.match(src, /if \(!national\) \{ phoneErr\('Enter your mobile number\.'\); bad = true; \}/);
-  assert.match(src, /else if \(!phone\) \{ phoneErr\(/);
-  assert.match(src, /if \(bad\) \{ say\('Please fix the highlighted fields\.', false\); return; \}/, 'returns before fetch');
+  const ok = { name: 'Test Person', email: 'a@b.co', choice: 'call', message: '', consent: true };
+  assert.deepEqual(validateLead('general', { ...ok, national: '', country: 'AE' }, toE164).problems, [['phone', 'Enter your mobile number.']]);
+  assert.deepEqual(validateLead('general', { ...ok, national: '50 123', country: 'AE', countryLabel: 'United Arab Emirates (+971)' }, toE164).problems,
+    [['phone', 'Enter a valid mobile number for United Arab Emirates (+971).']]);
+  assert.equal(validateLead('general', { ...ok, national: '50 123 4567', country: 'AE' }, toE164).phone, '+971501234567');
+  assert.match(src, /const \{ problems, phone, message \} = validateLead\(mode, v, phoneCheck\);/);
+  assert.match(src, /if \(problems\.length\) \{[\s\S]*?say\('Please fix the highlighted fields\.', false\);[\s\S]*?return;/, 'returns before fetch');
   assert.match(src, /\n {8}phone,\n/, 'payload field "phone" carries the E.164 value');
   // The server's invalid_phone maps to a phone-field outcome in lead-submit.mjs (tested below); the form shows it on the field.
-  assert.match(src, /if \(outcome\.field === 'phone'\) phoneErr\(outcome\.message\);/, 'server-side rejection is shown on the phone field');
+  assert.match(src, /if \(outcome\.kind === 'field'\) \{\n\s*setErr\(outcome\.field, outcome\.message\);/, 'server-side rejection is shown on its field');
   assert.equal(outcomeFor(400, { ok: false, error: 'invalid_phone' }).field, 'phone');
 });
 
-test('Turnstile: the managed widget container is present on every form page with the site key', () => {
+test('Turnstile: the widget container is present on every form page with the site key; api.js loads on first focus (audit H15)', () => {
   for (const f of formPages) {
-    assert.match(read(f), /<div class="turnstile cf-turnstile" data-sitekey="0x4AAAAAAE9Ndhe9on1juQ_h"/, f);
-    assert.match(read(f), /src="https:\/\/challenges\.cloudflare\.com\/turnstile\/v0\/api\.js"/, f);
+    assert.match(read(f), /<div class="turnstile" id="lead-turnstile" data-sitekey="0x4AAAAAAE9Ndhe9on1juQ_h"/, f);
+    assert.doesNotMatch(read(f), /<script[^>]*src="https:\/\/challenges\.cloudflare\.com/, `${f}: not loaded with the page`);
   }
+  const src = readFileSync(join(root, 'src/components/LeadForm.astro'), 'utf8');
+  assert.match(src, /form\.addEventListener\('focusin', \(\) => \{ ensureWidget\(\)\.catch\(\(\) => \{\}\); \}, \{ once: true \}\);/);
 });
 
 test('_headers: llms.txt and robots.txt are served as UTF-8 plain text, merged ahead of the generated CSP once', () => {
@@ -137,7 +142,7 @@ test('compact country code: the closed control shows only "+971" (aria-hidden) o
 });
 
 // Contact form feedback (owner-approved 2026-10-10): the visitor always gets a clear answer.
-import { MESSAGES, outcomeFor, sendLead, TIMEOUT_MS } from '../src/lib/lead-submit.mjs';
+import { MESSAGES, outcomeFor, sendLead, TIMEOUT_MS, validateLead } from '../src/lib/lead-submit.mjs';
 
 test('feedback: 2xx ok replaces the form with the confirmation panel', () => {
   const o = outcomeFor(202, { ok: true, id: '0b5d2f2e-1111-4222-8333-944445555666' });
@@ -201,6 +206,6 @@ test('feedback: the form page carries the alert region, its WhatsApp + email tem
     assert.match(tpl, /<a href="https:\/\/wa\.me\/[^"]+" target="_blank" rel="noopener">WhatsApp<\/a>/, `${f}: WhatsApp link`);
     assert.match(tpl, /<a href="mailto:hello@sharjeelhashmat\.com">hello@sharjeelhashmat\.com<\/a>/, `${f}: email link`);
     assert.equal(tpl.replace(/<[^>]+>/g, ''), MESSAGES.failure, `${f}: template text matches the failure message`);
-    assert.match(h, /<span class="err lead-err" data-err="turnstile" role="alert"><\/span>/, `${f}: verification message slot`);
+    assert.match(h, /<span class="err lead-err" id="lead-turnstile-err" data-err="turnstile" role="alert"><\/span>/, `${f}: verification message slot`);
   }
 });

@@ -40,7 +40,8 @@ const emirates: Emirate[] = ['dubai', 'abu_dhabi'];
         <div data-slot="top"></div>
         <div data-slot="change"></div>
       </div>
-      <div class="mk-panel" data-emirate="abu_dhabi" hidden data-static={adTop ? 'yes' : 'no'}>
+      {/* The build-time Abu Dhabi figures are visible in the markup; the script only hides them if the switch picks Dubai. */}
+      <div class="mk-panel" data-emirate="abu_dhabi" hidden={!adTop} data-static={adTop ? 'yes' : 'no'}>
         <div data-slot="ytd"></div>
         <div data-slot="top" set:html={adTop}></div>
         <div data-slot="change" set:html={adChange}></div>
@@ -71,19 +72,24 @@ const emirates: Emirate[] = ['dubai', 'abu_dhabi'];
   const get = (path: string) =>
     fetch(`${worker}${path}`, { signal: AbortSignal.timeout(8000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
 
-  Promise.all([get(`/market/areas?period=${encodeURIComponent(period)}`), get('/market/launches')]).then(([areas, launches]) => {
-    const dubai = areas?.dubai ?? null;
-    const dubaiData = dubai ? { period: areas.period, areas: dubaiRows(areas) } : null;
-    const ad = launches?.abu_dhabi ?? null;
-    initAreasPage(document, {
-      dubai: {
-        ytd: renderYtd('dubai', dubai?.ytd ?? null),
-        top: dubaiData ? renderTop('dubai', dubaiData) : '',
-        change: dubaiData ? renderChange('dubai', dubaiData) : '',
-      },
-      abu_dhabi: {
-        ytd: renderYtd('abu_dhabi', ad ? { sales_bn: ad.sales_value_bn, total_bn: ad.transaction_value_bn, mortgages_bn: ad.mortgage_value_bn, as_of: ad.as_of, year: ad.year } : null),
-      },
-    });
-  });
+  const NONE = { dubai: { ytd: '', top: '', change: '' }, abu_dhabi: { ytd: '' } };
+  Promise.all([get(`/market/areas?period=${encodeURIComponent(period)}`), get('/market/launches')])
+    .then(([areas, launches]) => {
+      const dubai = areas?.dubai ?? null;
+      const dubaiData = dubai ? { period: areas.period, areas: dubaiRows(areas) } : null;
+      const ad = launches?.abu_dhabi ?? null;
+      return {
+        dubai: {
+          ytd: renderYtd('dubai', dubai?.ytd ?? null),
+          top: dubaiData ? renderTop('dubai', dubaiData) : '',
+          change: dubaiData ? renderChange('dubai', dubaiData) : '',
+        },
+        abu_dhabi: {
+          ytd: renderYtd('abu_dhabi', ad ? { sales_bn: ad.sales_value_bn, total_bn: ad.transaction_value_bn, mortgages_bn: ad.mortgage_value_bn, as_of: ad.as_of, year: ad.year } : null),
+        },
+      };
+    })
+    // A response that cannot be read or rendered leaves the page as built (Abu Dhabi figures, every guide), never half-set.
+    .catch(() => NONE)
+    .then((html) => initAreasPage(document, html));
 </script>

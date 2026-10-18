@@ -231,7 +231,8 @@ test('E: /areas title, meta, eyebrow, H1, lede, closing line and switch markup a
   assert.match(m, /<span class="mk-switch-label" id="mk-switch-label"[^>]*>Show figures for<\/span>/);
   assert.match(m, /role="radiogroup" aria-labelledby="mk-switch-label"/);
   assert.equal([...m.matchAll(/role="radio"/g)].length, 2);
-  // Figures, the switch and the closing line start hidden; the browser shows what has data.
+  // The switch and the closing line start hidden; the browser shows what has data. The build-time Abu Dhabi figures are
+  // visible in the markup (audit H11, tests/audit-fixes.test.mjs).
   for (const id of ['mk-switch', 'mk-ask']) assert.match(m, new RegExp(`id="${id}"[^>]*hidden|hidden[^>]*id="${id}"`), id);
   // Area guides: 8 per emirate, in Part F order, each the guide H1 + one-liner.
   for (const e of ['dubai', 'abu_dhabi']) {
