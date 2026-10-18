@@ -77,7 +77,7 @@ jobs:
       # Downloads the public DLD files (about 700 MB, once a week) and writes only aggregates; no credentials in this job.
       - name: Download and aggregate DLD open data
         run: node scripts/market-sync/sync.ts dld --out market-dld.json
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: market-dld
           path: worker/market-dld.json
