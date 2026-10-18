@@ -3,7 +3,7 @@
 | Item | Owner | Blocks |
 |---|---|---|
 | ~~Zoho mailbox `hello@`~~ DONE 2026-09-19: DNS live and verified, outbound test PASS on SPF, DKIM, DMARC; `MAILBOX_CONFIRMED = "yes"` | n/a | n/a |
-| Zoho housekeeping: display name to "Sharjeel Hashmat" (currently "Sharjeel"), MFA on, mobile app sign-in check | Owner | Polish and account security |
+| Zoho housekeeping: display name to "Sharjeel Hashmat" (currently "Sharjeel"), mobile app sign-in check | Owner | Polish |
 | BRN number | Owner (to share later) | Outbound (Worker refuses while `BRN` is empty), disclosure line, property-specific content |
 | Template approval (8 templates, hashes changed in this version) | Owner | Outbound |
 | Cloudflare account, API token, GitHub secrets (register infra accounts with the PRIVATE recovery address) | Owner | First live run |

@@ -29,7 +29,7 @@ Paid fallbacks: Zoho Mail Lite (about $1/user/month, restores IMAP), Google Work
 | root | TXT | Search Console domain verification | Google |
 
 ## Recovery and account rules
-- Registrar, Cloudflare and GitHub logins use a PRIVATE recovery address that is not on this domain (the existing Gmail, unpublished, or a new free address at another provider). Circular dependency otherwise: a DNS or renewal problem would block the reset email.
+- Registrar, Cloudflare and GitHub logins use a PRIVATE recovery address that is not on this domain. Circular dependency otherwise: a DNS or renewal problem would block the reset email.
 - Business tools (email provider, Notion, Search Console) use `hello@sharjeelhashmat.com`.
 - Domain: auto-renew on, renew for multiple years, registrar lock on, MFA on every account.
 
@@ -43,7 +43,6 @@ Paid fallbacks: Zoho Mail Lite (about $1/user/month, restores IMAP), Google Work
 - [ ] Email signature, business card, proposal headers
 - [ ] WhatsApp Business profile email
 - [ ] Any account created with Gmail that is not infra recovery
-- [ ] Keep Gmail only as unpublished infra recovery
 
 ## Optional anti-fraud footer (NOT enabled)
 "I never ask for payment or bank details by email." Add to templates only if the owner confirms it is true. It changes template text, so it needs re-approval.
