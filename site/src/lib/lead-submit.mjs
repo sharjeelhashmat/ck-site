@@ -121,6 +121,8 @@ export function outcomeFor(status, body) {
   if (status === 400 && b.error === 'invalid_input' && typeof b.field === 'string' && FIELDS.has(b.field)) {
     return { kind: 'field', field: b.field, message: b.field === 'phone' ? MESSAGES.phone : MESSAGES.field, ...retry };
   }
+  // Everything else is the failure alert (retry, or WhatsApp / email): 5xx, 429, unknown errors, and the Worker's
+  // 503 {error: 'temporarily_unavailable'} when it cannot store the enquiry.
   return failure();
 }
 
@@ -148,4 +150,69 @@ export async function sendLead(url, payload, { fetchImpl = (...a) => fetch(...a)
   } finally {
     clearTimeout(timer);
   }
+}
+
+// ---- Client-side checks before sending (audit H13) ---------------------------------------------------------------------
+
+export const NAME_RE = /^[\p{L}\p{M}' .\-]{2,80}$/u;
+export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
+/** The form's error messages, unchanged from the inline checks they replace. */
+export const FIELD_MESSAGES = {
+  name: 'Enter your name.',
+  email: 'Enter a valid email address.',
+  phoneMissing: 'Enter your mobile number.',
+  phoneInvalid: (/** @type {string} */ country) => `Enter a valid mobile number for ${country || 'the selected country'}.`,
+  preferred_contact: 'Please choose how I should contact you.',
+  question: 'Enter your question.',
+  consent_contact: 'Please confirm so I can reply to you.',
+};
+
+/**
+ * Every problem with the form's values, in the order the fields appear on the page (so the first one gets focus).
+ * Pure: the phone check is passed in (libphonenumber is loaded on demand, lib/phone.mjs toE164).
+ * @param {'general' | 'sell' | 'launch'} mode
+ * @param {{ name: string; email: string; national: string; country: string; countryLabel?: string; choice: string;
+ *   message?: string; project?: string; question?: string; sellParts?: [string, string][]; consent: boolean }} f
+ * @param {(national: string, country: string) => string | null} toE164
+ * @returns {{ problems: [string, string][]; phone: string | null; message: string }}
+ */
+export function validateLead(mode, f, toE164) {
+  /** @type {[string, string][]} */
+  const problems = [];
+  const launch = mode === 'launch';
+  if (!NAME_RE.test(tidy(f.name))) problems.push(['name', FIELD_MESSAGES.name]);
+  if (!EMAIL_RE.test(tidy(f.email))) problems.push(['email', FIELD_MESSAGES.email]);
+  const national = tidy(f.national);
+  const phone = national ? toE164(national, f.country) : null;
+  if (!national) problems.push(['phone', FIELD_MESSAGES.phoneMissing]);
+  else if (!phone) problems.push(['phone', FIELD_MESSAGES.phoneInvalid(f.countryLabel ?? '')]);
+  if (!contactLabel(f.choice)) problems.push(['preferred_contact', FIELD_MESSAGES.preferred_contact]);
+  // The visitor's own text (the question on launch) and the one-line message the Worker receives.
+  const box = launch ? tidy(f.question) : tidy(f.message);
+  const message = composeMessage(mode, { choice: f.choice, message: f.message, project: f.project, question: f.question, sellParts: f.sellParts });
+  const boxField = launch ? 'question' : 'message';
+  if (launch && !box) problems.push(['question', FIELD_MESSAGES.question]);
+  const tooLong = lengthProblem(mode, box, message);
+  if (tooLong) {
+    const at = problems.findIndex(([k]) => k === boxField);
+    if (at >= 0) problems[at] = [boxField, tooLong.message];
+    else problems.push([boxField, tooLong.message]);
+  }
+  if (!f.consent) problems.push(['consent_contact', FIELD_MESSAGES.consent_contact]);
+  return { problems, phone, message };
+}
+
+// ---- Turnstile before sending (audit H12) -----------------------------------------------------------------------------
+
+/**
+ * What Send does about the security check. 'fallback': the check never loaded (script failed, blocked or timed out) or
+ * the widget reported an error and has no token, so the visitor gets the WhatsApp / email alert instead of waiting forever. 'wait': the
+ * widget is there but has no token yet. 'send': go.
+ * @param {{ loaded: boolean; errored?: boolean; token?: string | null }} s
+ * @returns {'fallback' | 'wait' | 'send'}
+ */
+export function turnstileGate(s) {
+  if (s.loaded && s.token) return 'send';
+  return !s.loaded || s.errored ? 'fallback' : 'wait';
 }

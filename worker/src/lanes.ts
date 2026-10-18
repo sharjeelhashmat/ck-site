@@ -8,6 +8,10 @@ export function assignLane(
   score: number,
   escalated: boolean,
 ): { lane: Lane; alert_level: AlertLevel } {
+  // Not VALID: never a reply (lane NONE). SUSPICIOUS may still be a real person, so the owner sees it in the digest;
+  // a DUPLICATE that escalates (complaint, legal, urgent...) is alerted at once; SPAM (and TEST, set later) stay silent.
+  if (status === 'SUSPICIOUS') return { lane: 'NONE', alert_level: 'digest' };
+  if (status === 'DUPLICATE' && escalated) return { lane: 'NONE', alert_level: 'instant' };
   if (status !== 'VALID') return { lane: 'NONE', alert_level: 'none' };
   if (escalated) return { lane: 'ESCALATED', alert_level: 'instant' };
   if (lead.intent === 'partner' || lead.intent === 'media' || lead.intent === 'other') {

@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  BOX_MAX, CONTACT_CHOICES, LIMIT_MESSAGES, MESSAGE_MAX, MESSAGES, REPLY_FALLBACK, composeMessage, lengthProblem, successText,
+  BOX_MAX, CONTACT_CHOICES, LIMIT_MESSAGES, MESSAGE_MAX, MESSAGES, REPLY_FALLBACK, composeMessage, lengthProblem, successText, validateLead,
 } from '../src/lib/lead-submit.mjs';
 import { MESSAGES as PROFILE_MESSAGES } from '../src/lib/profile-submit.mjs';
 
@@ -140,7 +140,11 @@ test('new launches form: the one-line message, with and without a project, and i
     'New Launches | Preferred contact: Email | Project: - | Question: Who delivers on time?');
   const js = src('src/components/LeadForm.astro');
   assert.match(js, /intent: sell \? 'sell' : launch \? 'invest' : val\('intent'\) \|\| 'buy',/);
-  assert.match(js, /if \(launch && !box\) \{ setErr\('question', 'Enter your question\.'\); bad = true; \}/);
+  // An empty question is blocked on the question field (lib/lead-submit.mjs validateLead, used by the form).
+  const ok = { name: 'Test Person', email: 'a@b.co', national: '50 123 4567', country: 'AE', choice: 'email', consent: true };
+  assert.deepEqual(validateLead('launch', { ...ok, question: '  ' }, () => '+971501234567').problems, [['question', 'Enter your question.']]);
+  assert.deepEqual(validateLead('launch', { ...ok, question: 'Fair?' }, () => '+971501234567').problems, []);
+  assert.match(js, /validateLead\(mode, v, phoneCheck\)/);
 });
 
 test('new launches form: a message over 1000 characters is blocked with an inline message', () => {
@@ -150,8 +154,10 @@ test('new launches form: a message over 1000 characters is blocked with an inlin
   assert.deepEqual(lengthProblem('launch', q, msg), { kind: 'total', message: LIMIT_MESSAGES.total });
   const fits = 'y'.repeat(MESSAGE_MAX - composeMessage('launch', { choice: 'call', project: '', question: '' }).length);
   assert.equal(lengthProblem('launch', fits, composeMessage('launch', { choice: 'call', project: '', question: fits })), null, 'exactly 1000 is sent');
-  assert.match(src('src/components/LeadForm.astro'), /if \(tooLong\) \{ setErr\(launch \? 'question' : 'message', tooLong\.message\); bad = true; \}/);
-  assert.match(form('new-launches.html'), /<span class="err" id="f-question-err" data-err="question" role="alert"><\/span>/);
+  const ok = { name: 'Test Person', email: 'a@b.co', national: '50 123 4567', country: 'AE', choice: 'call', consent: true };
+  assert.deepEqual(validateLead('launch', { ...ok, question: q }, () => '+971501234567').problems, [['question', LIMIT_MESSAGES.total]]);
+  assert.deepEqual(validateLead('general', { ...ok, message: 'z'.repeat(971) }, () => '+971501234567').problems, [['message', LIMIT_MESSAGES.box]]);
+  assert.match(form('new-launches.html'), /<span class="err" id="f-question-err" data-err="question"><\/span>/);
 });
 
 // ---------- Preferred contact on Contact, Sell and New Launches ----------
@@ -163,15 +169,15 @@ test('preferred contact: three required pill radios, none checked, next to the m
     const fs = f.match(/<fieldset class="field pref">([\s\S]*?)<\/fieldset>/);
     assert.ok(fs, `${p}: fieldset`);
     assert.match(fs[1], /<legend class="lbl">Preferred contact<\/legend>/, `${p}: label`);
-    const radios = [...fs[1].matchAll(/<label class="pill"><input type="radio" name="preferred_contact" value="([a-z]+)" required><span>([^<]+)<\/span><\/label>/g)];
+    const radios = [...fs[1].matchAll(/<label class="pill"><input type="radio" name="preferred_contact" value="([a-z]+)" required aria-describedby="f-pref-err"><span>([^<]+)<\/span><\/label>/g)];
     assert.deepEqual(radios.map((r) => [r[1], r[2]]), [['whatsapp', 'WhatsApp'], ['call', 'Call'], ['email', 'Email']], `${p}: three pills`);
     assert.doesNotMatch(fs[1], /checked/, `${p}: nothing preselected`);
-    assert.match(fs[1], /<span class="err" data-err="preferred_contact" role="alert"><\/span>/, `${p}: error slot`);
+    assert.match(fs[1], /<span class="err" id="f-pref-err" data-err="preferred_contact"><\/span>/, `${p}: error slot`);
     // Straight after the mobile number field, so the two share a row on desktop.
-    assert.match(f, /<span class="err" id="f-phone-err" data-err="phone" role="alert"><\/span>\s*<\/div>\s*<fieldset class="field pref">/, `${p}: placement`);
+    assert.match(f, /<span class="err" id="f-phone-err" data-err="phone"><\/span>\s*<\/div>\s*<fieldset class="field pref">/, `${p}: placement`);
   }
-  const js = src('src/components/LeadForm.astro');
-  assert.match(js, /if \(!contactLabel\(choice\)\) \{ setErr\('preferred_contact', 'Please choose how I should contact you\.'\); bad = true; \}/);
+  const ok = { name: 'Test Person', email: 'a@b.co', national: '50 123 4567', country: 'AE', message: '', consent: true };
+  assert.deepEqual(validateLead('general', { ...ok, choice: '' }, () => '+971501234567').problems, [['preferred_contact', 'Please choose how I should contact you.']]);
 });
 
 test('preferred contact: pill styling (pill radius, 44px, Ink border, Ink fill when selected, visible focus, radios kept)', () => {
@@ -208,13 +214,13 @@ test('preferred contact: the success line follows the choice; an unreadable choi
   }
   assert.equal(REPLY_FALLBACK, 'I will reply within 24 hours.');
   assert.equal(MESSAGES.success, successText('enquiry', undefined), 'the generic message is unchanged');
-  assert.match(src('src/components/LeadForm.astro'), /p\.textContent = successText\(launch \? 'question' : 'enquiry', choice\);/);
+  assert.match(src('src/components/LeadForm.astro'), /p\.textContent = successText\(launch \? 'question' : 'enquiry', v\.choice\);/);
 });
 
 test('limits: Contact and Sell message boxes take at most 970 characters, with an inline message beyond that', () => {
   assert.equal(BOX_MAX, 970);
   for (const p of ['contact.html', 'sell.html']) {
-    assert.match(form(p), /<textarea id="f-message" name="message" maxlength="970"[^>]*aria-describedby="f-message-err"><\/textarea>\s*<span class="err" id="f-message-err" data-err="message" role="alert"><\/span>/, p);
+    assert.match(form(p), /<textarea id="f-message" name="message" maxlength="970"[^>]*aria-describedby="f-message-err"><\/textarea>\s*<span class="err" id="f-message-err" data-err="message"><\/span>/, p);
   }
   const long = 'z'.repeat(971);
   assert.deepEqual(lengthProblem('general', long, composeMessage('general', { choice: 'call', message: long })), { kind: 'box', message: 'Please keep this to 970 characters or fewer.' });

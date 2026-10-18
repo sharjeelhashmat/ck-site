@@ -22,39 +22,39 @@ const wa = waLink("Hi Sharjeel, I'd like to discuss what would suit me.");
         <div class="fields">
           <div class="field">
             <label for="p-objective">Main objective</label>
-            <select id="p-objective" name="objective" required>
+            <select id="p-objective" name="objective" required aria-describedby="p-objective-err">
               <option value="">Select</option>
               {o.objective.map((x) => <option value={x.value}>{x.label}</option>)}
             </select>
-            <span class="err" data-err="objective" role="alert"></span>
+            <span class="err" id="p-objective-err" data-err="objective"></span>
           </div>
           <div class="field">
             <label for="p-type">Property type</label>
-            <select id="p-type" name="property_type" required>
+            <select id="p-type" name="property_type" required aria-describedby="p-type-err">
               <option value="">Select</option>
               {o.property_type.map((x) => <option value={x.value}>{x.label}</option>)}
             </select>
-            <span class="err" data-err="property_type" role="alert"></span>
+            <span class="err" id="p-type-err" data-err="property_type"></span>
           </div>
           <div class="field">
             <label for="p-risk">Risk tolerance</label>
-            <select id="p-risk" name="risk_tolerance" required>
+            <select id="p-risk" name="risk_tolerance" required aria-describedby="p-risk-err">
               <option value="">Select</option>
               {o.risk_tolerance.map((x) => <option value={x.value}>{x.label}</option>)}
             </select>
-            <span class="err" data-err="risk_tolerance" role="alert"></span>
+            <span class="err" id="p-risk-err" data-err="risk_tolerance"></span>
           </div>
           <div class="field">
             <label for="p-hold">How long would you hold it?</label>
-            <select id="p-hold" name="holding_period" required>
+            <select id="p-hold" name="holding_period" required aria-describedby="p-hold-err">
               <option value="">Select</option>
               {o.holding_period.map((x) => <option value={x.value}>{x.label}</option>)}
             </select>
-            <span class="err" data-err="holding_period" role="alert"></span>
+            <span class="err" id="p-hold-err" data-err="holding_period"></span>
           </div>
           <fieldset class="field full" style="border:0;padding:0;margin:0">
             <legend style="font-size:.85rem;font-weight:600;margin-bottom:.5rem">Areas you prefer (optional)</legend>
-            <div style="display:grid;gap:.5rem;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr))">
+            <div style="display:grid;gap:.5rem;grid-template-columns:repeat(auto-fit,minmax(min(14rem,100%),1fr))">
               {[...PROFILE_AREAS, ...AREA_EXTRAS].map((a) => (
                 <label class="check" style="text-transform:none;letter-spacing:normal;font-size:.9rem;font-weight:400"><input type="checkbox" name="areas" value={a.value} aria-controls={a.value === 'other' ? 'p-other-wrap' : undefined} /><span>{a.label}</span></label>
               ))}
@@ -63,7 +63,7 @@ const wa = waLink("Hi Sharjeel, I'd like to discuss what would suit me.");
               <label for="p-other">Which area or community?</label>
               <input id="p-other" name="other_area" type="text" maxlength="80" placeholder="e.g. JVC, Yas Island, Al Marjan Island" aria-describedby="p-other-hint p-other-err" autocomplete="off" />
               <span class="hint" id="p-other-hint">Any area or emirate in the UAE.</span>
-              <span class="err" id="p-other-err" data-err="other_area" role="alert"></span>
+              <span class="err" id="p-other-err" data-err="other_area"></span>
             </div>
           </fieldset>
         </div>
@@ -102,7 +102,7 @@ const wa = waLink("Hi Sharjeel, I'd like to discuss what would suit me.");
   .card.profile-success > p { margin: 0; color: var(--ok); font-size: 1.05rem; font-weight: 500; }
 </style>
 <script>
-  import { MESSAGES, otherAreaState, sendProfile } from '../lib/profile-submit.mjs';
+  import { MESSAGES, otherAreaState, profileProblems, sendProfile } from '../lib/profile-submit.mjs';
   const form = document.getElementById('profile-form') as HTMLFormElement | null;
   if (form) {
     const status = document.getElementById('profile-status')!;
@@ -112,12 +112,24 @@ const wa = waLink("Hi Sharjeel, I'd like to discuss what would suit me.");
     const otherBox = form.querySelector<HTMLInputElement>('input[name="areas"][value="other"]')!;
     const otherWrap = document.getElementById('p-other-wrap')!;
     const otherInput = document.getElementById('p-other') as HTMLInputElement;
-    const otherErr = document.getElementById('p-other-err')!;
     const sendLabel = btn.textContent ?? 'Send profile';
     const workerUrl = form.dataset.worker!;
     const lead = new URLSearchParams(location.search).get('lead') ?? '';
     const say = (m: string, ok: boolean) => { status.textContent = m; status.className = 'status ' + (ok ? 'ok' : 'bad'); };
     const val = (n: string) => ((form.elements.namedItem(n) as HTMLSelectElement | null)?.value ?? '').trim();
+    // Inline errors (audit H13): message in the field's error span (aria-describedby), aria-invalid on the control,
+    // removed as soon as the question is answered; the status line announces the summary.
+    const control = (f: string) => form.querySelector<HTMLElement>(`[name="${f}"]`);
+    const setErr = (f: string, msg: string) => {
+      const el = form.querySelector(`[data-err="${f}"]`);
+      if (el) el.textContent = msg;
+      control(f)?.setAttribute('aria-invalid', 'true');
+    };
+    const clearErr = (f: string) => {
+      const el = form.querySelector(`[data-err="${f}"]`);
+      if (el) el.textContent = '';
+      control(f)?.removeAttribute('aria-invalid');
+    };
     if (!/^[0-9a-f-]{36}$/i.test(lead)) {
       say('This page works from the link shown after you send an enquiry. Please use that link, or message me on WhatsApp.', false);
       btn.disabled = true;
@@ -127,26 +139,28 @@ const wa = waLink("Hi Sharjeel, I'd like to discuss what would suit me.");
       const st = otherAreaState(otherBox.checked);
       otherWrap.hidden = st.hidden;
       otherInput.required = st.required;
-      if (st.clear) { otherInput.value = ''; otherErr.textContent = ''; otherInput.removeAttribute('aria-invalid'); }
+      if (st.clear) { otherInput.value = ''; clearErr('other_area'); }
     };
     otherBox.addEventListener('change', () => { syncOther(); if (otherBox.checked) otherInput.focus(); });
-    otherInput.addEventListener('input', () => { if (otherInput.value.trim()) { otherErr.textContent = ''; otherInput.removeAttribute('aria-invalid'); } });
+    otherInput.addEventListener('input', () => { if (otherInput.value.trim()) clearErr('other_area'); });
     syncOther();
-    const otherProblem = () => { otherErr.textContent = MESSAGES.otherArea; otherInput.setAttribute('aria-invalid', 'true'); otherInput.focus(); };
+    const otherProblem = () => { setErr('other_area', MESSAGES.otherArea); otherInput.focus(); };
     // A shown error clears as soon as that question is answered.
-    form.querySelectorAll('select').forEach((s) => s.addEventListener('change', () => { const el = form.querySelector(`[data-err="${s.name}"]`); if (el) el.textContent = ''; }));
+    form.querySelectorAll('select').forEach((s) => s.addEventListener('change', () => { if (s.value) clearErr(s.name); }));
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       form.querySelectorAll('[data-err]').forEach((x) => (x.textContent = ''));
+      form.querySelectorAll('[aria-invalid]').forEach((x) => x.removeAttribute('aria-invalid'));
       alertBox.replaceChildren();
       status.textContent = '';
-      let bad = false;
-      for (const f of ['objective', 'property_type', 'risk_tolerance', 'holding_period']) {
-        if (!val(f)) { const el = form.querySelector(`[data-err="${f}"]`); if (el) el.textContent = 'Please choose one.'; bad = true; }
-      }
       const otherText = otherInput.value.replace(/\s+/g, ' ').trim();
-      if (otherBox.checked && !otherText) { otherProblem(); bad = true; }
-      if (bad) { say('Please answer the highlighted questions.', false); return; }
+      const problems = profileProblems({ objective: val('objective'), property_type: val('property_type'), risk_tolerance: val('risk_tolerance'), holding_period: val('holding_period') }, otherBox.checked, otherText);
+      if (problems.length) {
+        for (const [f, msg] of problems) setErr(f, msg);
+        say('Please answer the highlighted questions.', false);
+        control(problems[0][0])?.focus();
+        return;
+      }
       const areas = [...form.querySelectorAll<HTMLInputElement>('input[name="areas"]:checked')].map((c) => c.value);
 
       // Sending: the button says so and the form is busy until exactly one outcome is shown.
@@ -170,7 +184,7 @@ const wa = waLink("Hi Sharjeel, I'd like to discuss what would suit me.");
         return;
       }
       // The visitor's answers stay; they can correct and send again.
-      if (outcome.kind === 'other_area') otherProblem();
+      if (outcome.kind === 'other_area') { otherProblem(); say('Please answer the highlighted questions.', false); }
       else alertBox.replaceChildren(alertTpl.content.cloneNode(true));
       if (outcome.enableSend) { btn.disabled = false; btn.textContent = sendLabel; }
     });

@@ -1,7 +1,8 @@
 // GET /market/* in workerd with the real D1 migrations, seeded through the same SQL the sync workflow applies.
 import { env } from 'cloudflare:workers';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import worker, { type Env } from '../src/index';
+import { clearMarketMemo } from '../src/market';
 import { DldTxAggregator, parseCsv } from '../scripts/market-sync/dld';
 import { buildSql } from '../scripts/market-sync/sql';
 import { fixtureLines } from '../test/market-fixture';
@@ -10,6 +11,9 @@ const ORIGIN = 'https://sharjeelhashmat.com';
 const STAGING = 'https://ck-site-web.sharjeelhashmat.workers.dev';
 const cf = env as unknown as Env;
 const e = (over: Record<string, string> = {}) => ({ ...cf, SITE_URL: ORIGIN, STAGING_ORIGIN: '', ...over }) as Env;
+
+// Each test sees D1 as it is now, not a body memoised by an earlier test in this isolate.
+beforeEach(() => clearMarketMemo());
 
 let n = 0;
 const uuid = () => `run-${++n}`;
@@ -146,4 +150,78 @@ describe('GET /market/launches', () => {
     });
   });
 
+});
+
+describe('quota protection (B1)', () => {
+  const text = async (path: string) => (await get(path)).text();
+  const reset = async () => {
+    await cf.DB.exec('DELETE FROM market_cache');
+    clearMarketMemo();
+  };
+
+  it('the sync precomputes /market/areas, /market/area and /market/launches; each equals the live computation', async () => {
+    await seed({ projects: true, adrec: true });
+    const keys = ((await cf.DB.prepare('SELECT key FROM market_cache ORDER BY key').all<{ key: string }>()).results ?? []).map((r) => r.key);
+    expect(keys).toContain('areas:2026-H1');
+    expect(keys).toContain('areas:2026-Q3');
+    expect(keys).toContain('area:2026-H1:Gamma');
+    expect(keys).toContain('launches');
+    expect(keys).not.toContain('areas:2026-H2'); // not complete in the data
+    for (const path of ['/market/areas?period=2026-H1', '/market/areas?period=2026-Q3', '/market/area/Gamma?period=2026-H1', '/market/area/Area09?period=2026-H1', '/market/launches']) {
+      clearMarketMemo();
+      const fromCache = await text(path);
+      await reset();
+      const live = await text(path);
+      expect(fromCache, path).toBe(live);
+      await seed({ projects: true, adrec: true });
+    }
+  });
+
+  it('a cached endpoint reads its one row, not the data tables', async () => {
+    await seed({ projects: true, adrec: true });
+    clearMarketMemo();
+    const expected = await text('/market/areas?period=2026-H1');
+    await cf.DB.exec('DELETE FROM dld_area_month');
+    await cf.DB.exec('DELETE FROM dld_month_totals');
+    clearMarketMemo();
+    expect(await text('/market/areas?period=2026-H1')).toBe(expected);
+  });
+
+  it('an area missing from a cached period is a 404 without live computation', async () => {
+    await seed();
+    clearMarketMemo();
+    await cf.DB.exec("DELETE FROM market_cache WHERE key = 'area:2026-H1:Gamma'");
+    expect((await get('/market/area/Gamma?period=2026-H1')).status).toBe(404);
+    expect((await get('/market/area/Nowhere?period=2026-H1')).status).toBe(404);
+  });
+
+  it('memo: a repeated 200 is answered without D1 for 10 minutes; errors and invalid input are never memoised', async () => {
+    await seed();
+    clearMarketMemo();
+    const first = await text('/market/areas?period=2026-H1');
+    await cf.DB.exec('DELETE FROM market_cache');
+    await cf.DB.exec('DELETE FROM dld_area_month');
+    expect(await text('/market/areas?period=2026-H1')).toBe(first);
+    expect((await get('/market/areas?period=2026')).status).toBe(400);
+    clearMarketMemo();
+    expect((await get('/market/areas?period=2026-H1')).status).toBe(404);
+  });
+
+  it('any read failure answers with cache-control: no-store, so no browser or CDN keeps the empty answer', async () => {
+    clearMarketMemo();
+    const broken = new Proxy(cf.DB, {
+      get(target, prop) {
+        if (prop === 'prepare') return () => { throw new Error('D1_ERROR: daily read limit exceeded'); };
+        const v = Reflect.get(target, prop);
+        return typeof v === 'function' ? v.bind(target) : v;
+      },
+    });
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    for (const path of ['/market/areas?period=2026-H1', '/market/area/Alpha?period=2026-H1', '/market/launches', '/market/status']) {
+      const r = await worker.fetch(new Request(`https://api.test${path}`, { headers: { origin: ORIGIN } }), { ...e(), DB: broken } as Env);
+      expect(r.headers.get('cache-control'), path).toBe('no-store');
+      expect(r.headers.get('access-control-allow-origin'), path).toBe(ORIGIN);
+    }
+    spy.mockRestore();
+  });
 });

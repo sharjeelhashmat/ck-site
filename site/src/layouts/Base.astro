@@ -6,16 +6,19 @@ import PrintFrame from '../components/PrintFrame.astro';
 import Footer from '../components/Footer.astro';
 import { AFFILIATION_LINE, ANALYTICS_TOKEN, SITE } from '../lib/site';
 import { GOLIVE } from '../lib/golive';
+import { canonicalUrl } from '../lib/seo.mjs';
 
 interface Props { title?: string; description?: string; noindex?: boolean; path?: string }
 const DEFAULT_DESC =
   'Clarity before commitment. UAE property analysis for investors: price, yield, costs and exit, before anyone asks you to sign.';
 const { title, description = DEFAULT_DESC, noindex = false } = Astro.props;
 const fullTitle = title ? `${title} — ${SITE.name}` : `${SITE.name} — ${SITE.title}`;
-const pathname = Astro.url.pathname.replace(/\/$/, '') || '/';
-const canonical = SITE.origin + (pathname === '/' ? '' : pathname);
 // Only a production-indexable build (which requires a BRN) may be indexed, and only for pages with real content.
-const robots = SITE.indexable && !noindex ? 'index,follow,max-image-preview:large' : 'noindex,nofollow';
+const indexed = SITE.indexable && !noindex;
+const robots = indexed ? 'index,follow,max-image-preview:large' : 'noindex,nofollow';
+// Canonical and og:url only on indexed pages (never with noindex, never on the 404), in the sitemap's form: no ".html",
+// no "/index", home is origin + "/" (lib/seo.mjs).
+const canonical = indexed ? canonicalUrl(SITE.origin, Astro.url.pathname) : null;
 const identifiers = [
   ...(AFFILIATION_LINE ? [{ '@type': 'PropertyValue', name: 'BRN', value: SITE.brn }] : []),
   ...(AFFILIATION_LINE && GOLIVE.brokerCardNo ? [{ '@type': 'PropertyValue', name: 'RERA card', value: GOLIVE.brokerCardNo }] : []),
@@ -47,7 +50,7 @@ const ld = {
     <meta name="description" content={description} />
     <meta name="robots" content={robots} />
     <meta name="theme-color" content="#14252F" />
-    <link rel="canonical" href={canonical} />
+    {canonical && <link rel="canonical" href={canonical} />}
     <link rel="icon" href="/favicon.ico" sizes="32x32" />
     <link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png" />
     <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png" />
@@ -57,7 +60,7 @@ const ld = {
     <meta property="og:locale" content="en_AE" />
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
-    <meta property="og:url" content={canonical} />
+    {canonical && <meta property="og:url" content={canonical} />}
     <meta property="og:image" content={`${SITE.origin}/og.png`} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />

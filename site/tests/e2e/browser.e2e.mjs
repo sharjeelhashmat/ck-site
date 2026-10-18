@@ -1,4 +1,5 @@
-// Browser checks for /areas, the guides, /new-launches and the newsletter (not part of `npm test`: it needs Chromium).
+// Browser checks for /areas, the guides, /new-launches, the newsletter, the enquiry and profile forms, and the audit fixes
+// (320/375/1280, Worker blocked or malformed, Turnstile blocked, every page at 320px). Not part of `npm test`: it needs Chromium.
 //   PLAYWRIGHT=/path/to/playwright/index.mjs node tests/e2e/browser.e2e.mjs <distDir> [screenshotDir]
 // The Worker and Turnstile are replaced by routes inside the browser; the market responses are fixtures (the owner's
 // expected Dubai output for 2026-H1 and invented launch/ADREC numbers), never real data.
@@ -41,15 +42,17 @@ document.querySelectorAll('.cf-turnstile').forEach(function(el){var i=document.c
 
 const browser = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {});
 const results = [];
-async function page(width, { areas = AREAS, launches = LAUNCHES, area = null } = {}) {
+async function page(width, { areas = AREAS, launches = LAUNCHES, area = null, blockWorker = false, blockTurnstile = false, lead = [200, { ok: true, id: 'x' }] } = {}) {
   const p = await browser.newPage({ viewport: { width, height: 900 } });
-  const json = (r, body) => (body ? r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(body) }) : r.abort());
-  await p.route('https://challenges.cloudflare.com/**', (r) => r.fulfill({ contentType: 'text/javascript', body: TURNSTILE }));
+  const json = (r, body, status = 200) => (body ? r.fulfill({ status, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(body) }) : r.abort());
+  await p.route('https://challenges.cloudflare.com/**', (r) => (blockTurnstile ? r.abort() : r.fulfill({ contentType: 'text/javascript', body: TURNSTILE })));
+  // Worker blocked: every request to it fails at the network level (DNS, firewall, ad blocker).
+  if (blockWorker) { await p.route(`${WORKER}/**`, (r) => r.abort()); return p; }
   await p.route(`${WORKER}/market/areas*`, (r) => json(r, areas));
   await p.route(`${WORKER}/market/launches`, (r) => json(r, launches));
   await p.route(`${WORKER}/market/area/**`, (r) => json(r, area));
   await p.route(`${WORKER}/api/newsletter/subscribe`, (r) => json(r, { ok: true }));
-  await p.route(`${WORKER}/lead`, (r) => json(r, { ok: true, id: 'x' }));
+  await p.route(`${WORKER}/lead`, (r) => json(r, lead[1], lead[0]));
   return p;
 }
 const check = async (name, fn) => { try { await fn(); results.push(['PASS', name]); } catch (e) { results.push(['FAIL', name, e.message]); } };
@@ -93,7 +96,8 @@ for (const width of [1280, 360]) {
     await p.waitForSelector('.mk-panel[data-emirate="abu_dhabi"]:not([hidden])');
     assert.ok(!(await visible(p, '#mk-switch')));
     assert.ok(!(await visible(p, '.mk-panel[data-emirate="dubai"]')));
-    assert.ok(await visible(p, '.mk-guides[data-emirate="abu_dhabi"]') && !(await visible(p, '.mk-guides[data-emirate="dubai"]')));
+    // Audit H10: with no switch there is no way to reach the Dubai guides, so they stay visible.
+    assert.ok(await visible(p, '.mk-guides[data-emirate="abu_dhabi"]') && await visible(p, '.mk-guides[data-emirate="dubai"]'));
     await noSideScroll(p);
     await shot(p, `areas-no-dubai-${width}`);
     await p.close();
@@ -106,7 +110,7 @@ for (const width of [1280, 360]) {
     assert.ok(!(await visible(p, '#mk-switch')));
     if ((await p.getAttribute('.mk-panel[data-emirate="abu_dhabi"]', 'data-static')) === 'yes') {
       assert.ok(await visible(p, '.mk-panel[data-emirate="abu_dhabi"]') && !(await visible(p, '.mk-panel[data-emirate="dubai"]')));
-      assert.ok(await visible(p, '.mk-guides[data-emirate="abu_dhabi"]') && !(await visible(p, '.mk-guides[data-emirate="dubai"]')));
+      assert.ok(await visible(p, '.mk-guides[data-emirate="abu_dhabi"]') && await visible(p, '.mk-guides[data-emirate="dubai"]'), 'H10: no switch, every guide list');
     } else {
       assert.ok(!(await visible(p, '#mk-ask')));
       assert.ok(await visible(p, '.mk-guides[data-emirate="dubai"]') && await visible(p, '.mk-guides[data-emirate="abu_dhabi"]'));
@@ -186,6 +190,191 @@ await check('the launch question form on /new-launches no longer triggers the ne
   await p.click('#lead-form button[type=submit]');
   await p.waitForTimeout(500);
   assert.doesNotMatch((await p.textContent('#lead-form')) ?? '', /security check could not load/);
+  await p.close();
+});
+
+// ---------- Audit fixes (H10-H15, B2): 320 / 375 / 1280, Worker blocked or malformed, Turnstile blocked ----------
+const noBadText = async (p) => {
+  const t = await p.evaluate(() => document.body.innerText);
+  assert.doesNotMatch(t, /\bNaN\b|\bundefined\b|\[object Object\]/, 'NaN / undefined in the page text');
+};
+// One malformed row among good ones, and a body where every row (and the year to date) is malformed.
+const MALFORMED_ONE = { ...AREAS, dubai: { ...AREAS.dubai, top8: [...top8.slice(0, 7), { ...top8[7], value_bn: 'lots', share_pct: undefined, rank: 'eight' }] } };
+const MALFORMED_ALL = { ...AREAS, dubai: { ...AREAS.dubai, ytd: { ...AREAS.dubai.ytd, sales_bn: 'NaN' }, top8: top8.map((r) => ({ ...r, value_bn: String(r.value_bn), share_pct: null })) } };
+
+for (const width of [320, 375, 1280]) {
+  for (const route of ['/', '/contact', '/areas']) {
+    await check(`${route} @${width} with the Worker blocked: no side scroll, no NaN/undefined`, async () => {
+      const p = await page(width, { blockWorker: true });
+      await p.goto(`${base}${route}`);
+      await p.waitForTimeout(400);
+      await noSideScroll(p);
+      await noBadText(p);
+      if (route === '/areas') {
+        assert.ok(!(await visible(p, '#mk-switch')), 'no switch');
+        assert.ok(await visible(p, '.mk-guides[data-emirate="dubai"]'), 'Dubai guides visible when there is no switch');
+        if ((await p.getAttribute('.mk-panel[data-emirate="abu_dhabi"]', 'data-static')) === 'yes') assert.ok(await visible(p, '.mk-panel[data-emirate="abu_dhabi"]'), 'Abu Dhabi panel visible');
+      }
+      await p.close();
+    });
+    await check(`${route} @${width} with one malformed /market/areas row: no side scroll, no NaN/undefined`, async () => {
+      const p = await page(width, { areas: MALFORMED_ONE });
+      await p.goto(`${base}${route}`);
+      if (route === '/areas') {
+        await p.waitForSelector('#mk-switch:not([hidden])');
+        assert.equal(await p.locator('.mk-panel[data-emirate="dubai"] .mk-card').count(), 7, 'the malformed row is dropped');
+        await noBadText(p);
+        await noSideScroll(p);
+        await p.click('.mk-pill[data-emirate="abu_dhabi"]');
+        assert.ok(await visible(p, '.mk-panel[data-emirate="abu_dhabi"]'), 'Abu Dhabi panel visible');
+      } else await p.waitForTimeout(300);
+      await noBadText(p);
+      await noSideScroll(p);
+      await p.close();
+    });
+  }
+
+  await check(`/areas @${width} with every /market/areas row malformed: Abu Dhabi panel visible, no switch, Dubai guides visible`, async () => {
+    const p = await page(width, { areas: MALFORMED_ALL });
+    await p.goto(`${base}/areas`);
+    await p.waitForTimeout(500);
+    await noBadText(p);
+    await noSideScroll(p);
+    assert.ok(!(await visible(p, '#mk-switch')));
+    assert.ok(!(await visible(p, '.mk-panel[data-emirate="dubai"]')));
+    assert.ok(await visible(p, '.mk-guides[data-emirate="dubai"]') && await visible(p, '.mk-guides[data-emirate="abu_dhabi"]'));
+    if ((await p.getAttribute('.mk-panel[data-emirate="abu_dhabi"]', 'data-static')) === 'yes') assert.ok(await visible(p, '.mk-panel[data-emirate="abu_dhabi"]'));
+    await p.close();
+  });
+
+  await check(`/areas @${width} with JavaScript off: the build-time Abu Dhabi panel and every guide list are visible`, async () => {
+    const ctx = await browser.newContext({ viewport: { width, height: 900 }, javaScriptEnabled: false });
+    const p = await ctx.newPage();
+    await p.goto(`${base}/areas`);
+    if ((await p.getAttribute('.mk-panel[data-emirate="abu_dhabi"]', 'data-static')) === 'yes') {
+      assert.ok(await p.locator('.mk-panel[data-emirate="abu_dhabi"] .mk-card').first().isVisible(), 'Abu Dhabi figures without JS');
+    }
+    assert.ok(await visible(p, '.mk-guides[data-emirate="dubai"]') && await visible(p, '.mk-guides[data-emirate="abu_dhabi"]'));
+    await noSideScroll(p);
+    await ctx.close();
+  });
+}
+
+const fillLead = async (p) => {
+  await p.fill('#f-name', 'Test Person');
+  await p.fill('#f-email', 'reader@test.invalid');
+  await p.fill('#f-phone', '50 123 4567');
+  await p.click('#lead-form .pill:has(input[value="whatsapp"])');
+  await p.check('#lead-form input[name="consent_contact"]');
+};
+
+for (const width of [320, 375, 1280]) {
+  await check(`/contact @${width} with the Turnstile script blocked: Send shows the WhatsApp + email alert, not "Please wait"`, async () => {
+    const p = await page(width, { blockTurnstile: true });
+    await p.goto(`${base}/contact`);
+    await fillLead(p);
+    await p.click('#lead-submit');
+    await p.waitForSelector('#lead-alert a[href^="https://wa.me/"]', { timeout: 5000 });
+    assert.match(await p.textContent('#lead-alert'), /could not be sent[\s\S]*WhatsApp[\s\S]*hello@sharjeelhashmat\.com/);
+    assert.doesNotMatch((await p.textContent('#lead-status')) ?? '', /Please wait/);
+    assert.equal(await p.isDisabled('#lead-submit'), false, 'Send stays usable');
+    await noSideScroll(p);
+    await shot(p, `contact-turnstile-blocked-${width}`, false);
+    await p.close();
+  });
+}
+
+await check('/new-launches (launch mode) with the Turnstile script blocked: the WhatsApp + email alert', async () => {
+  const p = await page(375, { blockTurnstile: true });
+  await p.goto(`${base}/new-launches`);
+  await fillLead(p);
+  await p.fill('#f-question', 'Is the plan fair?');
+  await p.click('#lead-submit');
+  await p.waitForSelector('#lead-alert a[href^="https://wa.me/"]', { timeout: 5000 });
+  await p.close();
+});
+
+await check('/contact: Turnstile and libphonenumber load on demand, not with the page; a valid enquiry is received', async () => {
+  const p = await page(1280);
+  const scripts = [];
+  p.on('request', (r) => { if (r.resourceType() === 'script') scripts.push(r.url()); });
+  await p.goto(`${base}/contact`);
+  await p.waitForTimeout(300);
+  assert.ok(!scripts.some((u) => u.includes('challenges.cloudflare.com')), 'Turnstile not loaded with the page');
+  assert.ok(!scripts.some((u) => /\/_astro\/phone\./.test(u)), 'phone library not loaded with the page');
+  await p.focus('#f-name');
+  await p.waitForFunction(() => !!window.turnstile);
+  await p.fill('#f-phone', '5');
+  await p.waitForFunction(() => performance.getEntriesByType('resource').some((e) => /\/_astro\/phone\./.test(e.name)));
+  await fillLead(p);
+  await p.click('#lead-submit');
+  await p.waitForSelector('.lead-success');
+  assert.match(await p.textContent('.lead-success'), /Your enquiry has been received\. I'll answer on WhatsApp within 24 hours\./);
+  await p.close();
+});
+
+await check('/contact: Worker blocked or answering 503 temporarily_unavailable -> the WhatsApp + email alert', async () => {
+  for (const opts of [{ blockWorker: true }, { lead: [503, { ok: false, error: 'temporarily_unavailable' }] }]) {
+    const p = await page(375, opts);
+    await p.goto(`${base}/contact`);
+    await fillLead(p);
+    await p.click('#lead-submit');
+    await p.waitForSelector('#lead-alert a[href^="https://wa.me/"]', { timeout: 20000 });
+    assert.equal(await p.isDisabled('#lead-submit'), false);
+    await p.close();
+  }
+});
+
+await check('/contact errors: aria-invalid + aria-describedby, focus on the first invalid field, cleared when fixed', async () => {
+  const p = await page(375);
+  await p.goto(`${base}/contact`);
+  await p.fill('#f-email', 'not-an-email');
+  await p.click('#lead-submit');
+  await p.waitForFunction(() => document.getElementById('lead-status').textContent.includes('Please fix'));
+  assert.equal(await p.evaluate(() => document.activeElement?.id), 'f-name', 'focus on the first invalid field');
+  for (const [sel, err] of [['#f-name', 'f-name-err'], ['#f-email', 'f-email-err'], ['#f-phone', 'f-phone-err'], ['#lead-form input[name="consent_contact"]', 'f-consent-err']]) {
+    assert.equal(await p.getAttribute(sel, 'aria-invalid'), 'true', sel);
+    assert.ok((await p.getAttribute(sel, 'aria-describedby')).split(' ').includes(err), sel);
+    assert.ok(((await p.textContent(`#${err}`)) ?? '').length > 3, `${err} has text`);
+    assert.equal(await p.getAttribute(`#${err}`, 'role'), null, `${err}: no per-field alert`);
+  }
+  assert.equal(await p.getAttribute('#lead-form input[value="call"]', 'aria-invalid'), 'true');
+  const border = await p.evaluate(() => getComputedStyle(document.getElementById('f-name')).borderTopColor);
+  assert.equal(border, 'rgb(161, 42, 42)', 'invalid border uses --err');
+  await p.fill('#f-name', 'Test Person');
+  assert.equal(await p.getAttribute('#f-name', 'aria-invalid'), null, 'cleared when fixed');
+  assert.equal(await p.textContent('#f-name-err'), '');
+  await p.fill('#f-email', 'still bad');
+  assert.equal(await p.getAttribute('#f-email', 'aria-invalid'), 'true', 'kept while still invalid');
+  await p.close();
+});
+
+await check('/investor-profile errors: aria-invalid + aria-describedby, focus on the first unanswered question', async () => {
+  const p = await page(375);
+  await p.goto(`${base}/investor-profile?lead=00000000-0000-0000-0000-000000000000`);
+  await p.click('#profile-submit');
+  assert.equal(await p.evaluate(() => document.activeElement?.id), 'p-objective');
+  for (const id of ['p-objective', 'p-type', 'p-risk', 'p-hold']) {
+    assert.equal(await p.getAttribute(`#${id}`, 'aria-invalid'), 'true', id);
+    assert.equal(await p.getAttribute(`#${id}`, 'aria-describedby'), `${id}-err`);
+  }
+  await p.selectOption('#p-objective', { index: 1 });
+  assert.equal(await p.getAttribute('#p-objective', 'aria-invalid'), null);
+  await p.close();
+});
+
+const builtPages = (function walk(d) { return fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)])); })(dist)
+  .filter((f) => f.endsWith('.html')).map((f) => '/' + path.relative(dist, f).replace(/\.html$/, '').replace(/(^|\/)index$/, ''));
+await check(`every built page (${builtPages.length}) at 320px: no horizontal overflow`, async () => {
+  const p = await page(320);
+  const bad = [];
+  for (const u of builtPages) {
+    await p.goto(`${base}${u}`);
+    await p.waitForTimeout(150);
+    const w = await p.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
+    if (w[0] > w[1]) bad.push(`${u} (${w[0]}px)`);
+  }
+  assert.deepEqual(bad, []);
   await p.close();
 });
 

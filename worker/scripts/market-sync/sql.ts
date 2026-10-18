@@ -2,7 +2,10 @@
 // A remote --file import is atomic (D1 returns to its original state if it does not complete), so the DLD tables are
 // replaced in one transaction. The sanity guard that needs history (rows_total against the previous run) is evaluated
 // inside the SQL itself: the run row records whether it passed, and every DLD statement is conditional on that row.
-import type { AdrecYtd, AreaMonth, MonthTotal, ProjectsStats } from './dld';
+// Every /market/* response body is precomputed here into market_cache (migration 0005), in the same import as the data,
+// with the same functions the Worker uses live (src/market-core.ts), so a request reads one row.
+import { DLD_SINCE, type AdrecYtd, type AreaMonth, type MonthTotal, type ProjectsStats } from './dld.ts';
+import { areaBodies, areasBody, cacheKey, completePeriods, launchesAbuDhabi, launchesDubai, priorPeriod, type AreaSums, type Period } from '../../src/market-core.ts';
 
 export interface BuildInput {
   runId: string;
@@ -25,11 +28,45 @@ export interface BuildInput {
 export const q = (s: string) => `'${s.replace(/'/g, "''")}'`;
 const n = (x: number) => (Number.isFinite(x) ? String(Math.round(x * 100) / 100) : '0');
 const CHUNK = 200;
+// Cached bodies are a few hundred bytes each: 100 per statement stays well under D1's 100 KB statement limit.
+const CACHE_CHUNK = 100;
 export const GUARD_RATIO = 0.9;
 
-function chunks<T>(a: T[]): T[][] {
+function chunks<T>(a: T[], size = CHUNK): T[][] {
   const out: T[][] = [];
-  for (let i = 0; i < a.length; i += CHUNK) out.push(a.slice(i, i + CHUNK));
+  for (let i = 0; i < a.length; i += size) out.push(a.slice(i, i + size));
+  return out;
+}
+
+// The stored values, rounded exactly as the INSERTs below round them, so a cached body equals the live one.
+const r2 = (x: number) => (Number.isFinite(x) ? Math.round(x * 100) / 100 : 0);
+
+function sumsFor(rows: AreaMonth[], p: Period): AreaSums[] {
+  const by = new Map<string, AreaSums>();
+  for (const r of rows) {
+    if (r.month < p.firstMonth || r.month > p.lastMonth) continue;
+    const a = by.get(r.area_en) ?? { area_en: r.area_en, value: 0, count: 0, offplan: 0 };
+    a.value += r2(r.res_sales_value);
+    a.count += r.res_sales_count;
+    a.offplan += r.res_offplan_count;
+    by.set(r.area_en, a);
+  }
+  return [...by.values()];
+}
+
+/** [key, body] for /market/areas and /market/area/<area_en> in every period complete in this run's data. */
+export function cacheRows(d: { asOf: string; areaMonths: AreaMonth[]; monthTotals: MonthTotal[] }): [string, string][] {
+  const out: [string, string][] = [];
+  const totals = d.monthTotals.map((t) => ({ month: t.month, trans_group: t.trans_group, value: r2(t.value) }));
+  for (const p of completePeriods(DLD_SINCE.slice(0, 7), d.asOf)) {
+    const prior = priorPeriod(p);
+    const current = sumsFor(d.areaMonths, p);
+    const priorSums = sumsFor(d.areaMonths, prior);
+    const body = areasBody(p, current, priorSums, totals, d.asOf);
+    if (!body) continue;
+    out.push([cacheKey.areas(p.id), JSON.stringify(body)]);
+    for (const [area, b] of areaBodies(p, current, priorSums, d.asOf)) out.push([cacheKey.area(p.id, area), JSON.stringify(b)]);
+  }
   return out;
 }
 
@@ -68,6 +105,15 @@ SELECT column1, column2, column3, column4 FROM (VALUES ${c.map((r) => `(${q(r.mo
 WHERE ${written};`);
     }
   }
+  if (x.dld) {
+    // Replaced only together with the data (the same sanity guard): otherwise the old bodies still match the old data.
+    out.push(`DELETE FROM market_cache WHERE (key LIKE 'areas:%' OR key LIKE 'area:%') AND ${written};`);
+    for (const c of chunks(cacheRows(x.dld), CACHE_CHUNK)) {
+      out.push(`INSERT INTO market_cache (key, body, computed_at)
+SELECT column1, column2, column3 FROM (VALUES ${c.map(([k, b]) => `(${q(k)}, ${q(b)}, ${q(x.finishedAt)})`).join(', ')})
+WHERE ${written};`);
+    }
+  }
   if (x.projects) {
     out.push(`INSERT INTO market_stats (id, source, payload_json, as_of, fetched_at) VALUES (${q(x.uuid())}, 'dld_projects', ${q(JSON.stringify(x.projects))}, ${q(x.projects.as_of)}, ${q(x.finishedAt)});`);
   }
@@ -77,6 +123,18 @@ WHERE ${written};`);
     out.push(`INSERT INTO market_stats (id, source, payload_json, as_of, fetched_at)
 SELECT ${q(x.uuid())}, 'adrec_ytd', ${payload}, ${q(x.finishedAt.slice(0, 10))}, ${q(x.finishedAt)}
 WHERE COALESCE((SELECT payload_json FROM market_stats WHERE source = 'adrec_ytd' ORDER BY fetched_at DESC LIMIT 1), '') <> ${payload};`);
+  }
+  // /market/launches. Only when this run read both sources; otherwise the row is removed and the Worker computes the
+  // body live from the latest stored figures. ADREC figures are stored only when they change, so their as_of is read
+  // from the stored row (it may predate this run).
+  if (x.projects && x.adrec) {
+    const abuDhabi = launchesAbuDhabi({ payload: x.adrec, as_of: '' });
+    const body = q(JSON.stringify({ dubai: launchesDubai({ payload: x.projects, as_of: x.projects.as_of }), abu_dhabi: abuDhabi }));
+    const expr = abuDhabi ? `json_set(${body}, '$.abu_dhabi.as_of', (SELECT as_of FROM market_stats WHERE source = 'adrec_ytd' ORDER BY fetched_at DESC LIMIT 1))` : body;
+    out.push(`INSERT INTO market_cache (key, body, computed_at) VALUES (${q(cacheKey.launches)}, ${expr}, ${q(x.finishedAt)})
+ON CONFLICT(key) DO UPDATE SET body = excluded.body, computed_at = excluded.computed_at;`);
+  } else {
+    out.push(`DELETE FROM market_cache WHERE key = ${q(cacheKey.launches)};`);
   }
   // Failure record in the existing events table, only when this run is not ok.
   out.push(`INSERT INTO events (id, created_at, type, lead_id, detail)

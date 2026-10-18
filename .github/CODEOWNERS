@@ -10,6 +10,8 @@
 /worker/vitest.config.ts     @sharjeelhashmat
 /worker/tsconfig*.json       @sharjeelhashmat
 /worker/wrangler.toml        @sharjeelhashmat
+# npm settings for the worker install (also the dld job's checkout on the owner's PC): owner review.
+/worker/.npmrc               @sharjeelhashmat
 /worker/src/                 @sharjeelhashmat
 # Security mechanics and dependency bumps stay autonomous (no owner listed = no required review):
 /worker/src/firewall.ts

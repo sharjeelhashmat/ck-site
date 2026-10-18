@@ -32,12 +32,13 @@ test('page required by the approved lead-reply templates exists and the Worker s
   assert.match(pipeline, /\$\{c\.siteUrl\}\/investment-approach/);
 });
 
-test('every page has one title, one h1, a www canonical, and is noindex in non-production builds', () => {
+test('every page has one title, one h1, is noindex in non-production builds, and so carries no canonical or og:url', () => {
+  // Canonical URLs (www, no .html) on the public build: tests/audit-fixes.test.mjs (audit B3).
   for (const f of htmlFiles) {
     const h = readFileSync(f, 'utf8');
     assert.equal((h.match(/<title>/g) ?? []).length, 1, f);
     assert.equal((h.match(/<h1[ >]/g) ?? []).length, 1, `${f}: h1 count`);
-    assert.match(h, /<link rel="canonical" href="https:\/\/www\.sharjeelhashmat\.com/, f);
+    assert.doesNotMatch(h, /rel="canonical"|property="og:url"/, f);
     assert.match(h, /<meta name="robots" content="noindex,nofollow">/, f);
   }
   assert.match(read('robots.txt'), /Disallow: \//);

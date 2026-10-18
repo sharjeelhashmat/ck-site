@@ -160,20 +160,38 @@ export async function processLead(raw: unknown, ctx: PipelineCtx, deps: Deps): P
   const { lane, alert_level }: { lane: Lane; alert_level: AlertLevel } = ctx.staging ? { lane: 'NONE', alert_level: 'none' } : assigned;
   const id = deps.uuid();
 
-  await deps.insertLead({ id, created_at: now.toISOString(), email_hash: emailHash, lead, status, reasons, escalation, score, lane, alert_level });
-  await deps.logEvent('lead_received', id, JSON.stringify({ status, lane, score }));
+  // An event row is a log line: failing to write one never stops the enquiry or its alert.
+  const logEvent = async (type: string, detail: string) => {
+    try { await deps.logEvent(type, id, detail); } catch { /* non-fatal */ }
+  };
+
+  try {
+    await deps.insertLead({ id, created_at: now.toISOString(), email_hash: emailHash, lead, status, reasons, escalation, score, lane, alert_level });
+  } catch {
+    // Never lose an enquiry: when it cannot be stored, the owner gets all of it by email (real enquiries only; a
+    // staging TEST, SPAM or DUPLICATE is not alerted), no reply is attempted, and the visitor is asked to retry or
+    // use WhatsApp. The answer is the same whatever the classification.
+    if (status === 'VALID' || status === 'SUSPICIOUS') {
+      try {
+        await deps.alertOwner({ id, lane, alert_level: 'instant', score, status, escalation, lead, outbound: 'not_stored' });
+      } catch { /* nothing else can be done here */ }
+    }
+    await logEvent('lead_not_stored', JSON.stringify({ status, lane, score }));
+    return { status: 503, body: { ok: false, error: 'temporarily_unavailable' }, internal: { lane, status, score, outbound: 'not_stored' } };
+  }
+  await logEvent('lead_received', JSON.stringify({ status, lane, score }));
 
   let outbound = 'none';
   if (lane !== 'NONE') {
     outbound = await attemptOutbound(lead, lane, emailHash, id, ctx, deps);
-    await deps.logEvent('outbound', id, outbound);
+    await logEvent('outbound', outbound);
   }
 
   if (alert_level !== 'none') {
     try {
       await deps.alertOwner({ id, lane, alert_level, score, status, escalation, lead, outbound });
     } catch {
-      await deps.logEvent('alert_failed', id, 'owner alert could not be sent');
+      await logEvent('alert_failed', 'owner alert could not be sent');
     }
   }
 

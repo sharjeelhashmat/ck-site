@@ -80,6 +80,78 @@ describe('pipeline', () => {
     expect(f.rows).toHaveLength(1);
   });
 
+  it('suspicious lead: stored, no reply, owner sees it in the digest (H7)', async () => {
+    const f = makeFake();
+    const r = await processLead(baseLead({ email: 'x@mailinator.com' }), await ctx(), f.deps);
+    expect(r.status).toBe(202);
+    expect(r.internal).toMatchObject({ status: 'SUSPICIOUS', lane: 'NONE', outbound: 'none' });
+    expect(f.sent).toHaveLength(0);
+    expect(f.alerts).toHaveLength(1);
+    expect(f.alerts[0]!).toMatchObject({ alert_level: 'digest', lane: 'NONE', status: 'SUSPICIOUS' });
+  });
+
+  it('duplicate that escalates: no reply, instant alert (H7)', async () => {
+    const f = makeFake();
+    f.state.duplicate = true;
+    await processLead(baseLead({ message: 'I want to file a complaint, this is urgent.' }), await ctx(), f.deps);
+    expect(f.sent).toHaveLength(0);
+    expect(f.alerts.map((a) => [a.status, a.alert_level])).toEqual([['DUPLICATE', 'instant']]);
+  });
+
+  describe('never lose an enquiry (B2)', () => {
+    const failingInsert = () => {
+      const f = makeFake();
+      f.deps.insertLead = async () => { throw new Error('D1 down'); };
+      return f;
+    };
+
+    for (const [label, over, status] of [['VALID', {}, 'VALID'], ['SUSPICIOUS', { email: 'x@mailinator.com' }, 'SUSPICIOUS']] as const) {
+      it(`insert fails (${label}): the owner gets the full lead marked not_stored, no reply, 503 temporarily_unavailable`, async () => {
+        const f = failingInsert();
+        const r = await processLead(baseLead(over), await ctx(), f.deps);
+        expect(r.status).toBe(503);
+        expect(r.body).toEqual({ ok: false, error: 'temporarily_unavailable' });
+        expect(f.sent).toHaveLength(0);
+        expect(f.alerts).toHaveLength(1);
+        expect(f.alerts[0]!).toMatchObject({ status, outbound: 'not_stored', alert_level: 'instant' });
+        expect(f.alerts[0]!.lead).toMatchObject({ name: baseLead().name, email: (over as { email?: string }).email ?? baseLead().email, message: baseLead().message });
+      });
+    }
+
+    it('insert fails for SPAM, DUPLICATE or a staging TEST: no alert, the same 503', async () => {
+      for (const [over, setup, staging] of [[{ company_website: 'bot.example' }, () => {}, false], [{}, (f: ReturnType<typeof makeFake>) => { f.state.duplicate = true; }, false], [{}, () => {}, true]] as const) {
+        const f = failingInsert();
+        setup(f);
+        const r = await processLead(baseLead(over), { ...(await ctx()), staging }, f.deps);
+        expect([r.status, r.body, f.alerts.length, f.sent.length]).toEqual([503, { ok: false, error: 'temporarily_unavailable' }, 0, 0]);
+      }
+    });
+
+    it('insert and alert both fail: still a clean 503, never a throw', async () => {
+      const f = failingInsert();
+      f.deps.alertOwner = async () => { throw new Error('mail down'); };
+      const r = await processLead(baseLead(), await ctx(), f.deps);
+      expect(r.status).toBe(503);
+    });
+
+    it('logEvent failing is non-fatal: the lead is stored, the reply goes, the alert is not skipped, 202', async () => {
+      const f = makeFake();
+      f.deps.logEvent = async () => { throw new Error('events table locked'); };
+      const r = await processLead(baseLead(), await ctx(), f.deps);
+      expect(r.status).toBe(202);
+      expect(f.rows).toHaveLength(1);
+      expect(f.sent).toHaveLength(1);
+      expect(f.alerts).toHaveLength(1);
+    });
+
+    it('logEvent failing after an alert failure does not throw either', async () => {
+      const f = makeFake();
+      f.deps.logEvent = async () => { throw new Error('events table locked'); };
+      f.deps.alertOwner = async () => { throw new Error('mail down'); };
+      expect((await processLead(baseLead(), await ctx(), f.deps)).status).toBe(202);
+    });
+  });
+
   it('duplicate within 24h: no second acknowledgment', async () => {
     const f = makeFake();
     f.state.duplicate = true;

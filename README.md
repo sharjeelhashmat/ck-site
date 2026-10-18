@@ -1,6 +1,6 @@
 # Compass Key (sharjeelhashmat.com)
 
-Personal real estate brand site and lead engine for Sharjeel Hashmat, Real Estate Consultant, UAE. Private repo.
+Personal real estate brand site and lead engine for Sharjeel Hashmat, Real Estate Consultant, UAE. Public repo: no secrets, personal data or private account details belong in it.
 
 ## State (2026-09-21)
 
@@ -54,11 +54,30 @@ Workers Free: 100,000 requests/day, 10 ms CPU per invocation (I/O wait not count
 1. Worker secrets in the Cloudflare dashboard: `TURNSTILE_SECRET`, `RESEND_API_KEY`, `UNSUB_SECRET` (32+ random bytes), `ALERT_EMAIL`, optional `SCORING_JSON`. Repo secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`.
 2. Staging: Actions > deploy-site > Run workflow with `public` off. The `production` environment approval is the publishing gate.
 3. Public: set repo variable `BRN`, run deploy-site with `public` on, approve `production`.
-4. Cutover: custom domains on Worker `ck-site-web`, Turnstile widget hostnames (`sharjeelhashmat.com`, `www.sharjeelhashmat.com`), submit `sitemap-index.xml` in Search Console, turn on branch protection on `main` (require PR, require checks, require Code Owner review), decide the legacy Firestore leads.
+4. Cutover: custom domains on Worker `ck-site-web`, Turnstile widget hostnames (`sharjeelhashmat.com`, `www.sharjeelhashmat.com`), submit `sitemap-index.xml` in Search Console, turn on branch protection on `phase2-site`, the branch every deploy runs from (require PR, require the four CI checks, require Code Owner review), decide the legacy Firestore leads.
 5. Verify: a real enquiry and a real investor profile end to end, then check the D1 rows. Then take the old Vercel site out of maintenance.
 6. Before every rebuild run `npm run freshness` in `site/` and re-check undated DLD fee pages.
 
 Kill switches: repository variable `AUTONOMY=off` stops maintenance workflows; Worker variable `OUTBOUND=off` stops all outbound messages.
+
+## Data retention and erasure
+
+The Worker's daily cron (`17 1 * * *`, `worker/src/retention.ts`) applies this in one D1 batch (owner decision 2026-10-17):
+
+| Data | Kept |
+|---|---|
+| Leads with status SPAM, TEST or DUPLICATE | 30 days after `created_at` |
+| All other leads | 24 months (730 days) after `created_at` |
+| Investor profiles | Deleted once their lead no longer exists |
+| Events (log rows) | 12 months |
+| Newsletter subscribers, active | While subscribed |
+| Unsubscribe feedback text (`unsubscribe_reason_detail`) | 180 days after the feedback |
+| Newsletter subscribers, unsubscribed | 24 months; then the address is replaced by its SHA-256 hash (so the opt-out still holds) and the other personal fields are cleared |
+
+Erasure request for one person:
+1. In `worker/`: `node scripts/erase-person.mjs person@example.com > erase.sql`. The script only prints SQL; it never connects to D1. It refuses anything that is not a plain address.
+2. Read `erase.sql`. It deletes the person's leads and, through their lead ids, investor profiles, events and message log rows; the newsletter row keeps only the address's hash, marked unsubscribed.
+3. Run it: `npx wrangler d1 execute ck-leads --remote --file erase.sql` (one `--file` import is atomic). Delete `erase.sql` afterwards.
 
 ## Known limits
 
@@ -66,4 +85,4 @@ Kill switches: repository variable `AUTONOMY=off` stops maintenance workflows; W
 - Escalation keywords: English plus four Arabic terms; extend from real messages.
 - `worker/.npmrc` sets `legacy-peer-deps=true` (npm 10 peer-set bug) and a `sharp` override.
 - The Brief PDF is browser print only; no server-generated PDF.
-- Legacy leads in Firebase project `personal-brand-a6154` must be exported to D1 and Firebase retired before the 4 Dec 2026 billing cliff.
+- Legacy leads in the old Firebase project must be exported to D1 and Firebase retired before the 4 Dec 2026 billing cliff.

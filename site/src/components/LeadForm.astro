@@ -25,13 +25,13 @@ const countries = [
   <div class="fields">
     <div class="field">
       <label for="f-name">Name</label>
-      <input id="f-name" name="name" type="text" autocomplete="name" required maxlength="80" />
-      <span class="err" data-err="name" role="alert"></span>
+      <input id="f-name" name="name" type="text" autocomplete="name" required maxlength="80" aria-describedby="f-name-err" />
+      <span class="err" id="f-name-err" data-err="name"></span>
     </div>
     <div class="field">
       <label for="f-email">Email</label>
-      <input id="f-email" name="email" type="email" autocomplete="email" required maxlength="254" />
-      <span class="err" data-err="email" role="alert"></span>
+      <input id="f-email" name="email" type="email" autocomplete="email" required maxlength="254" aria-describedby="f-email-err" />
+      <span class="err" id="f-email-err" data-err="email"></span>
     </div>
     <div class="field">
       <label for="f-phone">Mobile number (with country code)</label>
@@ -44,19 +44,19 @@ const countries = [
         </div>
         <input id="f-phone" name="phone_national" type="tel" inputmode="tel" autocomplete="tel-national" placeholder="50 123 4567" maxlength="24" required aria-describedby="f-phone-err" />
       </div>
-      <span class="err" id="f-phone-err" data-err="phone" role="alert"></span>
+      <span class="err" id="f-phone-err" data-err="phone"></span>
     </div>
     <fieldset class="field pref">
       <legend class="lbl">Preferred contact</legend>
       <div class="pills">
-        {CONTACT_CHOICES.map((c) => <label class="pill"><input type="radio" name="preferred_contact" value={c.value} required /><span>{c.label}</span></label>)}
+        {CONTACT_CHOICES.map((c) => <label class="pill"><input type="radio" name="preferred_contact" value={c.value} required aria-describedby="f-pref-err" /><span>{c.label}</span></label>)}
       </div>
-      <span class="err" data-err="preferred_contact" role="alert"></span>
+      <span class="err" id="f-pref-err" data-err="preferred_contact"></span>
     </fieldset>
     {!launch && (
       <div class="field">
         <label for="f-country">Where are you based?</label>
-        <select id="f-country" name="country">
+        <select id="f-country" name="country" autocomplete="country">
           <option value="">Select</option>
           {countries.map(([v, l]) => <option value={v}>{l}</option>)}
         </select>
@@ -131,14 +131,14 @@ const countries = [
         <div class="field full">
           <label for="f-question">Your question</label>
           <textarea id="f-question" name="question" rows="4" required placeholder="e.g. Is the payment plan on this launch fair for a 2-bed?" aria-describedby="f-question-err"></textarea>
-          <span class="err" id="f-question-err" data-err="question" role="alert"></span>
+          <span class="err" id="f-question-err" data-err="question"></span>
         </div>
       </>
     ) : (
       <div class="field full">
         <label for="f-message">{sell ? 'Anything else' : 'Tell me more'}</label>
         <textarea id="f-message" name="message" maxlength={BOX_MAX} placeholder={sell ? 'Reason for selling, timing, anything useful' : 'Objective, location preference, anything else useful'} aria-describedby="f-message-err"></textarea>
-        <span class="err" id="f-message-err" data-err="message" role="alert"></span>
+        <span class="err" id="f-message-err" data-err="message"></span>
       </div>
     )}
   </div>
@@ -146,13 +146,13 @@ const countries = [
   <div class="hp" aria-hidden="true"><label>Website <input type="text" name="company_website" tabindex="-1" autocomplete="off" /></label></div>
 
   <div style="display:grid;gap:.75rem;margin-top:1.25rem">
-    <label class="check"><input type="checkbox" name="consent_contact" required /><span>I agree that {SITE.name} may contact me about my enquiry using the details above. <a href="/privacy">Privacy</a></span></label>
-    <span class="err" data-err="consent_contact" role="alert" style="color:var(--err);font-size:.8rem"></span>
+    <label class="check"><input type="checkbox" id="f-consent" name="consent_contact" required aria-describedby="f-consent-err" /><span>I agree that {SITE.name} may contact me about my enquiry using the details above. <a href="/privacy">Privacy</a></span></label>
+    <span class="err" id="f-consent-err" data-err="consent_contact" style="color:var(--err);font-size:.8rem"></span>
     <label class="check"><input type="checkbox" name="consent_nurture" /><span>Send me the occasional market note. I can unsubscribe at any time. (Optional)</span></label>
   </div>
 
-  <div class="turnstile cf-turnstile" data-sitekey={SITE.turnstileSiteKey} data-theme="light" data-appearance="always"></div>
-  <span class="err lead-err" data-err="turnstile" role="alert"></span>
+  <div class="turnstile" id="lead-turnstile" data-sitekey={SITE.turnstileSiteKey}></div>
+  <span class="err lead-err" id="lead-turnstile-err" data-err="turnstile" role="alert"></span>
 
   <div class="form-foot">
     <button class="btn" type="submit" id="lead-submit">{submitLabel}</button>
@@ -161,6 +161,8 @@ const countries = [
   <div class="lead-alert" id="lead-alert" role="alert"></div>
   <template id="lead-alert-tpl"><p>Your message could not be sent. Please try again, or contact me directly on <a href={waLink("Hi Sharjeel, I'd like to discuss UAE real estate.")} target="_blank" rel="noopener">WhatsApp</a> or at <a href={`mailto:${SITE.email}`}>{SITE.email}</a>.</p></template>
   {PROFILE_ENABLED && <p class="fine" id="lead-next" hidden style="margin-top:1rem"></p>}
+  {/* Launch mode keeps no WhatsApp link outside the failure alert (owner decision 2026-10-10, tests/enquiry-forms.test.mjs);
+     there, the alert below (also shown when the security check cannot load) is the WhatsApp route. */}
   {!launch && <p class="fine" style="margin-top:1rem">Prefer WhatsApp? <a href={waLink("Hi Sharjeel, I'd like to discuss UAE real estate.")} target="_blank" rel="noopener">Message me directly</a> or call {SITE.phoneDisplay}.</p>}
 </form>
 
@@ -184,13 +186,20 @@ const countries = [
   .pref .pill span { display: inline-flex; align-items: center; min-height: 44px; padding: 0 1.15rem; border: 1px solid var(--ink); border-radius: var(--r-pill); background: var(--paper); color: var(--ink); transition: background .15s, color .15s; }
   .pref .pill input:checked + span { background: var(--ink); color: var(--ivory); }
   .pref .pill input:focus-visible + span { outline: 3px solid var(--navy); outline-offset: 3px; }
+  /* Invalid fields (audit H13): the existing error colour on the control's own border. */
+  .pref .pill input[aria-invalid='true'] + span { border-color: var(--err); }
 </style>
 
-<script is:inline src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 <script>
-  import { toE164 } from '../lib/phone.mjs';
   import { attributionFields } from '../lib/attribution.mjs';
-  import { composeMessage, contactLabel, lengthProblem, sendLead, successText } from '../lib/lead-submit.mjs';
+  import { sendLead, successText, turnstileGate, validateLead } from '../lib/lead-submit.mjs';
+  import { turnstileLoader } from '../lib/turnstile.mjs';
+  type Turnstile = {
+    render: (el: HTMLElement, o: Record<string, unknown>) => string;
+    getResponse: (id: string) => string | undefined;
+    reset: (id: string) => void;
+  };
+  type PhoneLib = typeof import('../lib/phone.mjs');
   const form = document.getElementById('lead-form') as HTMLFormElement | null;
   if (form) {
     const status = document.getElementById('lead-status')!;
@@ -202,6 +211,7 @@ const countries = [
     const alertBox = document.getElementById('lead-alert')!;
     const alertTpl = document.getElementById('lead-alert-tpl') as HTMLTemplateElement;
     const sendLabel = btn.textContent ?? 'Send';
+    const showAlert = () => alertBox.replaceChildren(alertTpl.content.cloneNode(true));
 
     // Preselect intent from ?intent=
     const q = new URLSearchParams(location.search).get('intent');
@@ -210,18 +220,87 @@ const countries = [
     if (sel && sel.tagName === 'SELECT' && want && [...sel.options].some((o) => o.value === want)) sel.value = want;
 
     const val = (n: string) => ((form.elements.namedItem(n) as HTMLInputElement | null)?.value ?? '').trim();
+    const choiceOf = () => form.querySelector<HTMLInputElement>('input[name="preferred_contact"]:checked')?.value ?? '';
+
+    // The phone library (libphonenumber) loads on the first input into the number, or on Send, never with the page.
+    let phoneLib: Promise<PhoneLib> | null = null;
+    const loadPhone = () => (phoneLib ??= import('../lib/phone.mjs').catch((e: unknown) => { phoneLib = null; throw e; }));
+    let toE164: PhoneLib['toE164'] | null = null;
+    form.querySelector('#f-phone')?.addEventListener('input', () => { loadPhone().then((m) => { toE164 = m.toE164; }, () => {}); }, { once: true });
+
+    // Turnstile renders explicitly on the form's first focusin (like the newsletter signup), not with the page.
+    const loadTurnstile = turnstileLoader();
+    let widgetErrored = false;
+    let widget: Promise<{ t: Turnstile; id: string }> | null = null;
+    const ensureWidget = () => {
+      widget ??= loadTurnstile()
+        .then((t: Turnstile) => {
+          const box = form.querySelector<HTMLElement>('#lead-turnstile')!;
+          const id = t.render(box, {
+            sitekey: box.dataset.sitekey, theme: 'light', appearance: 'always',
+            callback: () => { widgetErrored = false; },
+            'error-callback': () => { widgetErrored = true; },
+          });
+          return { t, id };
+        })
+        .catch((e: unknown) => { widget = null; throw e; });
+      return widget;
+    };
+    form.addEventListener('focusin', () => { ensureWidget().catch(() => {}); }, { once: true });
+
+    // Inline errors (audit H13): the message sits in the field's own error span (aria-describedby), the control gets
+    // aria-invalid, focus goes to the first invalid field, and the status line announces the summary.
+    const controls = (field: string): HTMLElement[] => {
+      if (field === 'preferred_contact') return [...form.querySelectorAll<HTMLElement>('input[name="preferred_contact"]')];
+      const el = form.querySelector<HTMLElement>(field === 'phone' ? '#f-phone' : `[name="${field}"]`);
+      return el ? [el] : [];
+    };
+    const invalid = new Set<string>();
     const setErr = (field: string, msg: string) => {
       const el = form.querySelector(`[data-err="${field}"]`);
       if (el) el.textContent = msg;
+      if (field === 'turnstile') return;
+      for (const c of controls(field)) c.setAttribute('aria-invalid', 'true');
+      invalid.add(field);
+    };
+    const clearErr = (field: string) => {
+      const el = form.querySelector(`[data-err="${field}"]`);
+      if (el) el.textContent = '';
+      for (const c of controls(field)) c.removeAttribute('aria-invalid');
+      invalid.delete(field);
     };
     const clearErrs = () => {
       form.querySelectorAll('[data-err]').forEach((e) => (e.textContent = ''));
+      form.querySelectorAll('[aria-invalid]').forEach((e) => e.removeAttribute('aria-invalid'));
+      invalid.clear();
       alertBox.replaceChildren();
-      form.querySelector('#f-phone')?.removeAttribute('aria-invalid');
     };
-    const phoneErr = (msg: string) => { setErr('phone', msg); form.querySelector('#f-phone')?.setAttribute('aria-invalid', 'true'); };
-    const choiceOf = () => form.querySelector<HTMLInputElement>('input[name="preferred_contact"]:checked')?.value ?? '';
-    form.querySelectorAll('input[name="preferred_contact"]').forEach((r) => r.addEventListener('change', () => setErr('preferred_contact', '')));
+    const focusField = (field: string) => controls(field)[0]?.focus();
+    const values = () => {
+      const ccSel = form.elements.namedItem('phone_country') as HTMLSelectElement;
+      return {
+        name: val('name'), email: val('email'), national: val('phone_national'), country: ccSel.value,
+        countryLabel: ccSel.selectedOptions[0]?.text ?? '', choice: choiceOf(), message: val('message'), project: val('project'),
+        question: val('question'), consent: (form.elements.namedItem('consent_contact') as HTMLInputElement).checked,
+        sellParts: sell ? [['Location', val('s_location')], ['Project', val('s_project')], ['Type', val('s_type')], ['Bedrooms', val('s_bed')],
+          ['Size sq ft', val('s_size')], ['Occupancy', val('s_occ')], ['Expected AED', val('s_price')]] as [string, string][] : undefined,
+      };
+    };
+    // A shown error goes away as soon as that field is fixed (re-checked on each edit).
+    const fieldOf = (t: EventTarget | null) => {
+      const el = t as HTMLInputElement | null;
+      if (!el?.name) return '';
+      if (el.name === 'phone_national' || el.name === 'phone_country') return 'phone';
+      return el.name;
+    };
+    const recheck = (e: Event) => {
+      const field = fieldOf(e.target);
+      if (!invalid.has(field) || (field === 'phone' && !toE164)) return;
+      const { problems } = validateLead(mode, values(), toE164 ?? (() => null));
+      if (!problems.some(([k]) => k === field)) clearErr(field);
+    };
+    form.addEventListener('input', recheck);
+    form.addEventListener('change', recheck);
 
     // The closed country-code control shows only the dial code; the native select sits over it (opacity 0).
     const ccSelect = form.querySelector<HTMLSelectElement>('#f-phone-cc');
@@ -235,39 +314,43 @@ const countries = [
     let attribution: Record<string, string | null> = {};
     try { attribution = JSON.parse(sessionStorage.getItem('ck_attr') ?? '{}'); } catch { /* storage unavailable */ }
 
+    const busy = (on: boolean, label = 'Sending…') => {
+      btn.disabled = on; btn.textContent = on ? label : sendLabel;
+      if (on) form.setAttribute('aria-busy', 'true'); else form.removeAttribute('aria-busy');
+    };
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
+      if (btn.disabled) return;
       clearErrs(); status.textContent = '';
-      const name = val('name'), email = val('email');
-      let bad = false;
-      if (!/^[\p{L}\p{M}' .\-]{2,80}$/u.test(name)) { setErr('name', 'Enter your name.'); bad = true; }
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { setErr('email', 'Enter a valid email address.'); bad = true; }
-      const ccSel = form.elements.namedItem('phone_country') as HTMLSelectElement;
-      const national = val('phone_national');
-      const phone = toE164(national, ccSel.value);
-      if (!national) { phoneErr('Enter your mobile number.'); bad = true; }
-      else if (!phone) { phoneErr(`Enter a valid mobile number for ${ccSel.selectedOptions[0]?.text ?? 'the selected country'}.`); bad = true; }
-      const choice = choiceOf();
-      if (!contactLabel(choice)) { setErr('preferred_contact', 'Please choose how I should contact you.'); bad = true; }
-      // The visitor's own text (the question on launch) and the one-line message the Worker receives.
-      const box = launch ? val('question') : val('message');
-      if (launch && !box) { setErr('question', 'Enter your question.'); bad = true; }
-      const message = composeMessage(mode, {
-        choice, message: val('message'), project: val('project'), question: val('question'),
-        sellParts: sell ? [['Location', val('s_location')], ['Project', val('s_project')], ['Type', val('s_type')], ['Bedrooms', val('s_bed')],
-          ['Size sq ft', val('s_size')], ['Occupancy', val('s_occ')], ['Expected AED', val('s_price')]] as [string, string][] : undefined,
-      });
-      const tooLong = lengthProblem(mode, box, message);
-      if (tooLong) { setErr(launch ? 'question' : 'message', tooLong.message); bad = true; }
-      const consent = (form.elements.namedItem('consent_contact') as HTMLInputElement).checked;
-      if (!consent) { setErr('consent_contact', 'Please confirm so I can reply to you.'); bad = true; }
-      if (bad) { say('Please fix the highlighted fields.', false); return; }
+      const v = values();
 
-      const token = (form.querySelector('[name="cf-turnstile-response"]') as HTMLInputElement | null)?.value ?? '';
-      if (!token) { say('Please wait for the security check to finish, then send again.', false); return; }
+      busy(true);
+      let phoneCheck: PhoneLib['toE164'];
+      try { phoneCheck = (await loadPhone()).toE164; toE164 = phoneCheck; } catch { busy(false); showAlert(); return; }
+      const { problems, phone, message } = validateLead(mode, v, phoneCheck);
+      if (problems.length) {
+        busy(false);
+        for (const [field, msg] of problems) setErr(field, msg);
+        say('Please fix the highlighted fields.', false);
+        focusField(problems[0][0]);
+        return;
+      }
+
+      // The security check: if it never loaded (blocked, failed, timed out) the visitor gets WhatsApp and email instead.
+      let ts: { t: Turnstile; id: string } | null = null;
+      try { ts = await ensureWidget(); } catch { ts = null; }
+      const token = ts ? ts.t.getResponse(ts.id) ?? '' : '';
+      const gate = turnstileGate({ loaded: !!ts, errored: widgetErrored, token });
+      if (gate !== 'send') {
+        busy(false);
+        if (gate === 'fallback') showAlert();
+        else say('Please wait for the security check to finish, then send again.', false);
+        return;
+      }
 
       const payload = {
-        name, email,
+        name: v.name, email: v.email,
         phone,
         country: val('country') || undefined,
         intent: sell ? 'sell' : launch ? 'invest' : val('intent') || 'buy',
@@ -283,7 +366,6 @@ const countries = [
       };
 
       // Sending: the button says so and the form is busy until exactly one outcome is shown.
-      btn.disabled = true; btn.textContent = 'Sending…'; form.setAttribute('aria-busy', 'true');
       const outcome = await sendLead(`${workerUrl}/lead`, payload);
       form.removeAttribute('aria-busy');
 
@@ -294,7 +376,7 @@ const countries = [
         panel.setAttribute('role', 'status');
         panel.tabIndex = -1;
         const p = document.createElement('p');
-        p.textContent = successText(launch ? 'question' : 'enquiry', choice);
+        p.textContent = successText(launch ? 'question' : 'enquiry', v.choice);
         panel.append(p);
         // Optional step 2: only when the feature is switched on, and only for enquiries where a profile helps.
         const profileIntents = (form.dataset.profile ?? '').split(',').filter(Boolean);
@@ -314,16 +396,16 @@ const countries = [
 
       // Every other outcome keeps the visitor's input, explains itself and lets them send again.
       if (outcome.kind === 'field') {
-        if (outcome.field === 'phone') phoneErr(outcome.message);
-        else setErr(outcome.field, outcome.message);
+        setErr(outcome.field, outcome.message);
         say('Please check the form and try again.', false);
+        focusField(outcome.field);
       } else if (outcome.kind === 'verification') {
         setErr('turnstile', outcome.message);
       } else {
-        alertBox.replaceChildren(alertTpl.content.cloneNode(true));
+        showAlert();
       }
-      if (outcome.resetTurnstile) (window as unknown as { turnstile?: { reset: () => void } }).turnstile?.reset();
-      if (outcome.enableSend) { btn.disabled = false; btn.textContent = sendLabel; }
+      if (outcome.resetTurnstile) ts!.t.reset(ts!.id);
+      if (outcome.enableSend) busy(false);
     });
   }
 </script>

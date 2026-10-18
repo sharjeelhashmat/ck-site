@@ -8,6 +8,7 @@ import { sendEmail } from './send';
 import templatesJson from '../templates/lead-replies.v1.json';
 import type { Template } from './templates';
 import { verifyNewsletterToken, verifyUnsubToken } from './unsub';
+import { runRetention, SUBSCRIBER_HASH_PREFIX } from './retention';
 
 export interface Env {
   DB: D1Database;
@@ -38,9 +39,20 @@ export interface Env {
   DAILY_SEND_CAP?: string;
   EXTRA_ORIGINS?: string;
   STAGING_ORIGIN?: string;
+  ALLOW_TEST_TURNSTILE?: string;
 }
 
 const TEMPLATES = (templatesJson as { templates: Template[] }).templates;
+
+// KV unavailable or the value unreadable: no template counts as approved, so nothing is sent (fail closed).
+async function approvedTemplates(env: Env): Promise<Record<string, string>> {
+  try {
+    const v = await env.KV.get('approved_templates', 'json');
+    return (v && typeof v === 'object' ? v : {}) as Record<string, string>;
+  } catch {
+    return {};
+  }
+}
 const MAX_BODY = 8 * 1024;
 
 function allowedOrigins(siteUrl: string, extra: string[] = []): string[] {
@@ -85,18 +97,14 @@ function makeNewsletterDeps(env: Env): NewsletterDeps {
     now: () => new Date(),
     uuid: () => crypto.randomUUID(),
     async upsertSubscriber(row) {
-      const existing = await env.DB.prepare('SELECT id, unsubscribed_at FROM newsletter_subscribers WHERE email = ?1')
-        .bind(row.email).first<{ id: string; unsubscribed_at: string | null }>();
-      if (!existing) {
-        const r = await env.DB.prepare('INSERT INTO newsletter_subscribers (id, email, subscribed_at, source) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(email) DO NOTHING')
-          .bind(row.id, row.email, row.subscribed_at, row.source).run();
-        return { id: row.id, confirm: (r.meta.changes ?? 0) > 0 };
-      }
-      if (existing.unsubscribed_at === null) return { id: existing.id, confirm: false };
-      // Came back after unsubscribing: a fresh, explicit opt-in.
-      await env.DB.prepare('UPDATE newsletter_subscribers SET unsubscribed_at = NULL, subscribed_at = ?1, source = ?2 WHERE id = ?3')
-        .bind(row.subscribed_at, row.source, existing.id).run();
-      return { id: existing.id, confirm: true };
+      // An unsubscribed address stays unsubscribed: a POST never clears unsubscribed_at (H8). Rows the retention job
+      // anonymised keep only the address's hash, so they are matched by it and the opt-out still holds.
+      const existing = await env.DB.prepare('SELECT id FROM newsletter_subscribers WHERE email = ?1 OR email = ?2 LIMIT 1')
+        .bind(row.email, `${SUBSCRIBER_HASH_PREFIX}${await sha256Hex(row.email)}`).first<{ id: string }>();
+      if (existing) return { id: existing.id, confirm: false };
+      const r = await env.DB.prepare('INSERT INTO newsletter_subscribers (id, email, subscribed_at, source) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(email) DO NOTHING')
+        .bind(row.id, row.email, row.subscribed_at, row.source).run();
+      return { id: row.id, confirm: (r.meta.changes ?? 0) > 0 };
     },
     async countSentSince(sinceIso) {
       const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM messages WHERE outcome = 'sent' AND created_at >= ?1").bind(sinceIso).first<{ n: number }>();
@@ -114,7 +122,12 @@ function makeNewsletterDeps(env: Env): NewsletterDeps {
   };
 }
 
-async function verifyTurnstile(secret: string, token: unknown, ip: string | null): Promise<boolean> {
+// Cloudflare's documented Turnstile test secrets (always pass / always fail / token already spent). Refused unless
+// ALLOW_TEST_TURNSTILE === 'yes', which is for local and staging tests only and is never set in production.
+export const TURNSTILE_TEST_SECRETS = ['1x0000000000000000000000000000000AA', '2x0000000000000000000000000000000AA', '3x0000000000000000000000000000000AA'];
+
+export async function verifyTurnstile(secret: string | undefined, token: unknown, ip: string | null, allowTest = false): Promise<boolean> {
+  if (!secret || (TURNSTILE_TEST_SECRETS.includes(secret.trim()) && !allowTest)) return false;
   if (typeof token !== 'string' || !token) return false;
   const form = new FormData();
   form.append('secret', secret);
@@ -180,7 +193,8 @@ function makeDeps(env: Env): Deps {
     async alertOwner(p: AlertPayload) {
       if (!cfg.hasEmailKey || !cfg.alertEmail || !cfg.senders.alerts.email) return;
       const l = p.lead;
-      const subject = `[${p.alert_level === 'instant' ? 'ACTION' : 'DIGEST'}] ${p.lane} ${p.score}/100 · ${l.name} · ${l.intent}`;
+      const tag = p.outbound === 'not_stored' ? 'NOT STORED: reply by hand' : p.alert_level === 'instant' ? 'ACTION' : 'DIGEST';
+      const subject = `[${tag}] ${p.lane} ${p.score}/100 · ${l.name} · ${l.intent}`;
       const text = [
         `Lane: ${p.lane}   Score: ${p.score}   Firewall: ${p.status}`,
         p.escalation.length ? `Escalation: ${p.escalation.join(', ')}` : '',
@@ -222,119 +236,144 @@ function makeProfileDeps(env: Env): ProfileDeps {
   };
 }
 
+function corsFor(req: Request, cfg: ReturnType<typeof readConfig>) {
+  const origins = allowedOrigins(cfg.siteUrl, cfg.extraOrigins);
+  const origin = req.headers.get('origin') ?? '';
+  const corsOrigin = origins.includes(origin) ? origin : undefined;
+  // STAGING_ORIGIN (exact match, "" = off) is admitted on /lead, /health, /profile and /market (TEST leads only, see
+  // profile.ts); the newsletter keeps the production list, so the staging site can never trigger real mail.
+  const staging = !corsOrigin && cfg.stagingOrigin !== '' && origin === cfg.stagingOrigin;
+  return { corsOrigin, staging, leadCors: corsOrigin ?? (staging ? origin : undefined) };
+}
+
 export default {
+  // Anything unexpected becomes a JSON 500 that still carries the request's CORS header, so the site can show its
+  // retry / WhatsApp message instead of a CORS error. Never a stack trace.
   async fetch(req: Request, env: Env): Promise<Response> {
-    const url = new URL(req.url);
-    const cfg = readConfig(env as unknown as Record<string, string | undefined>);
-    const origins = allowedOrigins(cfg.siteUrl, cfg.extraOrigins);
-    const origin = req.headers.get('origin') ?? '';
-    const corsOrigin = origins.includes(origin) ? origin : undefined;
-    // STAGING_ORIGIN (exact match, "" = off) is admitted on /lead, /health and /profile (TEST leads only, see profile.ts);
-    // the newsletter keeps the production list, so the staging site can never trigger real mail.
-    const staging = !corsOrigin && cfg.stagingOrigin !== '' && origin === cfg.stagingOrigin;
-    const leadCors = corsOrigin ?? (staging ? origin : undefined);
-
-    if (url.pathname === '/health') return json({ ok: true }, 200, leadCors);
-
-    // Read-only market figures (aggregates only) for the site's /areas, area guide and /new-launches pages.
-    const market = await handleMarket(req, url, env.DB, leadCors);
-    if (market) return market;
-
-    if (url.pathname === '/lead') {
-      const corsOrigin = leadCors;
-      if (req.method === 'OPTIONS') return preflight(corsOrigin);
-      if (req.method !== 'POST') return json({ ok: false }, 405);
-      if (!corsOrigin) return json({ ok: false, error: 'forbidden' }, 403);
-
-      const text = await req.text();
-      if (text.length > MAX_BODY) return json({ ok: false, error: 'too_large' }, 413);
-      let raw: unknown;
-      try { raw = JSON.parse(text); } catch { return json({ ok: false, error: 'invalid_input', field: 'body' }, 400, corsOrigin); }
-
-      // Fail closed: without the Turnstile secret no enquiry can be verified, so none is accepted.
-      if (!env.TURNSTILE_SECRET) {
-        console.error('lead: TURNSTILE_SECRET is not set; rejecting the enquiry (fail closed)');
-        return json({ ok: false, error: 'verification_unavailable' }, 503, corsOrigin);
-      }
-      const token = (raw as Record<string, unknown> | null)?.turnstile_token;
-      const human = await verifyTurnstile(env.TURNSTILE_SECRET, token, req.headers.get('cf-connecting-ip'));
-      if (!human) return json({ ok: false, error: 'verification_failed' }, 403, corsOrigin);
-
-      const approved = ((await env.KV.get('approved_templates', 'json')) ?? {}) as Record<string, string>;
-      const result = await processLead(raw, { config: cfg, templates: TEMPLATES, approved, unsubSecret: env.UNSUB_SECRET, staging }, makeDeps(env));
-      return json(result.body, result.status, corsOrigin);
-    }
-
-    if (url.pathname === '/profile') {
-      const corsOrigin = leadCors;
-      if (req.method === 'OPTIONS') return preflight(corsOrigin);
-      if (req.method !== 'POST') return json({ ok: false }, 405);
-      if (!corsOrigin) return json({ ok: false, error: 'forbidden' }, 403);
-      const text = await req.text();
-      if (text.length > MAX_PROFILE_BODY) return json({ ok: false, error: 'too_large' }, 413, corsOrigin);
-      let raw: unknown;
-      try { raw = JSON.parse(text); } catch { return json({ ok: false, error: 'invalid_input', field: 'body' }, 400, corsOrigin); }
-      const result = await saveProfile(raw, makeProfileDeps(env), { staging });
-      return json(result.body, result.status, corsOrigin);
-    }
-
-    if (url.pathname === '/unsubscribe' && req.method === 'GET') {
-      const email = (url.searchParams.get('e') ?? '').trim().toLowerCase();
-      const token = url.searchParams.get('t') ?? '';
-      if (!env.UNSUB_SECRET || !email || !(await verifyUnsubToken(email, token, env.UNSUB_SECRET))) {
-        return new Response('Invalid link.', { status: 400, headers: { 'content-type': 'text/plain' } });
-      }
-      const hash = await sha256Hex(email);
-      await env.DB.prepare('INSERT OR IGNORE INTO suppression (email_hash, created_at, reason) VALUES (?1, ?2, ?3)').bind(hash, new Date().toISOString(), 'unsubscribe').run();
-      return page(200, 'Unsubscribed', 'You are unsubscribed. No further messages will be sent.');
-    }
-
-    if (url.pathname === '/api/newsletter/subscribe') {
-      if (req.method === 'OPTIONS') return preflight(corsOrigin);
-      if (req.method !== 'POST') return json({ ok: false }, 405);
-      if (!corsOrigin) return json({ ok: false, error: 'forbidden' }, 403);
-
-      const text = await req.text();
-      if (text.length > MAX_BODY) return json({ ok: false, error: 'too_large' }, 413);
-      let raw: unknown;
-      try { raw = JSON.parse(text); } catch { return json({ ok: false, error: 'invalid_input', field: 'body' }, 400, corsOrigin); }
-
-      const token = (raw as Record<string, unknown> | null)?.turnstile_token;
-      const human = await verifyTurnstile(env.TURNSTILE_SECRET, token, req.headers.get('cf-connecting-ip'));
-      if (!human) return json({ ok: false, error: 'verification_failed' }, 403, corsOrigin);
-
-      const approved = ((await env.KV.get('approved_templates', 'json')) ?? {}) as Record<string, string>;
-      const result = await subscribe(raw, { config: cfg, templates: TEMPLATES, approved, unsubSecret: env.UNSUB_SECRET }, makeNewsletterDeps(env));
-      return json(result.body, result.status, corsOrigin);
-    }
-
-    if (url.pathname === '/api/newsletter/unsubscribe' && req.method === 'GET') {
-      const email = env.UNSUB_SECRET ? await verifyNewsletterToken(url.searchParams.get('token') ?? '', env.UNSUB_SECRET) : null;
-      if (!email) return new Response('Invalid link.', { status: 400, headers: { 'content-type': 'text/plain' } });
-      await env.DB.prepare('UPDATE newsletter_subscribers SET unsubscribed_at = ?1 WHERE email = ?2 AND unsubscribed_at IS NULL')
-        .bind(new Date().toISOString(), email).run();
-      return page(200, 'Unsubscribed', "You are unsubscribed from The Investor's Brief. No further issues will be sent.", unsubscribeFeedbackForm(url.searchParams.get('token')!));
-    }
-
-    // Optional feedback, posted from the page above. The same signed token identifies the subscriber; it is not
-    // consumed by the unsubscribe, so no second token is needed. Only a row that is actually unsubscribed is updated.
-    if (url.pathname === '/api/newsletter/unsubscribe/feedback' && req.method === 'POST') {
-      const body = await req.arrayBuffer();
-      if (body.byteLength > MAX_BODY) return new Response('Too large.', { status: 413, headers: { 'content-type': 'text/plain' } });
-      const form = new URLSearchParams(new TextDecoder().decode(body));
-      const email = env.UNSUB_SECRET ? await verifyNewsletterToken(form.get('token') ?? '', env.UNSUB_SECRET) : null;
-      if (!email) return new Response('Invalid link.', { status: 400, headers: { 'content-type': 'text/plain' } });
-      const fb = validateFeedback(form);
-      if (fb.kind === 'skip') return page(200, 'Unsubscribed', 'You are unsubscribed. Nothing else to do.');
+    try {
+      return await handle(req, env);
+    } catch (e) {
+      console.error('worker: unhandled error', e instanceof Error ? e.message : 'unknown');
+      let cors: string | undefined;
       try {
-        await env.DB.prepare('UPDATE newsletter_subscribers SET unsubscribe_reason = ?1, unsubscribe_reason_detail = ?2, unsubscribe_feedback_at = ?3 WHERE email = ?4 AND unsubscribed_at IS NOT NULL')
-          .bind(fb.reason, fb.detail, new Date().toISOString(), email).run();
-      } catch {
-        return page(200, 'Unsubscribed', 'You are unsubscribed. Your feedback could not be saved, but nothing else is needed.');
-      }
-      return page(200, 'Unsubscribed', 'Thank you. You are unsubscribed.');
+        const c = corsFor(req, readConfig(env as unknown as Record<string, string | undefined>));
+        cors = new URL(req.url).pathname.startsWith('/api/newsletter/') ? c.corsOrigin : c.leadCors;
+      } catch { cors = undefined; }
+      return json({ ok: false, error: 'internal_error' }, 500, cors);
     }
+  },
 
-    return json({ ok: false }, 404);
+  // Daily data retention (B4, owner decision 2026-10-17): cron "17 1 * * *" in wrangler.toml.
+  async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(runRetention(env.DB, new Date()).then((r) => console.log('retention', JSON.stringify(r))));
   },
 };
+
+async function handle(req: Request, env: Env): Promise<Response> {
+  const url = new URL(req.url);
+  const cfg = readConfig(env as unknown as Record<string, string | undefined>);
+  const { corsOrigin, staging, leadCors } = corsFor(req, cfg);
+
+  if (url.pathname === '/health') return json({ ok: true }, 200, leadCors);
+
+  // Read-only market figures (aggregates only) for the site's /areas, area guide and /new-launches pages.
+  const market = await handleMarket(req, url, env.DB, leadCors);
+  if (market) return market;
+
+  if (url.pathname === '/lead') {
+    const corsOrigin = leadCors;
+    if (req.method === 'OPTIONS') return preflight(corsOrigin);
+    if (req.method !== 'POST') return json({ ok: false }, 405);
+    if (!corsOrigin) return json({ ok: false, error: 'forbidden' }, 403);
+
+    const text = await req.text();
+    if (text.length > MAX_BODY) return json({ ok: false, error: 'too_large' }, 413);
+    let raw: unknown;
+    try { raw = JSON.parse(text); } catch { return json({ ok: false, error: 'invalid_input', field: 'body' }, 400, corsOrigin); }
+
+    // Fail closed: without the Turnstile secret no enquiry can be verified, so none is accepted.
+    if (!env.TURNSTILE_SECRET) {
+      console.error('lead: TURNSTILE_SECRET is not set; rejecting the enquiry (fail closed)');
+      return json({ ok: false, error: 'verification_unavailable' }, 503, corsOrigin);
+    }
+    const token = (raw as Record<string, unknown> | null)?.turnstile_token;
+    const human = await verifyTurnstile(env.TURNSTILE_SECRET, token, req.headers.get('cf-connecting-ip'), env.ALLOW_TEST_TURNSTILE === 'yes');
+    if (!human) return json({ ok: false, error: 'verification_failed' }, 403, corsOrigin);
+
+    const approved = await approvedTemplates(env);
+    const result = await processLead(raw, { config: cfg, templates: TEMPLATES, approved, unsubSecret: env.UNSUB_SECRET, staging }, makeDeps(env));
+    return json(result.body, result.status, corsOrigin);
+  }
+
+  if (url.pathname === '/profile') {
+    const corsOrigin = leadCors;
+    if (req.method === 'OPTIONS') return preflight(corsOrigin);
+    if (req.method !== 'POST') return json({ ok: false }, 405);
+    if (!corsOrigin) return json({ ok: false, error: 'forbidden' }, 403);
+    const text = await req.text();
+    if (text.length > MAX_PROFILE_BODY) return json({ ok: false, error: 'too_large' }, 413, corsOrigin);
+    let raw: unknown;
+    try { raw = JSON.parse(text); } catch { return json({ ok: false, error: 'invalid_input', field: 'body' }, 400, corsOrigin); }
+    const result = await saveProfile(raw, makeProfileDeps(env), { staging });
+    return json(result.body, result.status, corsOrigin);
+  }
+
+  if (url.pathname === '/unsubscribe' && req.method === 'GET') {
+    const email = (url.searchParams.get('e') ?? '').trim().toLowerCase();
+    const token = url.searchParams.get('t') ?? '';
+    if (!env.UNSUB_SECRET || !email || !(await verifyUnsubToken(email, token, env.UNSUB_SECRET))) {
+      return new Response('Invalid link.', { status: 400, headers: { 'content-type': 'text/plain' } });
+    }
+    const hash = await sha256Hex(email);
+    await env.DB.prepare('INSERT OR IGNORE INTO suppression (email_hash, created_at, reason) VALUES (?1, ?2, ?3)').bind(hash, new Date().toISOString(), 'unsubscribe').run();
+    return page(200, 'Unsubscribed', 'You are unsubscribed. No further messages will be sent.');
+  }
+
+  if (url.pathname === '/api/newsletter/subscribe') {
+    if (req.method === 'OPTIONS') return preflight(corsOrigin);
+    if (req.method !== 'POST') return json({ ok: false }, 405);
+    if (!corsOrigin) return json({ ok: false, error: 'forbidden' }, 403);
+
+    const text = await req.text();
+    if (text.length > MAX_BODY) return json({ ok: false, error: 'too_large' }, 413);
+    let raw: unknown;
+    try { raw = JSON.parse(text); } catch { return json({ ok: false, error: 'invalid_input', field: 'body' }, 400, corsOrigin); }
+
+    const token = (raw as Record<string, unknown> | null)?.turnstile_token;
+    const human = await verifyTurnstile(env.TURNSTILE_SECRET, token, req.headers.get('cf-connecting-ip'), env.ALLOW_TEST_TURNSTILE === 'yes');
+    if (!human) return json({ ok: false, error: 'verification_failed' }, 403, corsOrigin);
+
+    const approved = await approvedTemplates(env);
+    const result = await subscribe(raw, { config: cfg, templates: TEMPLATES, approved, unsubSecret: env.UNSUB_SECRET }, makeNewsletterDeps(env));
+    return json(result.body, result.status, corsOrigin);
+  }
+
+  if (url.pathname === '/api/newsletter/unsubscribe' && req.method === 'GET') {
+    const email = env.UNSUB_SECRET ? await verifyNewsletterToken(url.searchParams.get('token') ?? '', env.UNSUB_SECRET) : null;
+    if (!email) return new Response('Invalid link.', { status: 400, headers: { 'content-type': 'text/plain' } });
+    await env.DB.prepare('UPDATE newsletter_subscribers SET unsubscribed_at = ?1 WHERE email = ?2 AND unsubscribed_at IS NULL')
+      .bind(new Date().toISOString(), email).run();
+    return page(200, 'Unsubscribed', "You are unsubscribed from The Investor's Brief. No further issues will be sent.", unsubscribeFeedbackForm(url.searchParams.get('token')!));
+  }
+
+  // Optional feedback, posted from the page above. The same signed token identifies the subscriber; it is not
+  // consumed by the unsubscribe, so no second token is needed. Only a row that is actually unsubscribed is updated.
+  if (url.pathname === '/api/newsletter/unsubscribe/feedback' && req.method === 'POST') {
+    const body = await req.arrayBuffer();
+    if (body.byteLength > MAX_BODY) return new Response('Too large.', { status: 413, headers: { 'content-type': 'text/plain' } });
+    const form = new URLSearchParams(new TextDecoder().decode(body));
+    const email = env.UNSUB_SECRET ? await verifyNewsletterToken(form.get('token') ?? '', env.UNSUB_SECRET) : null;
+    if (!email) return new Response('Invalid link.', { status: 400, headers: { 'content-type': 'text/plain' } });
+    const fb = validateFeedback(form);
+    if (fb.kind === 'skip') return page(200, 'Unsubscribed', 'You are unsubscribed. Nothing else to do.');
+    try {
+      await env.DB.prepare('UPDATE newsletter_subscribers SET unsubscribe_reason = ?1, unsubscribe_reason_detail = ?2, unsubscribe_feedback_at = ?3 WHERE email = ?4 AND unsubscribed_at IS NOT NULL')
+        .bind(fb.reason, fb.detail, new Date().toISOString(), email).run();
+    } catch {
+      return page(200, 'Unsubscribed', 'You are unsubscribed. Your feedback could not be saved, but nothing else is needed.');
+    }
+    return page(200, 'Unsubscribed', 'Thank you. You are unsubscribed.');
+  }
+
+  return json({ ok: false }, 404);
+}

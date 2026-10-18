@@ -55,17 +55,36 @@ jobs:
       # pull_request: diff against the base branch (existing migrations immutable; added ones additive-only).
       # push: additive-only check over every file in worker/migrations/.
       - run: node .github/scripts/migrations-lint.mjs
+  # The guard and migrations-lint that judge a pull request come from its BASE commit (checked out into _base), so a
+  # pull request cannot weaken the checks that review it; they read the pull request's tree through GUARD_ROOT. The
+  # pull request's own guard also runs (self-test and enforce), so a guard change is tested before it becomes the base.
+  # On push (already reviewed and merged) base and head are the same commit.
   workflow-guard:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
+    env:
+      GUARD_ROOT: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.sha }}
+          path: _base
+          fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version-file: .node-version
+      - run: npm ci --ignore-scripts --prefix _base/.github/scripts
       - run: npm ci --ignore-scripts --prefix .github/scripts
-      # A self-test failure fails the job in any mode.
+      # ENFORCE mode, base commit's guard over this tree: any violation fails this job (and blocks merge once
+      # workflow-guard is a required check).
+      - run: node _base/.github/scripts/workflow-guard.mjs --mode=enforce
+      - run: node _base/.github/scripts/migrations-lint.mjs
+      # This tree's guard: its self-test (a failure fails the job in any mode), then the same enforce run.
       - run: node .github/scripts/workflow-guard.mjs --self-test
-      # ENFORCE mode: any violation fails this job (and blocks merge once workflow-guard is a required check).
       - run: node .github/scripts/workflow-guard.mjs --mode=enforce

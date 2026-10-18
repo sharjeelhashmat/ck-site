@@ -34,8 +34,6 @@ jobs:
         shell: bash
         working-directory: worker
     env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       WRANGLER_SEND_METRICS: 'false'
       TARGET: ck-lead-worker
       VERSION_ID: ${{ inputs.version_id }}
@@ -53,7 +51,7 @@ jobs:
           test -f package-lock.json
           test -f wrangler.toml
           grep -qx 'name = "ck-lead-worker"' wrangler.toml
-      - run: npm ci --no-audit --no-fund
+      - run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Assert wrangler 4.124.0
         run: |
           v=$(npx --no-install wrangler --version | tr -d '[:space:]')
@@ -62,6 +60,9 @@ jobs:
 
       # Preflight: fail closed, never print secret values.
       - name: Preflight
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           [ -n "$CLOUDFLARE_API_TOKEN" ] || { echo "CLOUDFLARE_API_TOKEN is not set"; exit 1; }
           [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || { echo "CLOUDFLARE_ACCOUNT_ID is not set"; exit 1; }
@@ -78,11 +79,17 @@ jobs:
 
       - name: Record BEFORE
         id: before
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           id=$(npx --no-install wrangler deployments status --name ck-lead-worker --json | jq -r '.versions[0].version_id // empty')
           [[ "$id" =~ ^[A-Za-z0-9-]+$ ]] || { echo "could not read the live version id"; exit 1; }
           echo "version_id=$id" >> "$GITHUB_OUTPUT"
       - name: Check version exists
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx --no-install wrangler versions list --name ck-lead-worker --json > "$RUNNER_TEMP/versions.json"
           jq -e --arg v "$VERSION_ID" 'any(.[]; .id == $v)' "$RUNNER_TEMP/versions.json" > /dev/null || { echo "version not found for ck-lead-worker"; exit 1; }
@@ -96,9 +103,15 @@ jobs:
 
       - name: Rollback
         id: rollback
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx --no-install wrangler rollback "$VERSION_ID" --name ck-lead-worker --message "owner rollback run=$GITHUB_RUN_ID reason=$REASON_SAFE" --yes
       - name: Record AFTER
         id: after
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           # Cloudflare can report the previous version for a short while after the rollback; re-read until it catches up.
           id=""
@@ -204,8 +217,6 @@ jobs:
         shell: bash
         working-directory: site
     env:
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       WRANGLER_SEND_METRICS: 'false'
       TARGET: ck-site-web
       VERSION_ID: ${{ inputs.version_id }}
@@ -223,7 +234,7 @@ jobs:
           test -f package-lock.json
           test -f wrangler.jsonc
           grep -q '"name": "ck-site-web"' wrangler.jsonc
-      - run: npm ci --no-audit --no-fund
+      - run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Assert wrangler 4.124.0
         run: |
           v=$(npx --no-install wrangler --version | tr -d '[:space:]')
@@ -232,6 +243,9 @@ jobs:
 
       # Preflight: fail closed, never print secret values.
       - name: Preflight
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           [ -n "$CLOUDFLARE_API_TOKEN" ] || { echo "CLOUDFLARE_API_TOKEN is not set"; exit 1; }
           [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || { echo "CLOUDFLARE_ACCOUNT_ID is not set"; exit 1; }
@@ -248,11 +262,17 @@ jobs:
 
       - name: Record BEFORE
         id: before
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           id=$(npx --no-install wrangler deployments status --name ck-site-web --json | jq -r '.versions[0].version_id // empty')
           [[ "$id" =~ ^[A-Za-z0-9-]+$ ]] || { echo "could not read the live version id"; exit 1; }
           echo "version_id=$id" >> "$GITHUB_OUTPUT"
       - name: Check version exists
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           npx --no-install wrangler versions list --name ck-site-web --json > "$RUNNER_TEMP/versions.json"
           jq -e --arg v "$VERSION_ID" 'any(.[]; .id == $v)' "$RUNNER_TEMP/versions.json" > /dev/null || { echo "version not found for ck-site-web"; exit 1; }
@@ -266,9 +286,15 @@ jobs:
 
       - name: Rollback
         id: rollback
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: npx --no-install wrangler rollback "$VERSION_ID" --name ck-site-web --message "owner rollback run=$GITHUB_RUN_ID reason=$REASON_SAFE" --yes
       - name: Record AFTER
         id: after
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           # Cloudflare can report the previous version for a short while after the rollback; re-read until it catches up.
           id=""

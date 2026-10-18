@@ -2,7 +2,7 @@
 // job (GitHub-hosted, holds the D1 token). It carries counts and sums only: no raw rows, no project or developer names,
 // no URLs. The apply side treats it as UNTRUSTED input: validateArtifact() checks every type, range, length and
 // character set and re-applies the bad-row guard; anything off rejects the whole DLD part (Dubai keeps its last data).
-import type { AreaMonth, MonthTotal, ProjectsStats } from './dld';
+import type { AreaMonth, MonthTotal, ProjectsStats } from './dld.ts';
 
 export const ARTIFACT_VERSION = 1;
 export const MAX_ARTIFACT_BYTES = 10 * 1024 * 1024;

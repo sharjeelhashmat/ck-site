@@ -45,7 +45,12 @@ export class CsvParser {
   private pendingCr = false;
   private started = false;
 
-  constructor(private readonly onRecord: (fields: string[] | null) => void) {}
+  private readonly onRecord: (fields: string[] | null) => void;
+
+  // No parameter properties: this file runs under plain Node (type stripping only), which does not transform them.
+  constructor(onRecord: (fields: string[] | null) => void) {
+    this.onRecord = onRecord;
+  }
 
   private endField(): void {
     this.fields.push(this.field);
@@ -140,7 +145,11 @@ export class DldTxAggregator {
   private areaMonth = new Map<string, AreaMonth>();
   private totals = new Map<string, MonthTotal>();
 
-  constructor(private readonly today: string) {}
+  private readonly today: string;
+
+  constructor(today: string) {
+    this.today = today;
+  }
 
   /** A header record (re)sets the column positions. Throws when a column this sync reads is missing. */
   private header(fields: string[]): void {
@@ -224,7 +233,11 @@ export class DldProjectsAggregator {
   private active = 0;
   private units = 0;
 
-  constructor(private readonly today: string) {}
+  private readonly today: string;
+
+  constructor(today: string) {
+    this.today = today;
+  }
 
   record(f: string[] | null): void {
     if (!this.header) {
