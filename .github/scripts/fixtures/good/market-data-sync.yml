@@ -67,14 +67,17 @@ jobs:
       - id: started
         working-directory: .
         run: echo started=true>>"%GITHUB_OUTPUT%"
+      # No credential is left in the PC's checkout, and no npm install runs on the PC: plain Node (type stripping) runs
+      # the script with no third-party code at all.
       - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
         with:
           node-version-file: .node-version
-      - run: npm ci --no-audit --no-fund
       # Downloads the public DLD files (about 700 MB, once a week) and writes only aggregates; no credentials in this job.
       - name: Download and aggregate DLD open data
-        run: npx --no-install tsx scripts/market-sync/sync.ts dld --out market-dld.json
+        run: node scripts/market-sync/sync.ts dld --out market-dld.json
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: market-dld
@@ -120,11 +123,20 @@ jobs:
             [ "$(grep -cFx -- "$line" wrangler.toml)" = "1" ] || { echo "wrangler.toml must contain exactly once: $line"; exit 1; }
           done
           echo "preflight ok"
+      # The artifact comes from the owner's PC: it is unpacked outside the checkout, and only market-dld.json is taken,
+      # when it is exactly one regular file (not a symlink, nothing else beside it).
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
         if: needs.dld.result == 'success'
         with:
           name: market-dld
-          path: worker
+          path: ${{ runner.temp }}/dld
+      - name: Take market-dld.json only
+        if: needs.dld.result == 'success'
+        run: |
+          d="$RUNNER_TEMP/dld"
+          [ "$(find "$d" -mindepth 1 | wc -l)" = "1" ] || { echo "the artifact must contain exactly one file"; find "$d" -mindepth 1 -printf '%y %P\n'; exit 1; }
+          [ -f "$d/market-dld.json" ] && [ ! -L "$d/market-dld.json" ] || { echo "the artifact must be one regular file named market-dld.json"; exit 1; }
+          cp -- "$d/market-dld.json" market-dld.json
       # Validates the artifact as untrusted input, fetches ADREC, and always writes market-sync.sql (data or failure record).
       - name: Build SQL
         env:

@@ -18,7 +18,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+// GUARD_ROOT: the tree to check. CI runs the base commit's copy of this script over a pull request's tree with it.
+const REPO = process.env.GUARD_ROOT
+  ? path.resolve(process.env.GUARD_ROOT)
+  : path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const DIR = 'worker/migrations';
 const NAME_RE = /^[0-9]{4}_[a-z0-9_]+\.sql$/;
 const BANNED_RE = /\b(DROP|DELETE|UPDATE|TRUNCATE|REPLACE|RENAME)\b/g;

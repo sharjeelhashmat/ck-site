@@ -5,6 +5,10 @@
 //   node workflow-guard.mjs --mode=audit     report violations, always exit 0
 //   node workflow-guard.mjs --mode=enforce   report violations, exit 1 if any (default when --mode is omitted)
 //
+// Audit hardening (H5, owner instruction 2026-10-17): triggers are an allow-list per workflow (R2); any runs-on label
+// that is not GitHub-hosted counts as self-hosted (R12); no container:/services: (R13); shells bash/cmd/pwsh only
+// (R14); github.event.*, github.head_ref and inputs.* reach run: only through env: (R15).
+//
 // Narrow exception (owner EXECUTE 2026-10-16, weekly gate 2026-10-17): market-data-sync.yml, and only that file, may run on
 // two fixed daily crons (02:07 and 14:07 Dubai; its gate job decides whether the weekly update is due)
 // in its own "market-data" environment and write to D1 through one fixed "wrangler d1 execute ... --file" command (R2, R4,
@@ -25,12 +29,13 @@ import { fileURLToPath } from 'node:url';
 import { parseDocument, parse, LineCounter, isMap, isSeq, isAlias, isScalar } from 'yaml';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
-const REPO = path.resolve(HERE, '..', '..');
+// GUARD_ROOT: the tree to check. CI runs the base commit's copy of this script over a pull request's tree with it.
+const REPO = process.env.GUARD_ROOT ? path.resolve(process.env.GUARD_ROOT) : path.resolve(HERE, '..', '..');
 
 export const RULES = {
   R0: 'scope + YAML parse',
   R1: 'deploy/rollback triggers = {workflow_dispatch}',
-  R2: 'forbidden triggers; ci.yml triggers',
+  R2: 'triggers: per-workflow allow-list; ci.yml triggers',
   R3: 'secret placement',
   R4: 'production environment + ref guard',
   R5: 'permissions',
@@ -40,7 +45,10 @@ export const RULES = {
   R9: 'static deploy concurrency',
   R10: 'static working-directory',
   R11: 'rollback.yml structure',
-  R12: 'runner labels; self-hosted only for market-data-sync job dld',
+  R12: 'runner labels; anything not GitHub-hosted is self-hosted, allowed only for market-data-sync job dld',
+  R13: 'no container: or services: in any job',
+  R14: 'shell is bash, cmd or pwsh',
+  R15: 'no ${{ github.event.* / github.head_ref / inputs.* }} inside run:',
 };
 
 const SECRET_RE = /\$\{\{[\s\S]*?\bsecrets\b[\s\S]*?\}\}/i;
@@ -49,7 +57,22 @@ const DEPLOY_STEMS = new Set(['deploy', 'deploy-site', 'rollback']);
 const ROLLBACK_TARGETS = { 'rollback-worker': 'ck-lead-worker', 'rollback-site': 'ck-site-web' };
 const CONCURRENCY = { deploy: 'prod-ck-lead-worker', 'deploy-site': 'prod-ck-site-web', 'market-data-sync': 'market-data-sync' };
 const ROLLBACK_CONCURRENCY = { 'rollback-worker': 'prod-ck-lead-worker', 'rollback-site': 'prod-ck-site-web' };
-const FORBIDDEN_EVENTS = ['pull_request_target', 'workflow_call', 'workflow_run', 'schedule', 'repository_dispatch'];
+// Events each workflow may use (R2). Anything else, including pull_request_target, workflow_run, workflow_call,
+// repository_dispatch, issue_comment, or schedule outside market-data-sync, is refused.
+const EVENT_ALLOW = {
+  ci: ['pull_request', 'push'],
+  'market-data-sync': ['schedule', 'workflow_dispatch'],
+  deploy: ['workflow_dispatch'],
+  'deploy-site': ['workflow_dispatch'],
+  rollback: ['workflow_dispatch'],
+};
+const DEFAULT_EVENTS = ['pull_request', 'push', 'workflow_dispatch'];
+// GitHub-hosted runner labels. Any other label (a custom label, self-hosted, a larger-runner group name) counts as a
+// self-hosted runner (R12).
+const HOSTED_RE = /^(ubuntu-(latest|slim|\d{2}\.\d{2})(-arm)?|windows-(latest|\d{4}|11-arm)|macos-(latest|\d{2})(-large|-xlarge|-intel)?)$/;
+const SHELLS = ['bash', 'cmd', 'pwsh'];
+// Untrusted or caller-controlled values must reach a shell through env:, never be pasted into run: text (R15).
+const UNTRUSTED_IN_RUN_RE = /\$\{\{[^}]*?(\bgithub\s*\.\s*event\s*[.[]|\bgithub\s*\.\s*head_ref\b|\bgithub\s*\[|\binputs\s*[.[])/;
 const ACTION_RE = /^actions\/[A-Za-z0-9._-]+@[0-9a-f]{40}$/;
 const MARKET_SYNC = 'market-data-sync';
 const MARKET_SYNC_CRONS = ['7 22 * * *', '7 10 * * *'];
@@ -174,9 +197,10 @@ export function analyse(fileName, src) {
   if (DEPLOY_STEMS.has(stem) && !same([...new Set(events)].sort(), ['workflow_dispatch'])) {
     add('R1', null, `triggers must be exactly {workflow_dispatch}; found {${events.join(', ')}}`, [trigKey]);
   }
-  // R2
+  // R2: events are an allow-list per workflow.
+  const allowed = EVENT_ALLOW[stem] ?? DEFAULT_EVENTS;
   for (const e of events) {
-    if (FORBIDDEN_EVENTS.includes(e) && !(stem === MARKET_SYNC && e === 'schedule')) add('R2', null, `forbidden trigger: ${e}`, [trigKey, e]);
+    if (!allowed.includes(e)) add('R2', null, `trigger ${e} is not allowed in ${fileName} (allowed: ${allowed.join(', ')})`, [trigKey, e]);
   }
   if (stem === MARKET_SYNC) {
     if (!same([...new Set(events)].sort(), ['schedule', 'workflow_dispatch'])) {
@@ -213,6 +237,9 @@ export function analyse(fileName, src) {
   if (!same(wf.permissions, { contents: 'read' })) {
     add('R5', null, `top-level permissions must be {contents: read}; found ${JSON.stringify(wf.permissions ?? null)}`, ['permissions']);
   }
+  // R14 (workflow level)
+  const wfShell = wf.defaults?.run?.shell;
+  if (wfShell !== undefined && !SHELLS.includes(wfShell)) add('R14', null, `defaults.run.shell must be one of ${SHELLS.join(', ')} (found ${JSON.stringify(wfShell)})`, ['defaults', 'run', 'shell']);
   // R10 (workflow level)
   const wfWd = wf.defaults?.run?.['working-directory'];
   if (wfWd !== undefined && (typeof wfWd !== 'string' || wfWd.includes('${{'))) {
@@ -281,15 +308,14 @@ export function analyse(fileName, src) {
     const ro = job['runs-on'];
     const labels = typeof ro === 'string' ? [ro] : Array.isArray(ro) && ro.every((x) => typeof x === 'string') ? ro : null;
     if (!labels || labels.some((l) => l.includes('${{'))) add('R12', id, `runs-on must be static label(s) (found ${JSON.stringify(ro ?? null)})`, J('runs-on'));
-    const selfHosted = (labels ?? []).some((l) => l.toLowerCase() === 'self-hosted');
+    const selfHosted = (labels ?? []).some((l) => !HOSTED_RE.test(l));
     const uaeJob = stem === MARKET_SYNC && id === UAE_JOB;
-    if (selfHosted && !uaeJob) add('R12', id, 'self-hosted runners are allowed only for job dld in market-data-sync.yml', J('runs-on'));
+    if (selfHosted && !uaeJob) add('R12', id, `self-hosted runners (any label that is not GitHub-hosted: ${JSON.stringify(labels)}) are allowed only for job dld in market-data-sync.yml`, J('runs-on'));
     if (uaeJob) {
       if (!same(labels, UAE_LABELS)) add('R12', id, `runs-on must be exactly [${UAE_LABELS.join(', ')}] (found ${JSON.stringify(ro ?? null)})`, J('runs-on'));
       if (containsSecret(job)) add('R12', id, 'the UAE job must not reference secrets', J());
       if ('environment' in job) add('R12', id, 'the UAE job must not use an environment', J('environment'));
       if (!same(job.permissions, { contents: 'read' })) add('R12', id, 'the UAE job must declare permissions: {contents: read}', J('permissions'));
-      if ('container' in job || 'services' in job) add('R12', id, 'the UAE job must not use container or services', J());
       if (typeof job.if !== 'string' || unwrapExpr(job.if) !== `${GUARD} && ${GATE_OPEN}`) add('R12', id, `the UAE job if must be exactly: ${GUARD} && ${GATE_OPEN}`, J('if'));
       if (!same(job.outputs, UAE_OUTPUTS)) add('R12', id, `the UAE job outputs must be exactly ${JSON.stringify(UAE_OUTPUTS)}`, J('outputs'));
       if (!Array.isArray(job.steps) || !same(job.steps[0], UAE_MARKER)) add('R12', id, `the UAE job's first step must be exactly ${JSON.stringify(UAE_MARKER)}`, J('steps'));
@@ -299,10 +325,14 @@ export function analyse(fileName, src) {
       if (containsSecret(job)) add('R12', id, 'the gate job must not reference secrets', J());
       if ('environment' in job) add('R12', id, 'the gate job must not use an environment', J('environment'));
       if (!same(job.permissions, { contents: 'read' })) add('R12', id, 'the gate job must declare permissions: {contents: read}', J('permissions'));
-      if ('container' in job || 'services' in job) add('R12', id, 'the gate job must not use container or services', J());
       if (typeof job.if !== 'string' || unwrapExpr(job.if) !== GUARD) add('R12', id, `the gate job if must be exactly: ${GUARD}`, J('if'));
     }
 
+    // R13: no container or service containers anywhere (images run code outside the reviewed steps).
+    for (const k of ['container', 'services']) if (k in job) add('R13', id, `${k}: is forbidden`, J(k));
+    // R14 (job level)
+    const jobShell = job.defaults?.run?.shell;
+    if (jobShell !== undefined && !SHELLS.includes(jobShell)) add('R14', id, `defaults.run.shell must be one of ${SHELLS.join(', ')} (found ${JSON.stringify(jobShell)})`, J('defaults', 'run', 'shell'));
     // R10 (job level)
     const jobWd = job.defaults?.run?.['working-directory'];
     if (jobWd !== undefined && (typeof jobWd !== 'string' || jobWd.includes('${{'))) {
@@ -339,9 +369,13 @@ export function analyse(fileName, src) {
       if (wd !== undefined && (typeof wd !== 'string' || wd.includes('${{'))) {
         add('R10', id, 'step working-directory must be a plain string', S('working-directory'));
       }
+      // R14
+      if ('shell' in step && !SHELLS.includes(step.shell)) add('R14', id, `step shell must be one of ${SHELLS.join(', ')} (found ${JSON.stringify(step.shell)})`, S('shell'));
       if (step.run === undefined) return;
       const { flat, commands } = prepRun(step.run);
       const R = S('run');
+      // R15
+      if (UNTRUSTED_IN_RUN_RE.test(String(step.run))) add('R15', id, 'github.event.*, github.head_ref and inputs.* may reach run: only through env:', R);
       // R7
       if (stem !== 'rollback' && commands.some((c) => /\bwrangler\b.*\brollback\b/i.test(c))) add('R7', id, '"wrangler rollback" is only allowed in rollback.yml', R);
       if (stem === 'rollback' && /\bd1\b/i.test(flat)) add('R7', id, '"d1" is forbidden in rollback.yml', R);
