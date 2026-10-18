@@ -31,8 +31,8 @@ export function validateSubscribe(raw: unknown): { ok: true; input: SubscribeInp
 export interface NewsletterDeps {
   now(): Date;
   uuid(): string;
-  // Inserts a new subscriber, re-activates one that had unsubscribed, or does nothing for an active one.
-  // Returns the row id and whether a confirmation is due (new or re-activated).
+  // Inserts a new subscriber; does nothing for an existing one, active or unsubscribed (an unsubscribe is never undone
+  // by a signup form). Returns the row id and whether a confirmation is due (a new row only).
   upsertSubscriber(row: { id: string; email: string; source: string | null; subscribed_at: string }): Promise<{ id: string; confirm: boolean }>;
   countSentSince(sinceIso: string): Promise<number>;
   logMessage(row: { id: string; lead_id: string; created_at: string; template_id: string; template_hash: string; provider_id: string; outcome: string }): Promise<void>;

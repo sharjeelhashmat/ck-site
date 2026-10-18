@@ -1,7 +1,9 @@
 // Market-data sync, run by .github/workflows/market-data-sync.yml from the worker/ directory, in two jobs:
 //
-//   job "dld" (the owner's PC in the UAE; Data.Dubai serves UAE requests only; no secrets):
-//     npx --no-install tsx scripts/market-sync/sync.ts dld --out market-dld.json
+//   job "dld" (the owner's PC in the UAE; Data.Dubai serves UAE requests only; no secrets; no npm install, so no
+//   dependency code runs on the PC: plain Node runs this file with type stripping, hence the .ts import extensions and
+//   no enums or parameter properties anywhere in its imports):
+//     node scripts/market-sync/sync.ts dld --out market-dld.json
 //   job "apply" (GitHub-hosted, environment market-data):
 //     npx --no-install tsx scripts/market-sync/sync.ts apply --dld market-dld.json --sql market-sync.sql --state market-sync.state.json
 //     npx --no-install tsx scripts/market-sync/sync.ts check --sql market-sync.sql --state market-sync.state.json
@@ -10,9 +12,9 @@
 // aggregates. "apply" validates that file as untrusted input, fetches the ADREC feed itself and always writes the SQL
 // file: the data, or a failure record (Dubai then keeps its last good data). Logs show host and path only.
 import { appendFileSync, existsSync, readFileSync, statSync, writeFileSync } from 'node:fs';
-import { buildArtifact, cleanError, MAX_ARTIFACT_BYTES, validateArtifact, type ValidDld } from './artifact';
-import { badRowsProblem, CsvParser, DldProjectsAggregator, DldTxAggregator, parseAdrec, safeUrl, type AdrecYtd } from './dld';
-import { buildSql, checkSql } from './sql';
+import { buildArtifact, cleanError, MAX_ARTIFACT_BYTES, validateArtifact, type ValidDld } from './artifact.ts';
+import { badRowsProblem, CsvParser, DldProjectsAggregator, DldTxAggregator, parseAdrec, safeUrl, type AdrecYtd } from './dld.ts';
+import { buildSql, checkSql } from './sql.ts';
 
 export const DLD_LIST_URL = (datasetId: number) =>
   `https://data.dubai/o/dda/data-services/dataset-download?datasetId=${datasetId}&page=1&pageSize=30&sortDir=desc`;

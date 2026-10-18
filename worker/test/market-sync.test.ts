@@ -1,6 +1,7 @@
 // Market-data sync (worker/scripts/market-sync): the RFC 4180 parser, filters, aggregation, the per-file sanity guard, the
 // dld -> apply artifact (validated as untrusted input), SQL generation run against the real migrations in an in-memory
 // SQLite, and the no-secret / no-signed-URL logging rule.
+import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -485,5 +486,51 @@ describe('ADREC parsing and logging', () => {
     expect(v.projects!.as_of).toBe('2026-06-15');
     expect(safeUrl(SIGNED)).toBe('cdn.data.dubai/files/part-1.csv');
     delete process.env.CLOUDFLARE_API_TOKEN;
+  });
+});
+
+describe('market_cache in the sync import (B1)', () => {
+  const PROJ = { new_projects_90d: 2, top_areas_90d: [{ area_en: 'Palm Deira', count: 2 }], active_projects: 10, pipeline_units: 500, as_of: '2026-06-20' };
+  const ADREC = { transaction_value_aed: 117e9, sales_value_aed: 86.1e9, mortgage_value_aed: 25.5e9, year: 2026 };
+
+  it('writes areas and area bodies for every complete period, in the same import and behind the same sanity guard', () => {
+    const d = db();
+    d.exec(sqlFor(aggregate()));
+    const keys = (d.prepare('SELECT key FROM market_cache ORDER BY key').all() as { key: string }[]).map((r) => r.key);
+    expect(keys.some((k) => k.startsWith('areas:2026-H1'))).toBe(true);
+    expect(keys.some((k) => k.startsWith('area:2026-H1:'))).toBe(true);
+    expect(keys.every((k) => !k.includes('2026-H2') && !k.includes('2026-Q4'))).toBe(true);
+    // A run that fails the sanity guard leaves the old bodies with the old data.
+    const before = d.prepare('SELECT key, body FROM market_cache ORDER BY key').all();
+    d.exec(sqlFor(aggregate(fixtureLines().slice(0, 3)), { runId: 'run-small' }));
+    expect(d.prepare("SELECT dld_written FROM market_sync_runs WHERE run_id = 'run-small'").get()).toEqual({ dld_written: 0 });
+    expect(d.prepare('SELECT key, body FROM market_cache ORDER BY key').all()).toEqual(before);
+  });
+
+  it('launches: written only when this run read both sources; the ADREC as_of comes from the stored row', () => {
+    const d = db();
+    d.exec(sqlFor(aggregate(), { runId: 'r1', projects: PROJ, adrec: ADREC, finishedAt: '2026-10-09T02:30:00.000Z' }));
+    // Same ADREC figures next run: not stored again, so the cached as_of keeps the first-seen date.
+    d.exec(sqlFor(aggregate(), { runId: 'r2', projects: PROJ, adrec: ADREC, finishedAt: '2026-10-16T02:30:00.000Z' }));
+    const body = JSON.parse((d.prepare("SELECT body FROM market_cache WHERE key = 'launches'").get() as { body: string }).body);
+    expect(body.dubai).toMatchObject({ new_projects_90d: 2, as_of: '2026-06-20' });
+    expect(body.abu_dhabi).toMatchObject({ sales_value_bn: 86.1, as_of: '2026-10-09' });
+    // A run without the projects figures (UAE PC offline) removes the row: the Worker then computes it live.
+    d.exec(sqlFor(aggregate(), { runId: 'r3', projects: null, adrec: ADREC }));
+    expect(d.prepare("SELECT body FROM market_cache WHERE key = 'launches'").get()).toBeUndefined();
+  });
+
+  it('the dld job runs under plain Node (no npm install on the PC): the whole import graph loads with type stripping', () => {
+    let code = 0;
+    let err = '';
+    try {
+      execFileSync(process.execPath, [join(import.meta.dirname, '../scripts/market-sync/sync.ts')], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    } catch (e) {
+      code = (e as { status: number }).status;
+      err = (e as { stderr: string }).stderr;
+    }
+    expect(code).toBe(2);
+    expect(err).toMatch(/^usage: sync\.ts dld/m);
+    expect(err).not.toMatch(/ERR_|SyntaxError|Cannot find/);
   });
 });

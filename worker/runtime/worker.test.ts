@@ -1,6 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import worker, { type Env } from '../src/index';
+import { sha256Hex } from '../src/hash';
 import { templateHash, type Template } from '../src/templates';
 import templatesJson from '../templates/lead-replies.v1.json';
 
@@ -437,7 +438,7 @@ describe('newsletter on workerd', () => {
     expect(await rows("SELECT template_id FROM messages WHERE outcome = 'sent'")).toEqual([{ template_id: 'NEWS-WELCOME' }]);
   });
 
-  it('unsubscribe link sets unsubscribed_at; a forged token is refused; signing up again re-activates and welcomes', async () => {
+  it('unsubscribe link sets unsubscribed_at; a forged token is refused; signing up again does not re-activate (H8)', async () => {
     const e = baseEnv({ ...LIVE, ...NEWS });
     await approveAllInKv(e);
     await sub(signup(), e);
@@ -451,9 +452,23 @@ describe('newsletter on workerd', () => {
     // Newsletter opt-out does not suppress lead replies.
     expect(await rows('SELECT email_hash FROM suppression')).toHaveLength(0);
 
-    await sub(signup({ source: 'insights/dubai-q1-2026-who-is-buying' }), e);
-    expect(await rows('SELECT source, unsubscribed_at FROM newsletter_subscribers')).toEqual([{ source: 'insights/dubai-q1-2026-who-is-buying', unsubscribed_at: null }]);
-    expect(brevo()).toHaveLength(2);
+    const before = await rows('SELECT source, subscribed_at, unsubscribed_at FROM newsletter_subscribers');
+    const again = await sub(signup({ source: 'insights/dubai-q1-2026-who-is-buying' }), e);
+    expect(again.status).toBe(200);
+    expect(await again.json()).toEqual({ ok: true }); // the same neutral answer an active subscriber gets
+    expect(await rows('SELECT source, subscribed_at, unsubscribed_at FROM newsletter_subscribers')).toEqual(before);
+    expect(brevo()).toHaveLength(1);
+  });
+
+  it('an address the retention job anonymised (email replaced by its hash) still counts as unsubscribed (H8, B4)', async () => {
+    const e = baseEnv({ ...LIVE, ...NEWS });
+    await approveAllInKv(e);
+    await cf.DB.prepare("INSERT INTO newsletter_subscribers (id, email, subscribed_at, source, unsubscribed_at) VALUES ('s1', ?1, '2024-01-01T00:00:00Z', NULL, '2024-02-01T00:00:00Z')")
+      .bind(`sha256:${await sha256Hex('reader@example.com')}`).run();
+    const res = await sub(signup({ email: 'Reader@Example.com' }), e);
+    expect(await res.json()).toEqual({ ok: true });
+    expect(await rows('SELECT id FROM newsletter_subscribers')).toEqual([{ id: 's1' }]);
+    expect(brevo()).toHaveLength(0);
   });
 
   describe('unsubscribe feedback', () => {
@@ -587,6 +602,24 @@ describe('Package B: phone and Turnstile on /lead', () => {
     expect(errors.flat().join(' ')).not.toMatch(/test-secret/);
   });
 
+  it("Cloudflare's three test secrets are refused without calling siteverify, unless ALLOW_TEST_TURNSTILE is 'yes' (H9)", async () => {
+    for (const secret of ['1x0000000000000000000000000000000AA', '2x0000000000000000000000000000000AA', '3x0000000000000000000000000000000AA']) {
+      for (const allow of ['', 'no', 'true', 'YES']) {
+        const res = await post(lead(), baseEnv({ TURNSTILE_SECRET: secret, ALLOW_TEST_TURNSTILE: allow }));
+        expect(res.status).toBe(403);
+      }
+      const nl = await worker.fetch(new Request('https://api.test/api/newsletter/subscribe', {
+        method: 'POST', headers: { 'content-type': 'application/json', origin: ORIGIN }, body: JSON.stringify({ email: 'r@example.com', turnstile_token: 'ok' }),
+      }), baseEnv({ TURNSTILE_SECRET: secret }));
+      expect(nl.status).toBe(403);
+    }
+    expect(calls.filter((c) => c.url.includes('siteverify'))).toHaveLength(0);
+    expect(await stored()).toHaveLength(0);
+    // Explicitly allowed (local and staging tests only): siteverify decides as usual.
+    expect((await post(lead(), baseEnv({ TURNSTILE_SECRET: '1x0000000000000000000000000000000AA', ALLOW_TEST_TURNSTILE: 'yes' }))).status).toBe(202);
+    expect(calls.filter((c) => c.url.includes('siteverify'))).toHaveLength(1);
+  });
+
   it('siteverify is called with a 5 s timeout and a timeout counts as a failed check', async () => {
     let signal: AbortSignal | undefined;
     vi.stubGlobal('fetch', async (_input: RequestInfo | URL, init?: RequestInit) => {
@@ -597,5 +630,73 @@ describe('Package B: phone and Turnstile on /lead', () => {
     expect(signal).toBeInstanceOf(AbortSignal);
     expect(res.status).toBe(403);
     expect(await stored()).toHaveLength(0);
+  });
+});
+
+describe('never lose an enquiry, in workerd (B2)', () => {
+  // A D1 binding that behaves normally except where a test makes it fail.
+  const failingDb = (fails: (sql: string) => boolean): D1Database => new Proxy(cf.DB, {
+    get(target, prop) {
+      if (prop === 'prepare') {
+        return (sql: string) => {
+          if (!fails(sql)) return target.prepare(sql);
+          const boom = async () => { throw new Error('D1_ERROR: simulated outage'); };
+          const stmt = { bind: () => stmt, run: boom, first: boom, all: boom, raw: boom };
+          return stmt;
+        };
+      }
+      const v = Reflect.get(target, prop);
+      return typeof v === 'function' ? v.bind(target) : v;
+    },
+  });
+
+  it('the lead cannot be stored: the owner gets all of it by email marked NOT STORED, no reply, 503 with CORS', async () => {
+    const e = { ...baseEnv(LIVE), DB: failingDb((sql) => sql.trimStart().startsWith('INSERT INTO leads')) } as Env;
+    await approveAllInKv(e);
+    const res = await post(lead({ message: 'Two bedrooms in Dubai Hills, cash buyer.' }), e);
+    expect(res.status).toBe(503);
+    expect(res.headers.get('access-control-allow-origin')).toBe(ORIGIN);
+    expect(await res.json()).toEqual({ ok: false, error: 'temporarily_unavailable' });
+    expect(await rows('SELECT id FROM leads')).toHaveLength(0);
+    const mails = brevo();
+    expect(mails).toHaveLength(1); // the owner alert only; no acknowledgment to the lead
+    const alert = mails[0]!.body as { to: { email: string }[]; subject: string; textContent: string };
+    expect(alert.to[0]!.email).toBe('owner@example.com');
+    expect(alert.subject).toMatch(/^\[NOT STORED: reply by hand\]/);
+    for (const part of ['Amira Khan', 'amira@example.com', '+971501234567', 'Two bedrooms in Dubai Hills, cash buyer.', 'Automated reply: not_stored']) expect(alert.textContent).toContain(part);
+  });
+
+  it('events cannot be written: the lead is still stored, replied to and alerted (202)', async () => {
+    const e = { ...baseEnv(LIVE), DB: failingDb((sql) => sql.trimStart().startsWith('INSERT INTO events')) } as Env;
+    await approveAllInKv(e);
+    const res = await post(lead(), e);
+    expect(res.status).toBe(202);
+    expect(await rows('SELECT id FROM leads')).toHaveLength(1);
+    expect(brevo()).toHaveLength(2); // acknowledgment + owner alert
+  });
+
+  it('an unexpected failure anywhere is a JSON 500 that keeps the CORS header (no CORS error in the browser)', async () => {
+    const e = { ...baseEnv(), DB: failingDb(() => true) } as Env;
+    const res = await post(lead(), e);
+    expect(res.status).toBe(500);
+    expect(res.headers.get('access-control-allow-origin')).toBe(ORIGIN);
+    expect(res.headers.get('content-type')).toBe('application/json');
+    expect(await res.json()).toEqual({ ok: false, error: 'internal_error' });
+    const other = await post(lead(), e, 'https://evil.example');
+    expect(other.status).toBe(403);
+  });
+
+  it('KV unreadable: no template counts as approved, nothing is sent to the lead, the enquiry is still accepted', async () => {
+    const kv = new Proxy(cf.KV, {
+      get(target, prop) {
+        if (prop === 'get') return async () => { throw new Error('KV down'); };
+        const v = Reflect.get(target, prop);
+        return typeof v === 'function' ? v.bind(target) : v;
+      },
+    });
+    const res = await post(lead(), { ...baseEnv(LIVE), KV: kv } as Env);
+    expect(res.status).toBe(202);
+    expect(await rows('SELECT id FROM leads')).toHaveLength(1);
+    expect(brevo()).toHaveLength(1); // the owner alert only
   });
 });

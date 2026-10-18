@@ -11,8 +11,14 @@ const lead = (over = {}) => {
 };
 
 describe('lanes', () => {
-  it('non-VALID leads get no lane and no alert', () => {
-    for (const s of ['SPAM', 'SUSPICIOUS', 'DUPLICATE'] as const) expect(assignLane(lead(), s, 90, false)).toEqual({ lane: 'NONE', alert_level: 'none' });
+  it('non-VALID leads never get a reply lane; SUSPICIOUS goes to the digest, an escalated DUPLICATE is instant, SPAM/TEST silent', () => {
+    for (const esc of [false, true]) {
+      expect(assignLane(lead(), 'SUSPICIOUS', 90, esc)).toEqual({ lane: 'NONE', alert_level: 'digest' });
+      expect(assignLane(lead(), 'SPAM', 90, esc)).toEqual({ lane: 'NONE', alert_level: 'none' });
+      expect(assignLane(lead(), 'TEST', 90, esc)).toEqual({ lane: 'NONE', alert_level: 'none' });
+    }
+    expect(assignLane(lead(), 'DUPLICATE', 90, false)).toEqual({ lane: 'NONE', alert_level: 'none' });
+    expect(assignLane(lead(), 'DUPLICATE', 90, true)).toEqual({ lane: 'NONE', alert_level: 'instant' });
   });
   it('escalation overrides everything', () => expect(assignLane(lead(), 'VALID', 95, true)).toEqual({ lane: 'ESCALATED', alert_level: 'instant' }));
   it('score bands map to lanes', () => {

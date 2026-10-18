@@ -18,7 +18,8 @@ function fake(existing: 'none' | 'active' | 'unsubscribed' = 'none') {
   f.deps = {
     now: () => new Date('2026-09-24T08:00:00Z'),
     uuid: () => `id-${++n}`,
-    upsertSubscriber: async (r) => { f.upserts += 1; return { id: existing === 'none' ? r.id : 'sub-1', confirm: existing !== 'active' }; },
+    // The real store (src/index.ts) confirms only a new row: an active or an unsubscribed address is never re-activated.
+    upsertSubscriber: async (r) => { f.upserts += 1; return { id: existing === 'none' ? r.id : 'sub-1', confirm: existing === 'none' }; },
     countSentSince: async () => f.sentToday,
     logMessage: async (m) => { f.logged.push(`${m.lead_id}:${m.template_id}`); f.sentToday += 1; },
     send: async (m) => { f.sent.push(m); return { provider_id: 'p1' }; },
@@ -75,9 +76,12 @@ describe('newsletter: subscribe', () => {
     expect(f.sent).toHaveLength(0);
   });
 
-  it('coming back after unsubscribing counts as a fresh opt-in and gets the welcome', async () => {
+  it('an unsubscribed address that signs up again is not re-activated: the same neutral answer, no welcome (H8)', async () => {
     const f = fake('unsubscribed');
-    expect((await subscribe(body(), await nctx(), f.deps)).internal?.outbound).toBe('sent');
+    const r = await subscribe(body(), await nctx(), f.deps);
+    expect(r.body).toEqual({ ok: true });
+    expect(r.internal?.outbound).toBe('skipped:already_subscribed');
+    expect(f.sent).toHaveLength(0);
   });
 
   it('honeypot: success answer, nothing stored, nothing sent', async () => {
