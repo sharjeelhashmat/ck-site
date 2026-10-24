@@ -2,6 +2,9 @@
   "name": "ck-workflow-guard",
   "private": true,
   "description": "Static policy checks for .github/workflows and worker/migrations (P1β CS-1).",
+  "engines": {
+    "node": ">=22.18 <23"
+  },
   "dependencies": {
     "yaml": "2.9.1"
   }

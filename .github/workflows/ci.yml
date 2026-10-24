@@ -8,11 +8,14 @@ permissions:
 jobs:
   worker:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: worker
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
@@ -27,6 +30,7 @@ jobs:
       - run: npx tsx scripts/lint-templates.ts
   site:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: site
@@ -35,6 +39,8 @@ jobs:
       PUBLIC_BRN: ${{ vars.BRN }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
@@ -45,10 +51,12 @@ jobs:
       - run: npm test
   migrations:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
@@ -61,6 +69,7 @@ jobs:
   # On push (already reviewed and merged) base and head are the same commit.
   workflow-guard:
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     permissions:
       contents: read
     env:

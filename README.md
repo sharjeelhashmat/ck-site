@@ -58,7 +58,7 @@ Workers Free: 100,000 requests/day, 10 ms CPU per invocation (I/O wait not count
 5. Verify: a real enquiry and a real investor profile end to end, then check the D1 rows. Then take the old Vercel site out of maintenance.
 6. Before every rebuild run `npm run freshness` in `site/` and re-check undated DLD fee pages.
 
-Kill switches: repository variable `AUTONOMY=off` stops maintenance workflows; Worker variable `OUTBOUND=off` stops all outbound messages.
+Kill switches: to stop the weekly sync, Actions > market-data-sync > Disable workflow; Worker variable `OUTBOUND=off` stops all outbound messages.
 
 ## Data retention and erasure
 
@@ -74,6 +74,8 @@ The Worker's daily cron (`17 1 * * *`, `worker/src/retention.ts`) applies this i
 | Newsletter subscribers, active | While subscribed |
 | Unsubscribe feedback text (`unsubscribe_reason_detail`) | 180 days after the feedback |
 | Newsletter subscribers, unsubscribed | 24 months; then the address is replaced by its SHA-256 hash (so the opt-out still holds) and the other personal fields are cleared |
+
+Restore and rollback drills (owner runs them): `docs/runbooks/d1-restore-drill.md` and `docs/runbooks/rollback-drill.md`.
 
 Erasure request for one person:
 1. In `worker/`: `node scripts/erase-person.mjs person@example.com > erase.sql`. The script only prints SQL; it never connects to D1. It refuses anything that is not a plain address.

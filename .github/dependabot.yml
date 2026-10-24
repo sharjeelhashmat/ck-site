@@ -1,8 +1,30 @@
+# Weekly version updates (audit item 11). Every update waits 7 days after its release (cooldown), so a release that is
+# pulled or compromised in its first week never reaches a PR. @types/node stays on the Node 22 line (the runtime):
+# its semver-major updates are ignored.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /worker
     schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
+    ignore:
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+  - package-ecosystem: npm
+    directory: /site
+    schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
+    ignore:
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
+  - package-ecosystem: npm
+    directory: /.github/scripts
+    schedule: { interval: weekly }
+    cooldown: { default-days: 7 }
+    ignore:
+      - dependency-name: '@types/node'
+        update-types: ['version-update:semver-major']
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
+    cooldown: { default-days: 7 }

@@ -1,0 +1,6 @@
+{
+  "comment": "Targets for .github/workflows/uptime.yml (audit item 31). Staging URLs until go-live; the go-live brief swaps them to the domain. https URLs only.",
+  "site": "https://ck-site-web.sharjeelhashmat.workers.dev/",
+  "worker_health": "https://ck-lead-worker.sharjeelhashmat.workers.dev/health",
+  "market_status": "https://ck-lead-worker.sharjeelhashmat.workers.dev/market/status"
+}

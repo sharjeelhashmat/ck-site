@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Compass Key lead intake: firewall, scoring, lanes, approved-template replies. No LLM in the outbound path.",
+  "engines": {
+    "node": ">=22.18 <23"
+  },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.tools.json --noEmit && tsc -p tsconfig.runtime.json --noEmit",
     "test": "vitest run",
