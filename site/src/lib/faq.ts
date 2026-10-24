@@ -20,7 +20,7 @@ export const FAQS: Faq[] = [
   },
   {
     q: 'Do you only work with UAE residents?',
-    a: 'No — coverage includes UAE residents, GCC nationals and international buyers/investors.',
+    a: 'No. Coverage includes UAE residents, GCC nationals and international buyers/investors.',
   },
   {
     q: 'What areas do you cover?',

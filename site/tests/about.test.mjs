@@ -20,7 +20,7 @@ test('about: the approved copy is all there, in order', () => {
   const t = text(main());
   const lines = [
     'Numbers first. Straight answers. No pitch.',
-    'I work with buyers, investors, sellers and international clients across the UAE — on ready properties, off-plan launches, and the secondary market.',
+    'I work with buyers, investors, sellers and international clients across the UAE, on ready properties, off-plan launches, and the secondary market.',
     'Most property conversations start with the brochure. Mine start with the numbers.',
     'I have worked in UAE real estate since 2018, with local and international investors.',
     'I hold a Bachelor of Commerce from the University of Karachi, and I speak English, Urdu and basic Arabic, which covers most of the conversations that actually happen in this market.',

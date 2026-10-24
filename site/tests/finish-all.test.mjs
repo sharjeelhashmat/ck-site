@@ -130,11 +130,11 @@ test('D: "website\'s forms" links to /contact in the visible FAQ; the JSON-LD ke
 
 // ---------- E. /areas ----------
 test('E: period labels, prior period and the half-year rule', () => {
-  assert.equal(periodLabel('2026-H1'), 'Jan–Jun 2026');
-  assert.equal(periodLabel('2026-H2'), 'Jul–Dec 2026');
-  assert.equal(periodLabel('2026-Q3'), 'Jul–Sep 2026');
+  assert.equal(periodLabel('2026-H1'), 'Jan to Jun 2026');
+  assert.equal(periodLabel('2026-H2'), 'Jul to Dec 2026');
+  assert.equal(periodLabel('2026-Q3'), 'Jul to Sep 2026');
   assert.equal(priorPeriodId('2026-H1'), '2025-H1');
-  assert.equal(periodLabel(priorPeriodId('2026-Q3')), 'Jul–Sep 2025');
+  assert.equal(periodLabel(priorPeriodId('2026-Q3')), 'Jul to Sep 2025');
   assert.equal(isHalfYear('2026-H2'), true);
   assert.equal(isHalfYear('2026-Q3'), false);
   assert.equal(fmtDate('2026-10-09'), '9 Oct 2026');
@@ -171,8 +171,8 @@ test('E: Dubai top 8 cards from the expected output: rank, name + label, AED x.x
   const html = renderTop('dubai', { period: '2026-H1', areas: dubaiRows(EXPECTED_DUBAI) });
   const t = text(html);
   assert.match(t, /Top areas by sales value · Dubai/);
-  assert.match(html, /<p class="mk-chip">Jan–Jun 2026 vs Jan–Jun 2025<\/p>/);
-  assert.match(t, /Both emirates show Jan–Jun 2026: the latest period ADREC publishes by area, so Dubai and Abu Dhabi stay comparable\. Both move to a newer period together as soon as ADREC publishes it\./);
+  assert.match(html, /<p class="mk-chip">Jan to Jun 2026 vs Jan to Jun 2025<\/p>/);
+  assert.match(t, /Both emirates show Jan to Jun 2026: the latest period ADREC publishes by area, so Dubai and Abu Dhabi stay comparable\. Both move to a newer period together as soon as ADREC publishes it\./);
   assert.equal([...html.matchAll(/<article class="mk-card">/g)].length, 8);
   assert.match(t, /#1 Al Yelayiss 1 AED 11\.1bn 6\.1% of total ≈15×/);
   assert.match(t, /#2 Madinat Al Mataar Dubai South AED 10\.9bn 6\.0% of total \+16%/);
@@ -216,7 +216,7 @@ test('E: Abu Dhabi: ≈N× text ranks first, n/p areas are left out with the not
 test('E: year-to-date tiles and source lines, one decimal; nothing renders without data', () => {
   const t = text(renderYtd('dubai', EXPECTED_DUBAI.dubai.ytd));
   assert.match(t, /2026 so far · Dubai AED 391\.7bn sales, 2026 to date AED 591\.6bn total transactions, 2026 to date AED 154\.7bn mortgages, 2026 to date/);
-  assert.match(t, /Source: Dubai Land Department, Real Estate Transactions open data via Data\.Dubai \(Open Data Licence\), 1 Jan – 9 Oct 2026\./);
+  assert.match(t, /Source: Dubai Land Department, Real Estate Transactions open data via Data\.Dubai \(Open Data Licence\), 1 Jan to 9 Oct 2026\./);
   assert.match(renderYtd('dubai', EXPECTED_DUBAI.dubai.ytd), /href="https:\/\/data\.dubai\/en\/l\/470061"/);
   const ad = text(renderYtd('abu_dhabi', { sales_bn: 86.1, total_bn: 117, mortgages_bn: 25.5, as_of: '2026-10-16', year: 2026 }));
   assert.match(ad, /2026 so far · Abu Dhabi AED 86\.1bn sales, 2026 to date AED 117\.0bn total transactions/);
@@ -287,8 +287,8 @@ test('E: adrec-areas.json holds exactly the figures confirmed in ADREC\'s own H1
   assert.match(t, /Source: Abu Dhabi Real Estate Centre \(ADREC\), H1 2026 market report \(published 18 Aug 2026\)\. Residential sales value\./);
   assert.match(panel, /href="https:\/\/adrec\.gov\.ae\/-\/media\/adrec\/market-reports\/marketreportslatest\/adrec-h1-2026-spread-3\.pdf"/);
   // And on each Abu Dhabi guide page.
-  assert.match(text(main('areas/saadiyat-island.html')), /Jan–Jun 2026 vs Jan–Jun 2025 AED 13\.3bn residential sales value, Jan–Jun 2026 18\.9% of Abu Dhabi's total \+63% Source: Abu Dhabi Real Estate Centre \(ADREC\), H1 2026 market report \(published 18 Aug 2026\)\./);
-  assert.match(text(main('areas/zayed-city.html')), /AED 1\.9bn residential sales value, Jan–Jun 2026 2\.7% of Abu Dhabi's total change n\/p/);
+  assert.match(text(main('areas/saadiyat-island.html')), /Jan to Jun 2026 vs Jan to Jun 2025 AED 13\.3bn residential sales value, Jan to Jun 2026 18\.9% of Abu Dhabi's total \+63% Source: Abu Dhabi Real Estate Centre \(ADREC\), H1 2026 market report \(published 18 Aug 2026\)\./);
+  assert.match(text(main('areas/zayed-city.html')), /AED 1\.9bn residential sales value, Jan to Jun 2026 2\.7% of Abu Dhabi's total change n\/p/);
 });
 
 test('E: Rules 1c only: no #B3261E, no green, no Slate text on light in the market styles', () => {
@@ -357,9 +357,9 @@ test('F: the live figures card: Dubai loads /market/area/<DLD area> for the /are
     assert.equal(main(`areas/${g.slug}.html`).includes('class="mk-guide-card"'), listed, g.slug);
   }
   const card = text(renderGuideCard('abu_dhabi', { period: '2026-H1', published: '2026-08-21', area: { rank: 2, area: 'Saadiyat Island', value_bn: 13.3, share_pct: 18.9, change_pct: 63 } }));
-  assert.match(card, /Jan–Jun 2026 vs Jan–Jun 2025 AED 13\.3bn residential sales value, Jan–Jun 2026 18\.9% of Abu Dhabi's total \+63%/);
+  assert.match(card, /Jan to Jun 2026 vs Jan to Jun 2025 AED 13\.3bn residential sales value, Jan to Jun 2026 18\.9% of Abu Dhabi's total \+63%/);
   const dubai = text(renderGuideCard('dubai', { period: '2026-H1', dldArea: 'Burj Khalifa', area: { rank: 9, area: 'Burj Khalifa', value_bn: 5.04, share_pct: 2.8, change_pct: -31 } }));
-  assert.match(dubai, /AED 5\.0bn residential sales value, Jan–Jun 2026 2\.8% of Dubai's total −31%/);
+  assert.match(dubai, /AED 5\.0bn residential sales value, Jan to Jun 2026 2\.8% of Dubai's total −31%/);
   assert.match(dubai, /Residential sales value for the DLD area Burj Khalifa\./);
 });
 

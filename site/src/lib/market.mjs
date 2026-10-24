@@ -21,12 +21,12 @@ export function parsePeriod(id) {
   return m ? { year: Number(m[1]), span: m[2] } : null;
 }
 
-/** "2026-H1" -> "Jan–Jun 2026"; "2026-Q3" -> "Jul–Sep 2026". @param {string} id */
+/** "2026-H1" -> "Jan to Jun 2026"; "2026-Q3" -> "Jul to Sep 2026". @param {string} id */
 export function periodLabel(id) {
   const p = parsePeriod(id);
   if (!p) throw new Error(`bad period ${id}`);
   const [a, b] = SPANS[p.span];
-  return `${MONTHS[a - 1]}–${MONTHS[b - 1]} ${p.year}`;
+  return `${MONTHS[a - 1]} to ${MONTHS[b - 1]} ${p.year}`;
 }
 
 /** The same span one year earlier. @param {string} id */
@@ -117,7 +117,7 @@ export function renderYtd(emirate, ytd) {
     [ytd.mortgages_bn, `mortgages, ${year} to date`],
   ];
   const source = emirate === 'dubai'
-    ? `Source: Dubai Land Department, <a href="${SOURCES.dubaiTx.url}" target="_blank" rel="noopener">Real Estate Transactions open data</a> via Data.Dubai (Open Data Licence), 1 Jan – ${esc(fmtDate(ytd.as_of))}.`
+    ? `Source: Dubai Land Department, <a href="${SOURCES.dubaiTx.url}" target="_blank" rel="noopener">Real Estate Transactions open data</a> via Data.Dubai (Open Data Licence), 1 Jan to ${esc(fmtDate(ytd.as_of))}.`
     : `Source: <a href="${SOURCES.adrec.url}" target="_blank" rel="noopener">Abu Dhabi Real Estate Centre (ADREC)</a>, published year-to-date figures, as of ${esc(fmtDate(ytd.as_of))}.`;
   return `<section class="mk-block" aria-labelledby="mk-ytd-${emirate}">
 <h2 id="mk-ytd-${emirate}" class="mk-h2">${esc(year)} so far · ${EMIRATES[emirate]}</h2>

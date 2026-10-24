@@ -236,7 +236,7 @@ test('limits: Contact and Sell message boxes take at most 970 characters, with a
 // ---------- One response promise ----------
 
 test('24-hour promise: the Contact intro and the FAQ answer (page and FAQPage JSON-LD)', () => {
-  assert.match(main('contact.html'), /<p class="lede">Your budget\. Your objective\. Your timeline\. I'll take it from there — within 24 hours\.<\/p>/);
+  assert.match(main('contact.html'), /<p class="lede">Your budget\. Your objective\. Your timeline\. I'll take it from there, within 24 hours\.<\/p>/);
   const answer = "Enquiries sent through the website's forms are answered within 24 hours, by the contact method you choose.";
   const faq = readFileSync(join(dist, 'faq.html'), 'utf8');
   assert.ok(text(bare(faq)).includes(answer), 'visible FAQ');
