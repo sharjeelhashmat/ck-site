@@ -12,6 +12,12 @@ export interface EmailKeys {
 
 const cleanName = (n: string) => n.replace(/[\r\n"<>]/g, ' ').replace(/\s+/g, ' ').trim();
 
+// RFC 8058 one-click: the mail client POSTs "List-Unsubscribe=One-Click" to the URL (accepted on /unsubscribe and
+// /api/newsletter/unsubscribe, which check the same signed token as the link).
+export function listUnsubscribeHeaders(url: string): Record<string, string> {
+  return { 'List-Unsubscribe': `<${url}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' };
+}
+
 // Resend rejects any request without a User-Agent header (403, code 1010). Set it explicitly; never rely on runtime defaults.
 export const RESEND_USER_AGENT = 'ck-lead-worker/1.0';
 
@@ -29,7 +35,7 @@ export async function resendSend(
     text: msg.text,
     reply_to: replyTo,
   };
-  if (msg.listUnsubscribe) payload.headers = { 'List-Unsubscribe': `<${msg.listUnsubscribe}>` };
+  if (msg.listUnsubscribe) payload.headers = listUnsubscribeHeaders(msg.listUnsubscribe);
 
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -55,7 +61,7 @@ export async function brevoSend(
     subject: msg.subject,
     textContent: msg.text,
   };
-  if (msg.listUnsubscribe) payload.headers = { 'List-Unsubscribe': `<${msg.listUnsubscribe}>` };
+  if (msg.listUnsubscribe) payload.headers = listUnsubscribeHeaders(msg.listUnsubscribe);
 
   const res = await fetch('https://api.brevo.com/v3/smtp/email', {
     method: 'POST',

@@ -202,7 +202,7 @@ test('feedback: the form page carries the alert region, its WhatsApp + email tem
   for (const f of formPages) {
     const h = read(f);
     assert.match(h, /<div class="lead-alert" id="lead-alert" role="alert"><\/div>/, `${f}: alert region`);
-    const tpl = h.match(/<template id="lead-alert-tpl">([\s\S]*?)<\/template>/)?.[1] ?? '';
+    const tpl = h.match(/<div id="lead-alert-tpl" hidden>([\s\S]*?)<\/div>/)?.[1] ?? '';
     assert.match(tpl, /<a href="https:\/\/wa\.me\/[^"]+" target="_blank" rel="noopener">WhatsApp<\/a>/, `${f}: WhatsApp link`);
     assert.match(tpl, /<a href="mailto:hello@sharjeelhashmat\.com">hello@sharjeelhashmat\.com<\/a>/, `${f}: email link`);
     assert.equal(tpl.replace(/<[^>]+>/g, ''), MESSAGES.failure, `${f}: template text matches the failure message`);

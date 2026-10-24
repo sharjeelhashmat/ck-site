@@ -8,7 +8,7 @@ const { source, variant = 'footer' } = Astro.props;
 const id = `nl-${variant}`;
 ---
 <div class={`nl nl--${variant} noprint`}>
-  <p class="kicker">The Investor's Brief</p>
+  <p class="kicker">The Compass Key Monthly</p>
   <p class="nl-lede">An occasional note on the UAE property market. Sourced figures, the analysis that matters, nothing else.</p>
   <form class="nl-form" data-newsletter novalidate data-worker={SITE.workerUrl} data-sitekey={SITE.turnstileSiteKey} data-source={source}>
     <label class="nl-label" for={`${id}-email`}>Email</label>
@@ -126,6 +126,8 @@ const id = `nl-${variant}`;
         const res = await fetch(`${form.dataset.worker}/api/newsletter/subscribe`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
+          // 15 s cap (audit item 23): a hung request ends in the same connection message as a failed one.
+          signal: AbortSignal.timeout(15_000),
           body: JSON.stringify({
             email: value,
             source: form.dataset.source,

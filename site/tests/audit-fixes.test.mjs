@@ -302,7 +302,7 @@ test('H12: Send shows the fallback alert when the check never loaded or errored,
   // The alert (with WhatsApp) is on every form page, including launch mode.
   for (const f of ['contact.html', 'sell.html', 'new-launches.html']) {
     const h = readFileSync(join(dist, f), 'utf8');
-    assert.match(h.match(/<template id="lead-alert-tpl">([\s\S]*?)<\/template>/)[1], /wa\.me[\s\S]*mailto:/, f);
+    assert.match(h.match(/<div id="lead-alert-tpl" hidden>([\s\S]*?)<\/div>/)[1], /wa\.me[\s\S]*mailto:/, f);
   }
 });
 
@@ -369,10 +369,10 @@ test('H14: every auto-fit / auto-fill grid uses minmax(min(X, 100%), 1fr) with i
   for (const f of files) {
     for (const m of readFileSync(f, 'utf8').matchAll(/repeat\(\s*auto-(?:fit|fill)\s*,\s*(minmax\([^;"]*?\))\s*\)/g)) found.push([f.slice(root.length), m[1].replace(/\s+/g, '')]);
   }
-  assert.ok(found.length >= 8, `${found.length} grids`);
+  assert.ok(found.length >= 7, `${found.length} grids`); // .grid--4 was unused and removed (audit item 27)
   for (const [f, mm] of found) assert.match(mm, /^minmax\(min\(\d+(\.\d+)?rem,100%\),1fr\)$/, `${f}: ${mm}`);
   const css = src('src/styles/global.css');
-  for (const [sel, x] of [['.grid--2', 17], ['.grid--3', 15], ['.grid--4', 11], ['.split', 19], ['.list-plain', 10], ['.fields', 14]]) {
+  for (const [sel, x] of [['.grid--2', 17], ['.grid--3', 15], ['.split', 19], ['.list-plain', 10], ['.fields', 14]]) {
     assert.match(css, new RegExp(`${sel.replace('.', '\\.')} \\{[^}]*repeat\\(auto-fit, minmax\\(min\\(${x}rem, 100%\\), 1fr\\)\\)`), sel);
   }
   assert.match(src('src/styles/market.css'), /\.lw-grid \{[^}]*minmax\(min\(16rem, 100%\), 1fr\)/);

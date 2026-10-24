@@ -80,8 +80,8 @@ const countries = [
         <select id="f-budget" name="budget_band">
           <option value="unspecified">Prefer not to say</option>
           <option value="under_1m">Under AED 1M</option>
-          <option value="1m_2m">AED 1M – 2M</option>
-          <option value="2m_5m">AED 2M – 5M</option>
+          <option value="1m_2m">AED 1M to 2M</option>
+          <option value="2m_5m">AED 2M to 5M</option>
           <option value="over_5m">Over AED 5M</option>
         </select>
       </div>
@@ -159,7 +159,9 @@ const countries = [
     <span class="status" id="lead-status" role="status" aria-live="polite"></span>
   </div>
   <div class="lead-alert" id="lead-alert" role="alert"></div>
-  <template id="lead-alert-tpl"><p>Your message could not be sent. Please try again, or contact me directly on <a href={waLink("Hi Sharjeel, I'd like to discuss UAE real estate.")} target="_blank" rel="noopener">WhatsApp</a> or at <a href={`mailto:${SITE.email}`}>{SITE.email}</a>.</p></template>
+  {/* A hidden element, not a <template>: the built HTML of a <template> ending in a link repeated that link after it,
+      unclosed, so the next lines sat inside an email link (audit item 36). The script copies its content. */}
+  <div id="lead-alert-tpl" hidden><p>Your message could not be sent. Please try again, or contact me directly on <a href={waLink("Hi Sharjeel, I'd like to discuss UAE real estate.")} target="_blank" rel="noopener">WhatsApp</a> or at <a href={`mailto:${SITE.email}`}>{SITE.email}</a>.</p></div>
   {PROFILE_ENABLED && <p class="fine" id="lead-next" hidden style="margin-top:1rem"></p>}
   {/* Launch mode keeps no WhatsApp link outside the failure alert (owner decision 2026-10-10, tests/enquiry-forms.test.mjs);
      there, the alert below (also shown when the security check cannot load) is the WhatsApp route. */}
@@ -209,9 +211,9 @@ const countries = [
     const launch = mode === 'launch';
     const workerUrl = form.dataset.worker!;
     const alertBox = document.getElementById('lead-alert')!;
-    const alertTpl = document.getElementById('lead-alert-tpl') as HTMLTemplateElement;
+    const alertTpl = document.getElementById('lead-alert-tpl')!;
     const sendLabel = btn.textContent ?? 'Send';
-    const showAlert = () => alertBox.replaceChildren(alertTpl.content.cloneNode(true));
+    const showAlert = () => alertBox.replaceChildren(...[...alertTpl.cloneNode(true).childNodes]);
 
     // Preselect intent from ?intent=
     const q = new URLSearchParams(location.search).get('intent');

@@ -139,7 +139,7 @@ function memoKey(pathname: string, period: string | null, area: string | null): 
 export async function handleMarket(req: Request, url: URL, db: D1Database, corsOrigin: string | undefined): Promise<Response | null> {
   if (!url.pathname.startsWith('/market/')) return null;
   const isStatus = url.pathname === '/market/status';
-  const headers: Record<string, string> = { 'content-type': 'application/json', 'cache-control': isStatus ? 'public, max-age=300' : 'public, max-age=3600', vary: 'origin' };
+  const headers: Record<string, string> = { 'content-type': 'application/json', 'x-content-type-options': 'nosniff', 'cache-control': isStatus ? 'public, max-age=300' : 'public, max-age=3600', vary: 'origin' };
   if (corsOrigin) headers['access-control-allow-origin'] = corsOrigin;
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 204, headers: corsOrigin ? { 'access-control-allow-origin': corsOrigin, 'access-control-allow-methods': 'GET', 'access-control-max-age': '86400', vary: 'origin' } : {} });

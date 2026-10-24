@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { classify, normalizePhone, validateLead } from '../src/firewall';
+import { classify, isValidEmail, validateLead } from '../src/firewall';
 import { baseLead } from './helpers';
 
 const lead = (over = {}) => {
@@ -24,13 +24,17 @@ describe('validation', () => {
   it('rejects unknown enum values', () => {
     expect(validateLead(baseLead({ intent: 'hack' }))).toEqual({ ok: false, field: 'intent' });
   });
+  it('one email check for every route: length, whitespace, shape', () => {
+    expect(isValidEmail('amira@example.com')).toBe(true);
+    for (const bad of ['', 'nope', 'a@b', 'a@b.c', 'a b@c.com', 'a@b.com\r\n', `${'a'.repeat(250)}@b.com`]) expect(isValidEmail(bad)).toBe(false);
+  });
   it('rejects non-object bodies', () => {
     expect(validateLead('x').ok).toBe(false);
     expect(validateLead(null).ok).toBe(false);
   });
   it('drops an invalid phone without rejecting the lead', () => {
     expect(lead({ phone: '12345' }).phone).toBeNull();
-    expect(normalizePhone('00971501234567')).toBe('+971501234567');
+    expect(lead({ phone: '00971 50 123 4567' }).phone).toBe('+971501234567');
   });
 });
 

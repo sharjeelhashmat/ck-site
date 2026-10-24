@@ -14,8 +14,9 @@ name: market-data-sync
 # failure), apply still writes the ADREC update and records DLD as waiting_for_runner: not a failure, the Check step
 # passes, no email. If dld started and did not succeed, or its file does not validate, that is recorded as a failure.
 # Dubai keeps its last good data either way.
-# Any recorded failure fails the Check step, so GitHub emails the owner. No project or developer names, no raw rows, no
-# secrets or signed URLs in the logs.
+# Any recorded failure fails the Check step, so GitHub emails the owner. The Stale-data check step after it fails too when
+# the newest successful DLD write is older than 8 days (waiting_for_runner alone never alerts). No project or developer
+# names, no raw rows, no secrets or signed URLs in the logs.
 on:
   schedule:
     - cron: '7 22 * * *' # 02:07 Dubai
@@ -39,8 +40,10 @@ jobs:
     outputs:
       run: ${{ steps.gate.outputs.run }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
       - id: gate
@@ -71,16 +74,16 @@ jobs:
         run: echo started=true>>"%GITHUB_OUTPUT%"
       # No credential is left in the PC's checkout, and no npm install runs on the PC: plain Node (type stripping) runs
       # the script with no third-party code at all.
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
       # Downloads the public DLD files (about 700 MB, once a week) and writes only aggregates; no credentials in this job.
       - name: Download and aggregate DLD open data
         run: node scripts/market-sync/sync.ts dld --out market-dld.json
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: market-dld
           path: worker/market-dld.json
@@ -100,17 +103,19 @@ jobs:
         shell: bash
         working-directory: worker
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
           cache: npm
           cache-dependency-path: worker/package-lock.json
       - run: npm ci --no-audit --no-fund
-      - name: Assert wrangler 4.124.0
+      - name: Assert wrangler 4.152.0
         run: |
           v=$(npx --no-install wrangler --version | tr -d '[:space:]')
-          [ "$v" = "4.124.0" ] || { echo "expected 4.124.0, got: $v"; exit 1; }
+          [ "$v" = "4.152.0" ] || { echo "expected 4.152.0, got: $v"; exit 1; }
           echo "version ok: $v"
       # Preflight: fail closed, never print secret values.
       - name: Preflight
@@ -127,7 +132,7 @@ jobs:
           echo "preflight ok"
       # The artifact comes from the owner's PC: it is unpacked outside the checkout, and only market-dld.json is taken,
       # when it is exactly one regular file (not a symlink, nothing else beside it).
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: needs.dld.result == 'success'
         with:
           name: market-dld
@@ -160,3 +165,8 @@ jobs:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           WRANGLER_SEND_METRICS: 'false'
         run: npx --no-install wrangler d1 execute ck-leads --remote --file market-sync.sql
+      # Stale-data alert (audit item 28): fails, and so emails the owner, when the newest successful DLD write is older
+      # than 8 days, which catches a PC that stays off or a dld job that never starts. A null or unreadable
+      # /market/status is unknown, read again after 60 s; two unknown reads in a row also fail. No secrets, plain Node.
+      - name: Stale-data check
+        run: node scripts/market-sync/stale.ts

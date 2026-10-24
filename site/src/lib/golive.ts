@@ -3,6 +3,7 @@
 //
 //   agencyName          footer, About, FAQ, print header, Privacy wording, JSON-LD, launch cards  (with agencyBrn)
 //   agencyBrn           the "Working with <agency> · BRN <n>" line and JSON-LD                    (with agencyName)
+//   agencyAddress       the agency's office address, one line: JSON-LD RealEstateAgent only       (with agencyName and agencyBrn)
 //   brokerCardNo        "RERA card <n>" after that line (footer, About) and JSON-LD                (needs the agency line)
 //   advertiserPermitNo  "UAE Media Council advertiser permit <n>" in the footer, and JSON-LD
 //   abuDhabiLicensed    allows Abu Dhabi items in "Launches I'm watching" on /new-launches
@@ -13,6 +14,7 @@
 export interface GoLive {
   agencyName: string;
   agencyBrn: string;
+  agencyAddress: string;
   brokerCardNo: string;
   advertiserPermitNo: string;
   abuDhabiLicensed: boolean;
@@ -22,6 +24,7 @@ export interface GoLive {
 const COMMITTED: GoLive = {
   agencyName: '',
   agencyBrn: '',
+  agencyAddress: '',
   brokerCardNo: '',
   advertiserPermitNo: '',
   abuDhabiLicensed: false,
@@ -41,6 +44,7 @@ export const GOLIVE: Readonly<GoLive> = Object.freeze({
   ...merged,
   agencyName: merged.agencyName.trim(),
   agencyBrn: merged.agencyBrn.trim(),
+  agencyAddress: merged.agencyAddress.trim(),
   brokerCardNo: merged.brokerCardNo.trim(),
   advertiserPermitNo: merged.advertiserPermitNo.trim(),
 });

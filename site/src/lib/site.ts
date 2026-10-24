@@ -78,7 +78,3 @@ export const BLURBS: Record<string, string> = {
   sell: "Understand your property's market position before deciding what to do next.",
   abroad: 'Invest in the UAE with local guidance from selection through completion.',
 };
-
-export function slugify(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-}

@@ -7,7 +7,7 @@
 | Direct correspondence (optional alias, if the free plan allows) | `sh@sharjeelhashmat.com` | n/a | Never |
 | Lead replies | `hello@mail.sharjeelhashmat.com` ("Sharjeel Hashmat") | `hello@sharjeelhashmat.com` | Yes, approved templates only |
 | Your lead alerts | `alerts@mail.sharjeelhashmat.com` ("Lead desk") | n/a | Yes, to you only |
-| Newsletter (reserved; opt-in, Phase 2) | `brief@news.sharjeelhashmat.com` ("The Investor's Brief") | `hello@sharjeelhashmat.com` | Later |
+| Newsletter (reserved; opt-in, Phase 2) | `brief@news.sharjeelhashmat.com` ("The Compass Key Monthly") | `hello@sharjeelhashmat.com` | Later |
 | Billing / finance | none. Finance email stays manual. | n/a | No |
 
 Rules: root domain = human mail only. Automated senders must be on a subdomain (the Worker refuses otherwise).

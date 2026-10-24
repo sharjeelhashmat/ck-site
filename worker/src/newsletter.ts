@@ -1,5 +1,5 @@
 import { isSubdomainSender, outboundBlockers, type Config } from './config';
-import { isDisposable } from './firewall';
+import { isDisposable, isValidEmail } from './firewall';
 import type { OutboundMessage } from './pipeline';
 import { isApproved, renderTemplate, templateHash, type Template } from './templates';
 import { newsletterToken } from './unsub';
@@ -22,7 +22,7 @@ export function validateSubscribe(raw: unknown): { ok: true; input: SubscribeInp
   // Honeypot: same field name as the enquiry form.
   if (typeof r.company_website === 'string' && r.company_website.trim() !== '') return { ok: false, field: 'company_website' };
   const email = typeof r.email === 'string' ? r.email.trim().toLowerCase() : '';
-  if (email.length > 254 || /[\r\n\s]/.test(email) || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return { ok: false, field: 'email' };
+  if (!isValidEmail(email)) return { ok: false, field: 'email' };
   if (isDisposable(email)) return { ok: false, field: 'email' };
   const source = typeof r.source === 'string' && SOURCES.test(r.source) ? r.source : null;
   return { ok: true, input: { email, source } };

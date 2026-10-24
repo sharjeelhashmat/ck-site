@@ -1,4 +1,4 @@
-# "Where I operate" component — findings
+# "Where I operate" component: findings
 
 Work order: remove the "Where I operate" card (Downtown Dubai, Dubai Hills, Dubai Islands, Palm Jebel Ali,
 Dubai Marina, Dubai Creek Harbour, Palm Jumeirah, Dubai Maritime City) because it reads as a fixed, limited

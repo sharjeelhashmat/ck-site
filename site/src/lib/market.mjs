@@ -21,12 +21,12 @@ export function parsePeriod(id) {
   return m ? { year: Number(m[1]), span: m[2] } : null;
 }
 
-/** "2026-H1" -> "Jan–Jun 2026"; "2026-Q3" -> "Jul–Sep 2026". @param {string} id */
+/** "2026-H1" -> "Jan to Jun 2026"; "2026-Q3" -> "Jul to Sep 2026". @param {string} id */
 export function periodLabel(id) {
   const p = parsePeriod(id);
   if (!p) throw new Error(`bad period ${id}`);
   const [a, b] = SPANS[p.span];
-  return `${MONTHS[a - 1]}–${MONTHS[b - 1]} ${p.year}`;
+  return `${MONTHS[a - 1]} to ${MONTHS[b - 1]} ${p.year}`;
 }
 
 /** The same span one year earlier. @param {string} id */
@@ -117,7 +117,7 @@ export function renderYtd(emirate, ytd) {
     [ytd.mortgages_bn, `mortgages, ${year} to date`],
   ];
   const source = emirate === 'dubai'
-    ? `Source: Dubai Land Department, <a href="${SOURCES.dubaiTx.url}" target="_blank" rel="noopener">Real Estate Transactions open data</a> via Data.Dubai (Open Data Licence), 1 Jan – ${esc(fmtDate(ytd.as_of))}.`
+    ? `Source: Dubai Land Department, <a href="${SOURCES.dubaiTx.url}" target="_blank" rel="noopener">Real Estate Transactions open data</a> via Data.Dubai (Open Data Licence), 1 Jan to ${esc(fmtDate(ytd.as_of))}.`
     : `Source: <a href="${SOURCES.adrec.url}" target="_blank" rel="noopener">Abu Dhabi Real Estate Centre (ADREC)</a>, published year-to-date figures, as of ${esc(fmtDate(ytd.as_of))}.`;
   return `<section class="mk-block" aria-labelledby="mk-ytd-${emirate}">
 <h2 id="mk-ytd-${emirate}" class="mk-h2">${esc(year)} so far · ${EMIRATES[emirate]}</h2>
@@ -242,7 +242,8 @@ const daysBetween = (a, b) => Math.round((Date.parse(`${b}T00:00:00Z`) - Date.pa
 export function renderLaunchDubai(d, today = todayIso()) {
   if (!d || !fmtMonth(d.as_of) || !(daysBetween(d.as_of, today) <= LAUNCH_MAX_AGE_DAYS)) return '';
   const lines = [];
-  if (d.new_projects_90d > 0) lines.push(`<p class="mk-lead">${plural(d.new_projects_90d, 'new project', 'new projects')} registered in the last 90 days</p>`);
+  // The 90 days end at the data's date, so the label names that month (owner-approved copy 2026-10-18, audit item 33).
+  if (d.new_projects_90d > 0) lines.push(`<p class="mk-lead">${plural(d.new_projects_90d, 'new project', 'new projects')} registered in the 90 days to ${esc(fmtMonth(d.as_of))}</p>`);
   const top = (d.top_areas_90d ?? []).filter((a) => a.count > 0).slice(0, 5);
   if (top.length) {
     lines.push(`<p class="mk-sub">Top areas</p><ol class="mk-list">${top.map((a) => `<li><span>${esc(a.area_en)}${a.label ? ` <span class="mk-label">${esc(a.label)}</span>` : ''}</span><span class="mk-num">${int(a.count)}</span></li>`).join('')}</ol>`);
@@ -313,11 +314,17 @@ export function checkAdrecAreas(f, guideSlugs) {
  * and the agency name and BRN; Abu Dhabi items are refused until GOLIVE.abuDhabiLicensed.
  * @param {any} items @param {{abuDhabiLicensed: boolean}} golive
  */
+export const PERMIT_QR_RE = /^\/permits\/[a-z0-9][a-z0-9_-]{0,80}\.(png|svg)$/;
+
 export function checkLaunchReviews(items, golive) {
   if (!Array.isArray(items)) return ['launch-reviews.json must be a list'];
   const e = [];
   items.forEach((it, i) => {
     for (const k of ['permit_number', 'permit_qr', 'agency_name', 'agency_brn']) if (typeof it?.[k] !== 'string' || !it[k].trim()) e.push(`item ${i + 1}: ${k} is required`);
+    // The permit QR is a file in site/public/permits/ (audit item 19): never a remote image another host could change.
+    if (typeof it?.permit_qr === 'string' && it.permit_qr.trim() && !PERMIT_QR_RE.test(it.permit_qr)) {
+      e.push(`item ${i + 1}: permit_qr must be a self-hosted /permits/<name>.png or .svg path`);
+    }
     if (it?.emirate !== 'dubai' && it?.emirate !== 'abu_dhabi') e.push(`item ${i + 1}: emirate must be dubai or abu_dhabi`);
     if (it?.emirate === 'abu_dhabi' && !golive.abuDhabiLicensed) e.push(`item ${i + 1}: Abu Dhabi items are refused while GOLIVE.abuDhabiLicensed is false`);
   });

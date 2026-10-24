@@ -30,18 +30,27 @@ export interface Period {
 const SPANS: Record<string, [number, number]> = { H1: [1, 6], H2: [7, 12], Q1: [1, 3], Q2: [4, 6], Q3: [7, 9], Q4: [10, 12] };
 const pad = (n: number) => String(n).padStart(2, '0');
 
+/** Request periods are limited to the years 2000 to 2100 (audit item 9); anything else is not a period. */
+export const PERIOD_YEARS = { min: 2000, max: 2100 } as const;
+
+function periodOf(year: number, span: string): Period {
+  const [a, b] = SPANS[span]!;
+  const lastDay = new Date(Date.UTC(year, b, 0)).getUTCDate();
+  return { id: `${year}-${span}`, firstMonth: `${year}-${pad(a)}`, lastMonth: `${year}-${pad(b)}`, endDate: `${year}-${pad(b)}-${pad(lastDay)}` };
+}
+
 export function parsePeriod(id: string | null): Period | null {
   const m = /^(\d{4})-(H1|H2|Q1|Q2|Q3|Q4)$/.exec(id ?? '');
   if (!m) return null;
   const year = Number(m[1]);
-  const [a, b] = SPANS[m[2]!]!;
-  const lastDay = new Date(Date.UTC(year, b, 0)).getUTCDate();
-  return { id: m[0], firstMonth: `${year}-${pad(a)}`, lastMonth: `${year}-${pad(b)}`, endDate: `${year}-${pad(b)}-${pad(lastDay)}` };
+  if (year < PERIOD_YEARS.min || year > PERIOD_YEARS.max) return null;
+  return periodOf(year, m[2]!);
 }
 
+// The same span a year earlier (the comparison period); not range-checked, so 2000-H1 still has a 1999-H1 to compare with.
 export function priorPeriod(p: Period): Period {
   const [y, span] = p.id.split('-') as [string, string];
-  return parsePeriod(`${Number(y) - 1}-${span}`)!;
+  return periodOf(Number(y) - 1, span);
 }
 
 // ---- Pure computation (unit-tested in Node) -----------------------------------------------------------------------

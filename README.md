@@ -8,7 +8,7 @@ Personal real estate brand site and lead engine for Sharjeel Hashmat, Real Estat
 |---|---|
 | `site/` static Astro site | Built and tested. Staging live on Cloudflare Workers at `ck-site-web.sharjeelhashmat.workers.dev` (noindex). |
 | `worker/` lead API (`ck-lead-worker`) | Live on Cloudflare (D1 `ck-leads`, KV `ck-kv`, email via Resend). Routes `POST /lead` and `POST /profile`. `OUTBOUND` gate still controls sending. |
-| Public launch | **Blocked only by the BRN.** The public build refuses `PUBLIC_INDEXABLE=true` without `PUBLIC_BRN`. |
+| Public launch | **Blocked by the go-live values.** The public build refuses `PUBLIC_INDEXABLE=true` until `site/src/lib/golive.ts` has indexing, the agency name, its BRN and the advertiser permit. |
 | Old site (Next.js on Vercel) | In maintenance mode until cutover. |
 | Real end-to-end enquiry test | Not done. Turnstile and the Worker CORS only allow the real domains, so it happens right after cutover. |
 
@@ -53,12 +53,12 @@ Workers Free: 100,000 requests/day, 10 ms CPU per invocation (I/O wait not count
 
 1. Worker secrets in the Cloudflare dashboard: `TURNSTILE_SECRET`, `RESEND_API_KEY`, `UNSUB_SECRET` (32+ random bytes), `ALERT_EMAIL`, optional `SCORING_JSON`. Repo secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`.
 2. Staging: Actions > deploy-site > Run workflow with `public` off. The `production` environment approval is the publishing gate.
-3. Public: set repo variable `BRN`, run deploy-site with `public` on, approve `production`.
+3. Public: fill in `site/src/lib/golive.ts` (merged through a PR), then run deploy-site with `public` on and approve `production`: one dispatch.
 4. Cutover: custom domains on Worker `ck-site-web`, Turnstile widget hostnames (`sharjeelhashmat.com`, `www.sharjeelhashmat.com`), submit `sitemap-index.xml` in Search Console, turn on branch protection on `phase2-site`, the branch every deploy runs from (require PR, require the four CI checks, require Code Owner review), decide the legacy Firestore leads.
 5. Verify: a real enquiry and a real investor profile end to end, then check the D1 rows. Then take the old Vercel site out of maintenance.
 6. Before every rebuild run `npm run freshness` in `site/` and re-check undated DLD fee pages.
 
-Kill switches: repository variable `AUTONOMY=off` stops maintenance workflows; Worker variable `OUTBOUND=off` stops all outbound messages.
+Kill switches: to stop the weekly sync, Actions > market-data-sync > Disable workflow; Worker variable `OUTBOUND=off` stops all outbound messages.
 
 ## Data retention and erasure
 
@@ -70,9 +70,12 @@ The Worker's daily cron (`17 1 * * *`, `worker/src/retention.ts`) applies this i
 | All other leads | 24 months (730 days) after `created_at` |
 | Investor profiles | Deleted once their lead no longer exists |
 | Events (log rows) | 12 months |
+| Message log (`messages`: one row per email sent) | 24 months (730 days) after `created_at` |
 | Newsletter subscribers, active | While subscribed |
 | Unsubscribe feedback text (`unsubscribe_reason_detail`) | 180 days after the feedback |
 | Newsletter subscribers, unsubscribed | 24 months; then the address is replaced by its SHA-256 hash (so the opt-out still holds) and the other personal fields are cleared |
+
+Restore and rollback drills (owner runs them): `docs/runbooks/d1-restore-drill.md` and `docs/runbooks/rollback-drill.md`.
 
 Erasure request for one person:
 1. In `worker/`: `node scripts/erase-person.mjs person@example.com > erase.sql`. The script only prints SQL; it never connects to D1. It refuses anything that is not a plain address.

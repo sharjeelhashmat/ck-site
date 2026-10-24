@@ -18,6 +18,9 @@
 // read-only permissions and one output (started, set by a fixed first step before checkout); "apply" may use
 // "<ref guard> && always() && <gate open>" (R4, R12).
 //
+// Uptime monitor (audit item 31, Coordinator 2026-10-18): uptime.yml may run on one fixed cron (every 30 minutes) plus
+// workflow_dispatch, on GitHub-hosted runners only, and must not reference secrets or use an environment (R2, R3, R12).
+//
 // Rules (see RULES below). R0 covers scope (.github/actions/, workflow files outside .github/workflows/) and YAML
 // parsing (any parse error or warning, alias explosion). Rules for deploy/deploy-site/rollback key off the file name
 // stem, case-insensitive, so deploy.yaml and Deploy.yml get the same rules as deploy.yml.
@@ -35,7 +38,7 @@ const REPO = process.env.GUARD_ROOT ? path.resolve(process.env.GUARD_ROOT) : pat
 export const RULES = {
   R0: 'scope + YAML parse',
   R1: 'deploy/rollback triggers = {workflow_dispatch}',
-  R2: 'triggers: per-workflow allow-list; ci.yml triggers',
+  R2: 'triggers: per-workflow allow-list; ci.yml, market-data-sync.yml and uptime.yml triggers',
   R3: 'secret placement',
   R4: 'production environment + ref guard',
   R5: 'permissions',
@@ -65,6 +68,7 @@ const EVENT_ALLOW = {
   deploy: ['workflow_dispatch'],
   'deploy-site': ['workflow_dispatch'],
   rollback: ['workflow_dispatch'],
+  uptime: ['schedule', 'workflow_dispatch'],
 };
 const DEFAULT_EVENTS = ['pull_request', 'push', 'workflow_dispatch'];
 // GitHub-hosted runner labels. Any other label (a custom label, self-hosted, a larger-runner group name) counts as a
@@ -77,6 +81,8 @@ const ACTION_RE = /^actions\/[A-Za-z0-9._-]+@[0-9a-f]{40}$/;
 const MARKET_SYNC = 'market-data-sync';
 const MARKET_SYNC_CRONS = ['7 22 * * *', '7 10 * * *'];
 const MARKET_SYNC_ENV = 'market-data';
+const UPTIME = 'uptime';
+const UPTIME_CRONS = ['*/30 * * * *'];
 const MARKET_SYNC_D1 = 'npx --no-install wrangler d1 execute ck-leads --remote --file market-sync.sql';
 const MARKET_SYNC_VERSION_RE = /(^|[\s(=])npx --no-install wrangler --version$/;
 const WRANGLER_CMD_RE = /(^|[^\w.\-])wrangler(?=\s|$|[;&|)<>])/i;
@@ -214,6 +220,18 @@ export function analyse(fileName, src) {
       add('R2', null, 'market-data-sync workflow_dispatch must have no inputs', [trigKey, 'workflow_dispatch']);
     }
   }
+  if (stem === UPTIME) {
+    if (!same([...new Set(events)].sort(), ['schedule', 'workflow_dispatch'])) {
+      add('R2', null, `uptime triggers must be exactly {schedule, workflow_dispatch}; found {${events.join(', ')}}`, [trigKey]);
+    }
+    if (!isObj(on) || !same(on.schedule, UPTIME_CRONS.map((cron) => ({ cron })))) {
+      add('R2', null, `uptime schedule must be exactly ${UPTIME_CRONS.map((c) => `[cron: '${c}']`).join(', ')}`, [trigKey, 'schedule']);
+    }
+    const wd = isObj(on) ? on.workflow_dispatch : undefined;
+    if (!(wd === null || wd === undefined || (isObj(wd) && !Object.keys(wd).length))) {
+      add('R2', null, 'uptime workflow_dispatch must have no inputs', [trigKey, 'workflow_dispatch']);
+    }
+  }
   if (stem === 'ci') {
     if (!same([...new Set(events)].sort(), ['pull_request', 'push'])) {
       add('R2', null, `ci triggers must be exactly {pull_request, push}; found {${events.join(', ')}}`, [trigKey]);
@@ -265,6 +283,9 @@ export function analyse(fileName, src) {
     if ('secrets' in job) add('R3', id, `job-level secrets is forbidden: ${JSON.stringify(job.secrets)}`, J('secrets'));
     // R6 (job level)
     if ('uses' in job && !ACTION_RE.test(String(job.uses))) add('R6', id, `uses not allowed: ${job.uses}`, J('uses'));
+    // R3 (uptime): a public check needs no credentials at all.
+    if (stem === UPTIME && containsSecret(job)) add('R3', id, 'uptime.yml must not reference secrets', J());
+    if (stem === UPTIME && 'environment' in job) add('R3', id, 'uptime.yml must not use an environment', J('environment'));
 
     // R4
     const hasSecret = containsSecret(job);

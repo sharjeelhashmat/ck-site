@@ -5,3 +5,5 @@ node_modules/
 market-sync.sql
 market-sync.state.json
 market-dld.json
+# D1 exports hold personal data (docs/runbooks/d1-restore-drill.md): never commit one.
+backup*.sql

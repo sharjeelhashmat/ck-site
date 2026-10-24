@@ -7,11 +7,11 @@ const o = PROFILE_OPTIONS;
 // Added after the eight named areas (owner-approved 2026-10-10). Values match the Worker's AREA_EXTRAS.
 const AREA_EXTRAS = [
   { value: 'other', label: 'Elsewhere in the UAE' },
-  { value: 'advice', label: 'Not sure yet – I’d like your advice' },
+  { value: 'advice', label: 'Not sure yet, I’d like your advice' },
 ];
 const wa = waLink("Hi Sharjeel, I'd like to discuss what would suit me.");
 ---
-<Base title="Investor profile" description="An optional short profile so I can match properties to you." noindex>
+<Base title="Investor profile" description="An optional short profile (objective, property type, risk, holding period and areas) so I can match properties to you." noindex>
   <section class="section">
     <div class="narrow">
       <p class="eyebrow">Optional · one minute</p>
@@ -74,7 +74,8 @@ const wa = waLink("Hi Sharjeel, I'd like to discuss what would suit me.");
         </div>
         <span class="status" id="profile-status" role="status" aria-live="polite"></span>
         <div class="profile-alert" id="profile-alert" role="alert"></div>
-        <template id="profile-alert-tpl"><p>Your profile could not be saved. Your enquiry has still been received, and I will reply within 24 hours. <a href={wa} target="_blank" rel="noopener">Message me on WhatsApp</a></p></template>
+        {/* Hidden element, not a <template> (audit item 36: the built <template> leaked an unclosed link after it). */}
+        <div id="profile-alert-tpl" hidden><p>Your profile could not be saved. Your enquiry has still been received, and I will reply within 24 hours. <a href={wa} target="_blank" rel="noopener">Message me on WhatsApp</a></p></div>
         <p class="profile-privacy">Your answers are stored with your enquiry and used only to tailor my recommendation to you. See how your data is handled in the <a href="/privacy">Privacy Policy</a>.</p>
       </form>
     </div>
@@ -108,7 +109,7 @@ const wa = waLink("Hi Sharjeel, I'd like to discuss what would suit me.");
     const status = document.getElementById('profile-status')!;
     const btn = document.getElementById('profile-submit') as HTMLButtonElement;
     const alertBox = document.getElementById('profile-alert')!;
-    const alertTpl = document.getElementById('profile-alert-tpl') as HTMLTemplateElement;
+    const alertTpl = document.getElementById('profile-alert-tpl')!;
     const otherBox = form.querySelector<HTMLInputElement>('input[name="areas"][value="other"]')!;
     const otherWrap = document.getElementById('p-other-wrap')!;
     const otherInput = document.getElementById('p-other') as HTMLInputElement;
@@ -185,7 +186,7 @@ const wa = waLink("Hi Sharjeel, I'd like to discuss what would suit me.");
       }
       // The visitor's answers stay; they can correct and send again.
       if (outcome.kind === 'other_area') { otherProblem(); say('Please answer the highlighted questions.', false); }
-      else alertBox.replaceChildren(alertTpl.content.cloneNode(true));
+      else alertBox.replaceChildren(...[...alertTpl.cloneNode(true).childNodes]);
       if (outcome.enableSend) { btn.disabled = false; btn.textContent = sendLabel; }
     });
   }

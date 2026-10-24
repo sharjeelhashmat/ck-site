@@ -88,7 +88,7 @@ test('profile form: the eight areas, then "Elsewhere in the UAE" (other) and "No
   const values = [...h.matchAll(/<input type="checkbox" name="areas" value="([^"]+)"/g)].map((m) => m[1]);
   assert.deepEqual(values, ['downtown-dubai', 'dubai-marina', 'dubai-hills', 'dubai-creek-harbour', 'dubai-islands', 'palm-jumeirah', 'palm-jebel-ali', 'dubai-maritime-city', 'other', 'advice']);
   assert.match(h, /value="other" aria-controls="p-other-wrap"[^>]*><span>Elsewhere in the UAE<\/span>/);
-  assert.match(h, /value="advice"[^>]*><span>Not sure yet – I’d like your advice<\/span>/);
+  assert.match(h, /value="advice"[^>]*><span>Not sure yet, I’d like your advice<\/span>/);
   // When the Worker carries the extra values (PR "staging investor profiles; Other area"), the two lists must agree.
   const w = existsSync(join(root, '../worker/src/profile.ts')) ? read('../worker/src/profile.ts') : '';
   const extras = w.match(/AREA_EXTRAS\s*=\s*\[([^\]]*)\]/);
@@ -132,7 +132,7 @@ test('profile feedback: each answer maps to exactly one visible outcome; failure
   const hang = (_u, init) => new Promise((_, rej) => init.signal.addEventListener('abort', () => rej(new DOMException('aborted', 'AbortError'))));
   assert.equal((await sendProfile('u', {}, { fetchImpl: hang, timeoutMs: 50 })).kind, 'failure');
   assert.equal(TIMEOUT_MS, 15000);
-  const tpl = page().match(/<template id="profile-alert-tpl">([\s\S]*?)<\/template>/)?.[1] ?? '';
+  const tpl = page().match(/<div id="profile-alert-tpl" hidden>([\s\S]*?)<\/div>/)?.[1] ?? '';
   assert.ok(tpl.replace(/<[^>]+>/g, '').startsWith(MESSAGES.failure), 'failure panel text');
   assert.match(tpl, /<a href="https:\/\/wa\.me\/[^"]+" target="_blank" rel="noopener">Message me on WhatsApp<\/a>/);
   assert.match(page(), /<div class="profile-alert" id="profile-alert" role="alert"><\/div>/);

@@ -22,6 +22,7 @@ jobs:
   verify:
     if: github.ref == 'refs/heads/phase2-site'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     defaults:
       run:
         shell: bash
@@ -39,8 +40,10 @@ jobs:
             exit 1
           fi
           echo "confirm_target ok: ck-lead-worker"
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
           cache: npm
@@ -63,6 +66,7 @@ jobs:
     needs: verify
     if: github.ref == 'refs/heads/phase2-site' && inputs.confirm_target == 'ck-lead-worker'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     environment: production
     defaults:
       run:
@@ -73,19 +77,20 @@ jobs:
       REASON: ${{ inputs.reason }}
     steps:
       # a. Toolchain
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
           cache: npm
           cache-dependency-path: worker/package-lock.json
       - run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Assert wrangler 4.124.0
+      - name: Assert wrangler 4.152.0
         run: |
           v=$(npx --no-install wrangler --version | tr -d '[:space:]')
-          [ "$v" = "4.124.0" ] || { echo "expected wrangler 4.124.0, got: $v"; exit 1; }
+          [ "$v" = "4.152.0" ] || { echo "expected wrangler 4.152.0, got: $v"; exit 1; }
           echo "wrangler $v"
 
       # b. Preflight: fail closed, never print secret values.

@@ -1,7 +1,9 @@
 // Investor profile form outcomes (owner-approved 2026-10-10), same pattern as lead-submit.mjs: every submit ends in
 // exactly one visible answer. Pure logic, tested in Node; investor-profile.astro only applies it to the page.
 
-export const TIMEOUT_MS = 15000;
+import { postJson, TIMEOUT_MS } from './post-json.mjs';
+
+export { TIMEOUT_MS };
 export const OTHER_AREA_MAX = 80;
 
 /**
@@ -52,18 +54,9 @@ export function failure() {
  * @param {{ fetchImpl?: typeof fetch; timeoutMs?: number }} [opts]
  * @returns {Promise<Outcome>}
  */
-export async function sendProfile(url, payload, { fetchImpl = (...a) => fetch(...a), timeoutMs = TIMEOUT_MS } = {}) {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const res = await fetchImpl(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload), signal: ctrl.signal });
-    const body = await res.json().catch(() => ({}));
-    return outcomeFor(res.status, body);
-  } catch {
-    return failure();
-  } finally {
-    clearTimeout(timer);
-  }
+export async function sendProfile(url, payload, opts = {}) {
+  const r = await postJson(url, payload, opts);
+  return r ? outcomeFor(r.status, r.body) : failure();
 }
 
 /** The four required questions, in page order. */

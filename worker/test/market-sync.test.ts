@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import { buildArtifact, validateArtifact } from '../scripts/market-sync/artifact';
 import { badRowsProblem, CsvParser, DLD_TX_COLUMNS, DldProjectsAggregator, DldTxAggregator, isoDate, parseAdrec, parseCsv, safeUrl } from '../scripts/market-sync/dld';
 import { buildSql, checkSql } from '../scripts/market-sync/sql';
-import { readDld, runApply, runDld, type Ctx } from '../scripts/market-sync/sync';
+import { assertDownloadUrl, DLD_DOWNLOAD_TIMEOUT_MS, readDld, runApply, runDld, streamRecords, type Ctx } from '../scripts/market-sync/sync';
 import { csvLine, fixtureLines, HEADER, row } from './market-fixture';
 
 const TODAY = '2026-10-16';
@@ -532,5 +532,39 @@ describe('market_cache in the sync import (B1)', () => {
     expect(code).toBe(2);
     expect(err).toMatch(/^usage: sync\.ts dld/m);
     expect(err).not.toMatch(/ERR_|SyntaxError|Cannot find/);
+  });
+});
+
+describe('DLD download guard (audit item 8)', () => {
+  const ctxWith = (fetchImpl: typeof fetch): Ctx => ({ fetch: fetchImpl, log: () => {}, now: () => NOW, uuid });
+
+  it('https and the allow-listed CDN host only; the error names the host, never the signed query', () => {
+    expect(() => assertDownloadUrl('https://cdn.data.dubai/files/a.csv?X-Amz-Signature=S')).not.toThrow();
+    expect(() => assertDownloadUrl('http://cdn.data.dubai/files/a.csv')).toThrow(/not https/);
+    expect(() => assertDownloadUrl('https://evil.example/files/a.csv?X-Amz-Signature=S')).toThrow(/host evil\.example is not allowed/);
+    expect(() => assertDownloadUrl('https://cdn.data.dubai.evil.example/a.csv')).toThrow(/not allowed/);
+    try { assertDownloadUrl('https://evil.example/a.csv?X-Amz-Signature=SECRET'); } catch (e) { expect(String(e)).not.toContain('SECRET'); }
+  });
+
+  it('a disallowed host is refused before any request; a redirect off the allow-list is refused too', async () => {
+    let calls = 0;
+    await expect(streamRecords(ctxWith(async () => { calls++; return new Response('a\n'); }), 'https://evil.example/a.csv', () => {})).rejects.toThrow(/not allowed/);
+    expect(calls).toBe(0);
+    const redirected = async () => { const r = new Response('a\n'); Object.defineProperty(r, 'url', { value: 'https://evil.example/a.csv' }); return r; };
+    await expect(streamRecords(ctxWith(redirected), 'https://cdn.data.dubai/a.csv', () => {})).rejects.toThrow(/host evil\.example/);
+  });
+
+  it('passes a 15-minute timeout signal and aborts above the byte limit (declared or streamed)', async () => {
+    let signal: AbortSignal | undefined;
+    const ok = async (_u: unknown, init?: RequestInit) => { signal = init?.signal ?? undefined; return new Response('h\n1\n'); };
+    const rows: unknown[] = [];
+    await streamRecords(ctxWith(ok as typeof fetch), 'https://cdn.data.dubai/a.csv', (r) => rows.push(r));
+    expect(signal).toBeInstanceOf(AbortSignal);
+    expect(DLD_DOWNLOAD_TIMEOUT_MS).toBe(15 * 60_000);
+    expect(rows).toHaveLength(2);
+    const declared = async () => new Response('x', { headers: { 'content-length': '100' } });
+    await expect(streamRecords(ctxWith(declared), 'https://cdn.data.dubai/a.csv', () => {}, 10)).rejects.toThrow(/over the 10 byte limit/);
+    const streamed = async () => new Response(new ReadableStream({ start(c) { for (let i = 0; i < 4; i++) c.enqueue(new TextEncoder().encode('abcd\n')); c.close(); } }));
+    await expect(streamRecords(ctxWith(streamed), 'https://cdn.data.dubai/a.csv', () => {}, 10)).rejects.toThrow(/aborted/);
   });
 });

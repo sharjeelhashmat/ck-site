@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       public:
-        description: 'Build the PUBLIC (indexable) site. Requires repo variable BRN. Leave false for a noindex staging build.'
+        description: 'Build the PUBLIC (indexable) site. Needs the go-live values in site/src/lib/golive.ts (the build refuses without them). Leave false for a noindex staging build.'
         type: boolean
         default: false
       reason:
@@ -27,13 +27,13 @@ jobs:
   build:
     if: github.ref == 'refs/heads/phase2-site'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     defaults:
       run:
         shell: bash
         working-directory: site
     env:
       PUBLIC_INDEXABLE: ${{ inputs.public && 'true' || 'false' }}
-      PUBLIC_BRN: ${{ vars.BRN }}
       PUBLIC_CF_ANALYTICS_TOKEN: ${{ vars.CF_ANALYTICS_TOKEN }} # optional; unset = no analytics tag
     steps:
       # Fail loudly on a mistyped target: otherwise the deploy job is only skipped and the run does not show as failed.
@@ -48,8 +48,10 @@ jobs:
             exit 1
           fi
           echo "confirm_target ok: ck-site-web"
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
           cache: npm
@@ -62,8 +64,8 @@ jobs:
           test -f wrangler.jsonc
       - run: npm ci --no-audit --no-fund
       - run: npm run build        # astro check + astro build + CSP/_headers generation
-      - run: npm test             # URL map, Worker contract, CSP, BRN gate
-      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+      - run: npm test             # URL map, Worker contract, CSP, go-live gate
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: site-dist
           path: site/dist
@@ -73,6 +75,7 @@ jobs:
     needs: build
     if: github.ref == 'refs/heads/phase2-site' && inputs.confirm_target == 'ck-site-web'
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     environment: production
     defaults:
       run:
@@ -84,14 +87,15 @@ jobs:
       PUBLIC: ${{ inputs.public }}
     steps:
       # a. Toolchain and the artifact built by the build job.
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: site-dist
           path: site/dist
-      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .node-version
           cache: npm
@@ -103,10 +107,10 @@ jobs:
           test -f package-lock.json
           test -f wrangler.jsonc
       - run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Assert wrangler 4.124.0
+      - name: Assert wrangler 4.152.0
         run: |
           v=$(npx --no-install wrangler --version | tr -d '[:space:]')
-          [ "$v" = "4.124.0" ] || { echo "expected wrangler 4.124.0, got: $v"; exit 1; }
+          [ "$v" = "4.152.0" ] || { echo "expected wrangler 4.152.0, got: $v"; exit 1; }
           echo "wrangler $v"
 
       # b. Preflight: fail closed, never print secret values.
@@ -205,13 +209,22 @@ jobs:
             printf '%s\t%s\t%s\t%s\n' "GET $1" "$code" "title contains Sharjeel Hashmat: $([[ "$title" == *"Sharjeel Hashmat"* ]] && echo yes || echo no)" "$ok" >> "$out"
             [ "$ok" = PASS ]
           }
+          # robots.txt never blocks the whole site (crawlers must be able to read the noindex). A public build advertises the
+          # sitemap; a staging build has no sitemap and sends X-Robots-Tag: noindex on every path (audit item 22).
           robots() {
-            local ok=PASS block=no
+            local ok=PASS block=no sitemap=no xrobots=no
             fetch /robots.txt
             if tr -d '\r' < "$b" | grep -qx 'Disallow:[[:space:]]*/'; then block=yes; fi
+            if tr -d '\r' < "$b" | grep -q '^Sitemap: '; then sitemap=yes; fi
             [ "$code" = 200 ] || ok=FAIL
-            if [ "$PUBLIC" = true ]; then [ "$block" = no ] || ok=FAIL; else [ "$block" = yes ] || ok=FAIL; fi
-            printf '%s\t%s\t%s\t%s\n' "GET /robots.txt" "$code" "public=$PUBLIC, full-site Disallow: $block" "$ok" >> "$out"
+            [ "$block" = no ] || ok=FAIL
+            if curl -sS -o /dev/null -D - --max-time 10 "$SITE_URL/" | tr -d '\r' | grep -qi '^x-robots-tag:.*noindex'; then xrobots=yes; fi
+            if [ "$PUBLIC" = true ]; then
+              { [ "$sitemap" = yes ] && [ "$xrobots" = no ]; } || ok=FAIL
+            else
+              { [ "$sitemap" = no ] && [ "$xrobots" = yes ]; } || ok=FAIL
+            fi
+            printf '%s\t%s\t%s\t%s\n' "GET /robots.txt" "$code" "public=$PUBLIC, full-site Disallow: $block, Sitemap: $sitemap, X-Robots-Tag noindex: $xrobots" "$ok" >> "$out"
             [ "$ok" = PASS ]
           }
           for i in 1 2 3 4 5 6; do

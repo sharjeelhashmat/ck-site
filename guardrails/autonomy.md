@@ -19,9 +19,10 @@ permission settings, permanent deletion of data, and editing this folder, `.gith
 lane routing, scoring policy, or the outbound code (see CODEOWNERS).
 
 ## Kill switches
-- `AUTONOMY=off` (repository variable): every maintenance workflow checks it and stops.
+- To stop the weekly market-data sync: Actions > market-data-sync > Disable workflow (Enable workflow turns it back on).
+  There is no `AUTONOMY` variable: no workflow reads one (audit item 13, Coordinator decision 2026-10-18).
 - `OUTBOUND=off` (Worker variable): no message is sent to any lead. Default is off.
-Both can be flipped from a phone.
+Both can be done from a phone (GitHub app or github.com; Cloudflare dashboard).
 
 ## Failure policy
 Safe failures retry once, then alert. Dangerous failures stop and alert. Nothing retries indefinitely.

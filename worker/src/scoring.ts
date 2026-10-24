@@ -2,7 +2,7 @@ import type { BudgetBand, Funding, Intent, Lead, SourceType, Timeline } from './
 import { isDisposable } from './firewall';
 
 // Policy file. Default weights; production weights are supplied via the SCORING_JSON secret.
-// Intake maximum is 90. The remaining 10 points are earned after intake (reply, click).
+// Intake maximum is 90 (post-intake engagement points are not implemented).
 
 export interface ScoringWeights {
   contact: { email: number; nonDisposable: number; phone: number; name: number };
@@ -52,16 +52,4 @@ export function scoreLead(lead: Lead, w: ScoringWeights = DEFAULT_WEIGHTS): { sc
   };
   const score = Math.max(0, Math.min(100, Object.values(parts).reduce((a, b) => a + b, 0)));
   return { score, parts };
-}
-
-export function engagementBonus(replies: number, clicks: number): number {
-  return Math.min(10, Math.max(0, replies) * 5 + Math.max(0, clicks) * 2);
-}
-
-export function band(score: number): 'junk' | 'cold' | 'potential' | 'qualified' | 'priority' {
-  if (score >= 81) return 'priority';
-  if (score >= 61) return 'qualified';
-  if (score >= 41) return 'potential';
-  if (score >= 21) return 'cold';
-  return 'junk';
 }

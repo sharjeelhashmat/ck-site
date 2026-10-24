@@ -16,11 +16,11 @@ async function lead(id: string, status: string, createdAt: string) {
 }
 
 beforeEach(async () => {
-  for (const t of ['leads', 'investor_profiles', 'events', 'newsletter_subscribers']) await cf.DB.exec(`DELETE FROM ${t}`);
+  for (const t of ['leads', 'investor_profiles', 'events', 'messages', 'newsletter_subscribers']) await cf.DB.exec(`DELETE FROM ${t}`);
 });
 
 describe('retention (B4)', () => {
-  it('SPAM/TEST/DUPLICATE after 30 days, other leads after 730 days, orphan profiles, events after 365 days', async () => {
+  it('SPAM/TEST/DUPLICATE after 30 days, other leads after 730 days, orphan profiles, events after 365 days, messages after 730 days', async () => {
     await lead('spam-old', 'SPAM', daysAgo(30, 1));
     await lead('test-old', 'TEST', daysAgo(31));
     await lead('dup-old', 'DUPLICATE', daysAgo(40));
@@ -35,11 +35,15 @@ describe('retention (B4)', () => {
     for (const [id, at] of [['e-old', daysAgo(365, 1)], ['e-new', daysAgo(364)]] as const) {
       await cf.DB.prepare("INSERT INTO events (id, created_at, type) VALUES (?1, ?2, 'lead_received')").bind(id, at).run();
     }
+    for (const [id, at] of [['m-old', daysAgo(730, 1)], ['m-new', daysAgo(729)]] as const) {
+      await cf.DB.prepare("INSERT INTO messages (id, lead_id, created_at, template_id, template_hash, provider_id, outcome) VALUES (?1, 'valid-30', ?2, 'ACK-COLD', 'h', 'p', 'sent')").bind(id, at).run();
+    }
     const r = await runRetention(cf.DB, NOW);
     expect(await ids('SELECT id FROM leads ORDER BY id')).toEqual(['spam-new', 'susp-729', 'valid-30']);
+    expect(await ids('SELECT id FROM messages')).toEqual(['m-new']);
     expect(await ids('SELECT lead_id AS id FROM investor_profiles')).toEqual(['valid-30']);
     expect(await ids('SELECT id FROM events')).toEqual(['e-new']);
-    expect(r).toMatchObject({ leads_quarantined: 3, leads_expired: 2, investor_profiles: 2, events: 1 });
+    expect(r).toMatchObject({ leads_quarantined: 3, leads_expired: 2, investor_profiles: 2, events: 1, messages: 1 });
   });
 
   it('newsletter: active rows kept; feedback detail cleared after 180 days; unsubscribed > 24 months keeps only the hash', async () => {
@@ -62,7 +66,7 @@ describe('retention (B4)', () => {
     expect(by['recent']).toMatchObject({ email: 'recent@example.com' });
     expect(r).toMatchObject({ feedback_details: 2, subscribers_anonymised: 1 }); // fb-old and gone
     // A second run changes nothing more.
-    expect(await runRetention(cf.DB, NOW)).toEqual({ leads_quarantined: 0, leads_expired: 0, investor_profiles: 0, events: 0, feedback_details: 0, subscribers_anonymised: 0 });
+    expect(await runRetention(cf.DB, NOW)).toEqual({ leads_quarantined: 0, leads_expired: 0, investor_profiles: 0, events: 0, messages: 0, feedback_details: 0, subscribers_anonymised: 0 });
   });
 
   it('the Worker exposes it as the scheduled handler', async () => {
