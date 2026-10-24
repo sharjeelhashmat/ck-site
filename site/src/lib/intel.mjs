@@ -125,7 +125,7 @@ export function checkOpportunity(o, today) {
   return { errors, stale, publishable: errors.length === 0 && !stale };
 }
 
-/** Insights article. Drafts are never built. Published articles past reviewBy stay live with a banner but stop counting toward the launch gate. */
+/** Insights article. Drafts and archived articles are never built. Published articles past reviewBy stay live with a banner but stop counting toward the launch gate. */
 // What counts as "a figure": a percentage, an AED amount, a bn/billion/million/thousand quantity, or a number written with thousands separators.
 const FIGURE_RE = /\d[\d.]*\s?%|AED\s?[\d,.]+|\d[\d,.]*\s?(bn|billion|million|thousand)\b|\b\d{1,3}(,\d{3})+\b/i;
 function blockText(b) {
@@ -140,7 +140,8 @@ export function checkArticle(a, today) {
   const errors = [];
   const need = (cond, msg) => { if (!cond) errors.push(msg); };
   need(nonEmpty(a.slug) && /^[a-z0-9-]+$/.test(a.slug), 'slug must be lowercase letters, digits, hyphens');
-  need(['draft', 'published'].includes(a.status), 'status must be draft or published');
+  // archived (owner decision 2026-10-18): never built, never counted, no other validation; its URL is a 404.
+  need(['draft', 'published', 'archived'].includes(a.status), 'status must be draft, published or archived');
   if (a.status !== 'published') return { errors: errors.filter((e) => e.startsWith('slug') || e.startsWith('status')), stale: false, publishable: false };
   for (const f of ['series', 'title', 'description', 'author', 'reviewer', 'publishedOn', 'updatedOn', 'reviewBy', 'geography', 'topic', 'confidence']) need(nonEmpty(a[f]), `missing ${f}`);
   need(['High', 'Medium', 'Low'].includes(a.confidence), 'confidence must be High, Medium or Low');

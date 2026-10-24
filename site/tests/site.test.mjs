@@ -41,7 +41,8 @@ test('every page has one title, one h1, is noindex in non-production builds, and
     assert.doesNotMatch(h, /rel="canonical"|property="og:url"/, f);
     assert.match(h, /<meta name="robots" content="noindex,nofollow">/, f);
   }
-  assert.match(read('robots.txt'), /Disallow: \//);
+  // Crawlers may read the pages (and so the noindex); no sitemap in a noindex build (audit item 22).
+  assert.equal(read('robots.txt'), 'User-agent: *\nAllow: /\n');
 });
 
 test('owner decisions hold: no Gmail, no "Investment Advisor", no Firebase, no "broker" word, no trademark symbol', () => {
@@ -57,14 +58,9 @@ test('owner decisions hold: no Gmail, no "Investment Advisor", no Firebase, no "
   }
 });
 
-test('sitemap lists only pages with real content', () => {
-  const s = read('sitemap-0.xml');
-  for (const p of ['/new-launches', '/investor-profile']) assert.doesNotMatch(s, new RegExp(p + '<'), p);
-  // The 16 area guides (owner-approved copy, 2026-10-16) are listed like every other page.
-  for (const p of ['/areas', '/areas/downtown-dubai', '/areas/hudayriyat-island', '/areas/zayed-city']) assert.match(s, new RegExp(p + '<'), p);
-  // Decision 5: Insights enters the sitemap once 3 non-stale articles are published (true since 2026-09-21).
-  for (const p of ['/insights', '/insights/dubai-q1-2026-who-is-buying']) assert.match(s, new RegExp(p + '<'), p);
-  for (const p of ['/buy', '/invest', '/investment-approach', '/contact']) assert.match(s, new RegExp(p + '<'), p);
+// The sitemap exists only in a public build: tests/audit-pr2.test.mjs builds one and checks what it lists.
+test('a noindex build has no sitemap at all (audit item 22)', () => {
+  assert.deepEqual(readdirSync(dist).filter((f) => /sitemap/.test(f)), []);
 });
 
 test('form field values are a subset of what the Worker accepts', () => {

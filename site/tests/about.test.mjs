@@ -71,8 +71,8 @@ test('about: no banned wording', () => {
 
 test('about: title and description', () => {
   const h = about();
-  assert.match(h, /<title>About — Sharjeel Hashmat<\/title>/);
-  assert.match(h, /<meta property="og:title" content="About — Sharjeel Hashmat">/);
+  assert.match(h, /<title>About · Sharjeel Hashmat<\/title>/);
+  assert.match(h, /<meta property="og:title" content="About · Sharjeel Hashmat">/);
   const desc = 'Sharjeel Hashmat, Property Consultant in the UAE since 2018. Numbers first, straight answers, and the five checks behind every recommendation.';
   assert.ok(h.includes(`<meta name="description" content="${desc}">`));
   assert.ok(h.includes(`<meta property="og:description" content="${desc}">`));
@@ -97,6 +97,8 @@ test('JSON-LD knowsLanguage is ["English","Urdu"] on every page', () => {
   for (const f of pages) {
     const m = readFileSync(f, 'utf8').match(/<script type="application\/ld\+json">(.*?)<\/script>/s);
     assert.ok(m, `${f}: JSON-LD`);
-    assert.deepEqual(JSON.parse(m[1]).knowsLanguage, ['English', 'Urdu'], f);
+    const ld = JSON.parse(m[1]);
+    const person = ld['@graph'] ? ld['@graph'].find((n) => n['@type'] === 'Person') : ld;
+    assert.deepEqual(person.knowsLanguage, ['English', 'Urdu'], f);
   }
 });

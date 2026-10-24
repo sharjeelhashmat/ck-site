@@ -13,7 +13,7 @@ const { a, insightsLive } = Astro.props;
 const cite = (b: any) => (Array.isArray(b.src) ? b.src : []) as number[];
 const propertyAnalysis = ['Would I Buy It?', 'Opportunity vs Risk'].includes(a.series);
 ---
-<Base title={a.title} description={a.description} noindex={!insightsLive}>
+<Base title={a.title} description={a.metaDescription ?? a.description} noindex={!insightsLive} article={{ headline: a.title, datePublished: a.publishedOn, dateModified: a.updatedOn }}>
   <ReadingProgress />
   <section class="section">
     <div class="narrow brief">

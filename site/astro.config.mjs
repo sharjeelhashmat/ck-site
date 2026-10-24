@@ -24,7 +24,8 @@ export default defineConfig({
   output: 'static',
   trailingSlash: 'never',
   build: { format: 'file' },
-  integrations: [
+  // No sitemap at all in a non-indexable build (audit item 22).
+  integrations: indexable ? [
     sitemap({
       filter: (page) => {
         const path = new URL(page).pathname;
@@ -34,6 +35,6 @@ export default defineConfig({
         return true;
       },
     }),
-  ],
+  ] : [],
   devToolbar: { enabled: false },
 });

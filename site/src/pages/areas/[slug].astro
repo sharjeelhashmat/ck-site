@@ -18,7 +18,7 @@ const adCard = ad
   ? renderGuideCard('abu_dhabi', { period: ADREC.period, published: ADREC.published, source_url: ADREC.source_url, area: { ...ad, label: null } })
   : '';
 ---
-<Base title={guide.h1} description={guide.one_liner}>
+<Base title={guide.h1} description={guide.meta_description ?? guide.one_liner}>
   <section class="section">
     <div class="narrow guide">
       <p class="eyebrow">Area guide · {emirate}</p>
@@ -26,12 +26,14 @@ const adCard = ad
       <p class="lede">{guide.one_liner}</p>
 
       {guide.emirate === 'abu_dhabi' && adCard && <div class="mk-guide-card" set:html={adCard} />}
-      {guide.emirate === 'dubai' && (
-        <div class="mk-guide-card" id="guide-figures" hidden data-worker={SITE.workerUrl} data-area={guide.dld_area} data-period={PERIOD}></div>
-      )}
 
       <h2 class="guide-h2">What it is</h2>
       <p>{guide.what_it_is}</p>
+      {/* Dubai figures arrive from the Worker after load: placed below the first section, not above it, so the text a
+          reader starts on does not move when they appear (audit item 26). */}
+      {guide.emirate === 'dubai' && (
+        <div class="mk-guide-card" id="guide-figures" hidden data-worker={SITE.workerUrl} data-area={guide.dld_area} data-period={PERIOD}></div>
+      )}
       <h2 class="guide-h2">Who buys here</h2>
       <p>{guide.who_buys}</p>
       <h2 class="guide-h2">Things to consider</h2>

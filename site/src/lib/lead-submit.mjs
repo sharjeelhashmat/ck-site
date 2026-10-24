@@ -1,7 +1,9 @@
 // Contact form outcomes (owner-approved 2026-10-10): every submit ends in exactly one visible answer.
 // Pure logic, so tests can run every branch without a browser; LeadForm.astro only applies the outcome to the page.
 
-export const TIMEOUT_MS = 15000;
+import { postJson, TIMEOUT_MS } from './post-json.mjs';
+
+export { TIMEOUT_MS };
 
 /**
  * @typedef {{ enableSend: boolean; resetTurnstile: boolean; message: string }} Base
@@ -138,18 +140,9 @@ export function failure() {
  * @param {{ fetchImpl?: typeof fetch; timeoutMs?: number }} [opts]
  * @returns {Promise<Outcome>}
  */
-export async function sendLead(url, payload, { fetchImpl = (...a) => fetch(...a), timeoutMs = TIMEOUT_MS } = {}) {
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
-  try {
-    const res = await fetchImpl(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload), signal: ctrl.signal });
-    const body = await res.json().catch(() => ({}));
-    return outcomeFor(res.status, body);
-  } catch {
-    return failure();
-  } finally {
-    clearTimeout(timer);
-  }
+export async function sendLead(url, payload, opts = {}) {
+  const r = await postJson(url, payload, opts);
+  return r ? outcomeFor(r.status, r.body) : failure();
 }
 
 // ---- Client-side checks before sending (audit H13) ---------------------------------------------------------------------

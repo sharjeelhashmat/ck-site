@@ -6,6 +6,7 @@
       "emirate": "dubai",
       "h1": "Downtown Dubai",
       "one_liner": "Emaar's city centre around Burj Khalifa and The Dubai Mall, with high-rise apartments, a busy boulevard and Metro access, where most of today's sales are ready homes.",
+      "meta_description": "Emaar's city centre around Burj Khalifa and The Dubai Mall, with high-rise apartments and Metro access, where most of today's sales are ready homes.",
       "what_it_is": "Downtown Dubai is Emaar's master-planned centre, set between Sheikh Zayed Road and Financial Centre Road. It is built around its landmarks: Burj Khalifa, The Dubai Mall and The Dubai Fountain, with Dubai Opera close by. Homes are mostly apartments in towers along Sheikh Mohammed bin Rashid Boulevard and the Opera District. It is dense, walkable at its core and busy with visitors most of the year, so it feels like a city centre more than a residential suburb.",
       "who_buys": "Investors looking for rental demand in a central address, and professionals who want to live near work, the mall and the Metro. Overseas buyers often treat it as a first Dubai purchase because the landmarks are known worldwide. Families buy here less than in villa communities. Short-stay landlords are active because of the visitor traffic.",
       "things_to_consider": [
@@ -54,6 +55,7 @@
       "emirate": "dubai",
       "h1": "Dubai Creek Harbour",
       "one_liner": "Emaar's waterfront district on Dubai Creek beside Ras Al Khor Wildlife Sanctuary, close to Downtown and the airport, where most sales are off-plan and phases are still rising.",
+      "meta_description": "Emaar's waterfront district on Dubai Creek beside Ras Al Khor Wildlife Sanctuary, close to Downtown and the airport, where most sales are off-plan.",
       "what_it_is": "Dubai Creek Harbour is an Emaar master plan on the Dubai Creek shoreline, next to the Ras Al Khor Wildlife Sanctuary, a protected wetland known for its flamingos. Emaar places it a short drive from Downtown Dubai and Dubai International Airport. It is a mixed-use waterfront district of residential towers, offices and shops, with the Creek Beach promenade as a public focus. Much of it is still being built in phases.",
       "who_buys": "Investors buying off-plan on payment plans, and end users who want a waterfront home near the city centre and the airport. It draws overseas buyers looking for a newer district at an earlier stage. Families buy here, though the area is mostly apartments.",
       "things_to_consider": [
@@ -70,6 +72,7 @@
       "emirate": "dubai",
       "h1": "Dubai Islands",
       "one_liner": "Nakheel's island master plan off Dubai's northern coast near the airport, with beaches, resorts and marinas planned, where every recorded sale this year has been off-plan.",
+      "meta_description": "Nakheel's island master plan off Dubai's northern coast near the airport, with beaches, resorts and marinas planned, and only off-plan sales this year.",
       "what_it_is": "Dubai Islands, formerly known as Deira Islands, is a Nakheel master plan of man-made islands off Dubai's northern coastline, a short distance from Dubai International Airport. The plan centres on beaches, including a Blue Flag certified beach, resorts and hotels, marinas and golf. Bridges will connect the islands to the mainland via the Al Shindagha Corridor. Infrastructure contracts are still being awarded, so this is an area in the early stage of development.",
       "who_buys": "Mostly investors buying off-plan on payment plans, attracted by beachfront positioning close to the airport and old Dubai. Overseas buyers are prominent. End users are fewer for now, because most homes are not yet built. Once homes are delivered, the buyer mix will be easier to read from resale activity.",
       "things_to_consider": [
@@ -86,6 +89,7 @@
       "emirate": "dubai",
       "h1": "Palm Jumeirah",
       "one_liner": "Nakheel's palm-shaped island of beachfront villas, apartments and resort hotels, linked by monorail and tram, and one of Dubai's most resilient areas by sales this year.",
+      "meta_description": "Nakheel's palm-shaped island of beachfront villas, apartments and resort hotels, and one of Dubai's most resilient areas by sales this year.",
       "what_it_is": "Palm Jumeirah is Nakheel's palm-shaped island off the Jumeirah coast, made up of the trunk, the fronds and the crescent. Apartments line the trunk, villas with private beaches sit on the fronds, and resort hotels occupy the crescent. Nakheel Mall, The View at The Palm and Al Ittihad Park sit at its centre. The Palm Monorail runs along the island, and a tunnel links the trunk to the crescent. It is one of the areas Dubai's freehold regulation names for ownership by non-nationals.",
       "who_buys": "High-net-worth end users buying frond villas, investors in trunk apartments for rental and short-stay demand, and overseas buyers who want a globally recognised address. Many second-home owners use the island part of the year. Villa and apartment buyers here rarely compete for the same homes.",
       "things_to_consider": [
@@ -148,6 +152,7 @@
       "emirate": "abu_dhabi",
       "h1": "Saadiyat Island",
       "one_liner": "Abu Dhabi's cultural island, home to Louvre Abu Dhabi and new national museums, with beachfront communities in an investment zone and the emirate's second-largest sales value.",
+      "meta_description": "Abu Dhabi's cultural island, home to Louvre Abu Dhabi, with beachfront communities in an investment zone and the emirate's second-largest sales value.",
       "what_it_is": "Saadiyat Island is home to the Saadiyat Cultural District, which includes Louvre Abu Dhabi, Zayed National Museum, the Natural History Museum Abu Dhabi and Manarat Al Saadiyat, with Guggenheim Abu Dhabi to follow. Aldar manages the island's land and is master developer of its final masterplan phase. The island combines a long natural shorefront and an ecological sand dune reserve with low-rise beachfront communities, villas and apartments, plus resort hotels.",
       "who_buys": "Wealthy end users and families who want beachfront homes near the cultural district, investors seeking an established premium address, and overseas buyers. Saadiyat is an investment zone, open to foreign ownership.",
       "things_to_consider": [
@@ -177,6 +182,7 @@
       "emirate": "abu_dhabi",
       "h1": "Yas Island",
       "one_liner": "Abu Dhabi's leisure island of theme parks, Yas Marina Circuit and Yas Mall, with Aldar-developed communities in an investment zone and sales well up on last year.",
+      "meta_description": "Abu Dhabi's leisure island of theme parks, Yas Marina Circuit and Yas Mall, with Aldar communities in an investment zone and sales well up on last year.",
       "what_it_is": "Yas Island is Abu Dhabi's main leisure and entertainment destination. Its anchors include Yas Marina Circuit, home of the Abu Dhabi Grand Prix, along with Ferrari World, Yas Waterworld, Warner Bros. World, SeaWorld, Etihad Arena, Yas Mall, Yas Links golf course and Yas Beach. Around these sit residential communities developed largely by Aldar, from apartments to villas and townhouses. It is an investment zone open to foreign ownership.",
       "who_buys": "Families buying villas and townhouses to live in, investors buying apartments for rental demand from people working in leisure and hospitality, and overseas buyers.",
       "things_to_consider": [
@@ -192,6 +198,7 @@
       "emirate": "abu_dhabi",
       "h1": "Al Ramhan Island",
       "one_liner": "Eagle Hills' low-density island of bays and mangroves between Yas and Saadiyat, a newer master plan and one of Abu Dhabi's leading areas by sales value in the first half.",
+      "meta_description": "Eagle Hills' low-density island of bays and mangroves between Yas and Saadiyat, one of Abu Dhabi's leading areas by sales value in the first half.",
       "what_it_is": "Al Ramhan Island, branded Ramhan Island by its developer Eagle Hills, is a naturally formed island of bays and mangrove landscapes. It sits within a short drive of Yas Island, Saadiyat Island, Zayed International Airport and the Sheikh Zayed Grand Mosque. Eagle Hills plans it as a low-density community with a marina and beachfront villas, so it is quieter and more private than the busier leisure islands.",
       "who_buys": "Mainly buyers of beachfront villas: end users who want a private, low-density setting close to the leisure and cultural islands, and investors buying into a newer master plan at an early stage. It suits buyers who value space and water access over walking distance to shops and restaurants.",
       "things_to_consider": [
@@ -207,6 +214,7 @@
       "emirate": "abu_dhabi",
       "h1": "Al Fahid Island",
       "one_liner": "Aldar's wellness-led island between Yas and Saadiyat, with beachfront on one side and mangroves on the other, a recent master plan already among Abu Dhabi's leading areas.",
+      "meta_description": "Aldar's wellness-led island between Yas and Saadiyat, with beachfront on one side and mangroves on the other, already among Abu Dhabi's leading areas.",
       "what_it_is": "Al Fahid Island, now branded Fahid Island by Aldar, lies between Yas Island and Saadiyat Island beside Sheikh Khalifa bin Zayed Highway. Aldar acquired the island and unveiled a master plan positioning it as a wellness destination, with beachfront along one side and mangrove forests along the other. Pedestrian bridges link parts of the island internally. It is a recent launch, so homes here are off-plan.",
       "who_buys": "Investors and end users buying off-plan homes in a new master plan, attracted by the wellness positioning and the location between the established leisure island of Yas and the cultural island of Saadiyat. It suits buyers prepared to wait for handover in exchange for an early position.",
       "things_to_consider": [
@@ -238,6 +246,7 @@
       "emirate": "abu_dhabi",
       "h1": "Zayed City",
       "one_liner": "A planned mainland district between Mohammed Bin Zayed City and Zayed International Airport, with several developers and a large share of Abu Dhabi's future home supply.",
+      "meta_description": "A planned mainland district between Mohammed Bin Zayed City and Zayed International Airport, with a large share of Abu Dhabi's future home supply.",
       "what_it_is": "Zayed City is a planned mainland district of Abu Dhabi, between Mohammed Bin Zayed City and Zayed International Airport, laid out under the emirate's long-term urban plan. Unlike the islands, it is a multi-developer district rather than a single master plan. It is being built out as a series of new residential communities. ADREC lists it among the few districts expected to deliver most of Abu Dhabi's new homes over the coming years.",
       "who_buys": "Families and end users looking for newer mainland homes close to the airport and the existing suburbs, and investors buying into new communities at an early stage. Foreign ownership applies in designated investment-zone communities, so check each community before deciding.",
       "things_to_consider": [

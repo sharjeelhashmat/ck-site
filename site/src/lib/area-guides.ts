@@ -11,6 +11,8 @@ export interface Guide {
   emirate: Emirate;
   h1: string;
   one_liner: string;
+  // Meta description when one_liner is over 160 characters (audit item 21); one_liner stays the visible copy.
+  meta_description?: string;
   what_it_is: string;
   who_buys: string;
   things_to_consider: string[];

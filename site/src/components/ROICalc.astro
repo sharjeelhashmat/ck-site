@@ -10,7 +10,7 @@ const fields = [
 ] as const;
 const stats = [
   ['grossYieldPct', 'Gross Yield'], ['netYieldPct', 'Net Yield'], ['annualNetIncome', 'Annual Net Income'],
-  ['acquisitionCosts', 'Acquisition Costs'], ['projectedExitValue', 'Projected Exit Value'], ['annualizedReturnPct', 'Annualized Return'],
+  ['acquisitionCosts', 'Acquisition Costs'], ['projectedExitValue', 'Projected Exit Value'], ['annualizedReturnPct', 'Annualised Return'],
 ] as const;
 ---
 <div class="card" id="roi">
@@ -24,11 +24,13 @@ const stats = [
       </div>
     ))}
   </div>
-  <div class="grid grid--3" style="margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--line)" aria-live="polite">
+  <div class="grid grid--3" style="margin-top:2rem;padding-top:1.5rem;border-top:1px solid var(--line)">
     {stats.map(([k, label]) => (
       <div><div class="stat" data-out={k}>–</div><div class="stat-label">{label}</div></div>
     ))}
   </div>
+  <!-- One polite announcement per change (audit item 24), not six: the grid itself is not live. -->
+  <p class="sr-only" aria-live="polite" data-live></p>
   <p class="fine" style="margin-top:1.5rem">Estimate only, based on the figures you entered — not financial, tax or legal advice, and not a guarantee of actual performance. Appreciation and rental figures are assumptions you control above, not market forecasts from Sharjeel.</p>
   <a class="btn" style="margin-top:1.25rem" href={waLink('Hi Sharjeel, I ran some numbers on the ROI calculator and would like your view on a specific property.')} target="_blank" rel="noopener">Discuss this with Sharjeel</a>
 </div>
@@ -37,7 +39,8 @@ const stats = [
   const root = document.getElementById('roi')!;
   const inputs = [...root.querySelectorAll<HTMLInputElement>('input[data-k]')];
   const pct = new Set(['grossYieldPct', 'netYieldPct', 'annualizedReturnPct']);
-  function run() {
+  const live = root.querySelector<HTMLElement>('[data-live]')!;
+  function run(announce = true) {
     const v = {} as Record<string, number>;
     for (const i of inputs) { const n = Number(i.value); v[i.dataset.k!] = Number.isFinite(n) ? n : 0; }
     const r = computeROI(v as unknown as ROIInputs);
@@ -45,7 +48,8 @@ const stats = [
       const k = el.dataset.out as keyof typeof r;
       el.textContent = pct.has(k) ? formatPct(r[k]) : formatAED(r[k]);
     });
+    if (announce) live.textContent = `Net yield ${formatPct(r.netYieldPct)}`;
   }
-  inputs.forEach((i) => i.addEventListener('input', run));
-  run();
+  inputs.forEach((i) => i.addEventListener('input', () => run()));
+  run(false);
 </script>

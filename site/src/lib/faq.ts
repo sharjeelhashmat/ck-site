@@ -13,8 +13,9 @@ export interface Faq {
 export const FAQS: Faq[] = [
   {
     q: 'How do I start working with you?',
-    // Owner-approved rewording 2026-09-24: the Investor Profile is reached only from the link shown after an enquiry.
-    a: 'Book a call or fill out the contact form. Investors can then add a short Investor Profile for a more tailored match.',
+    // Owner-approved rewording 2026-09-24 (the Investor Profile is reached only from the link shown after an enquiry);
+    // "Book a call" removed, owner-approved copy 2026-10-19 (audit M3, item 38): there is no booking link on the site.
+    a: 'Fill out the contact form or message me on WhatsApp. Investors can then add a short Investor Profile for a more tailored match.',
     links: { 'contact form': '/contact' },
   },
   {

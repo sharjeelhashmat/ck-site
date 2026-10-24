@@ -238,7 +238,11 @@ test('build: on a non-public (staging) build every intelligence page is noindex'
 // ---------- public copy ----------
 test('public methodology copy describes the five checks (owner decision M5, 2026-09-26)', () => {
   const src = (p) => readFileSync(new URL(`../src/${p}`, import.meta.url), 'utf8');
-  assert.match(src('lib/method.ts'), /from '\.\/intel\.mjs'/);
+  // One source for the five checks (audit item 27): the three pages render lib/checks.ts, none repeats the copy.
+  for (const p of ['pages/about.astro', 'pages/invest.astro', 'pages/investment-approach.astro']) {
+    assert.match(src(p), /from '\.\.\/lib\/checks'/, p);
+    assert.doesNotMatch(src(p), /comparable units actually sold for/, p);
+  }
   for (const p of ['pages/index.astro', 'pages/about.astro', 'pages/invest.astro', 'pages/investment-approach.astro']) {
     const t = src(p);
     assert.doesNotMatch(t, /\bsix (factors|-factor)|six-factor|payment structure and (potential )?exit|rental demand/i, p);

@@ -1,48 +1,46 @@
 ---
 import '../styles/global.css';
+import serifNormal from '@fontsource/cormorant-garamond/files/cormorant-garamond-latin-400-normal.woff2?url';
+import serifItalic from '@fontsource/cormorant-garamond/files/cormorant-garamond-latin-400-italic.woff2?url';
 import Nav from '../components/Nav.astro';
 import FloatingActions from '../components/FloatingActions.astro';
 import PrintFrame from '../components/PrintFrame.astro';
 import Footer from '../components/Footer.astro';
 import { AFFILIATION_LINE, ANALYTICS_TOKEN, SITE } from '../lib/site';
 import { GOLIVE } from '../lib/golive';
-import { canonicalUrl } from '../lib/seo.mjs';
+import { canonicalUrl, pageTitle } from '../lib/seo.mjs';
+import { jsonLd } from '../lib/jsonld.mjs';
 
-interface Props { title?: string; description?: string; noindex?: boolean; path?: string }
+interface Props {
+  title?: string;
+  description?: string;
+  noindex?: boolean;
+  // Insight articles (audit item 21): og:type article and an Article node in the JSON-LD.
+  article?: { headline: string; datePublished: string; dateModified: string };
+}
 const DEFAULT_DESC =
   'Clarity before commitment. UAE property analysis for investors: price, yield, costs and exit, before anyone asks you to sign.';
-const { title, description = DEFAULT_DESC, noindex = false } = Astro.props;
-const fullTitle = title ? `${title} — ${SITE.name}` : `${SITE.name} — ${SITE.title}`;
+const { title, description = DEFAULT_DESC, noindex = false, article } = Astro.props;
+// At most 60 characters (lib/seo.mjs): "<title> · Sharjeel Hashmat", or the title alone when that would be longer.
+const fullTitle = pageTitle(title, SITE.name, SITE.title);
 // Only a production-indexable build (which requires a BRN) may be indexed, and only for pages with real content.
 const indexed = SITE.indexable && !noindex;
 const robots = indexed ? 'index,follow,max-image-preview:large' : 'noindex,nofollow';
 // Canonical and og:url only on indexed pages (never with noindex, never on the 404), in the sitemap's form: no ".html",
 // no "/index", home is origin + "/" (lib/seo.mjs).
 const canonical = indexed ? canonicalUrl(SITE.origin, Astro.url.pathname) : null;
-const identifiers = [
-  ...(AFFILIATION_LINE ? [{ '@type': 'PropertyValue', name: 'BRN', value: SITE.brn }] : []),
-  ...(AFFILIATION_LINE && GOLIVE.brokerCardNo ? [{ '@type': 'PropertyValue', name: 'RERA card', value: GOLIVE.brokerCardNo }] : []),
-  ...(GOLIVE.advertiserPermitNo ? [{ '@type': 'PropertyValue', name: 'UAE Media Council advertiser permit', value: GOLIVE.advertiserPermitNo }] : []),
-];
-const ld = {
-  '@context': 'https://schema.org',
-  '@type': 'RealEstateAgent',
-  name: SITE.name,
-  jobTitle: SITE.title,
-  url: SITE.origin,
-  telephone: `+${SITE.phoneE164}`,
-  email: SITE.email,
-  areaServed: SITE.areasServed,
-  knowsLanguage: SITE.languages,
-  sameAs: [SITE.instagram, SITE.linkedin],
-  // Like the visible lines (golive.ts): the BRN and RERA card only once the agency is confirmed too (owner decision
-  // 2026-10-10); the advertiser permit once issued.
-  ...(AFFILIATION_LINE ? { worksFor: { '@type': 'RealEstateAgent', name: SITE.brokerage } } : {}),
-  ...(identifiers.length ? { identifier: identifiers } : {}),
-};
+// Person always; the RealEstateAgent (agency, BRN, address) only once golive.ts has them (audit item 16, lib/jsonld.mjs).
+const ld = jsonLd({
+  site: SITE,
+  agency: AFFILIATION_LINE && GOLIVE.agencyAddress ? { name: SITE.brokerage, brn: SITE.brn, address: GOLIVE.agencyAddress } : null,
+  cardNo: AFFILIATION_LINE ? GOLIVE.brokerCardNo : '',
+  permitNo: GOLIVE.advertiserPermitNo,
+  article: article ? { ...article, url: canonicalUrl(SITE.origin, Astro.url.pathname) } : null,
+});
+const OG_IMAGE_ALT = `${SITE.name}, ${SITE.title} · UAE`;
 ---
 <!doctype html>
-<html lang="en">
+<html lang="en-GB">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -55,7 +53,9 @@ const ld = {
     <link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png" />
     <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <meta property="og:type" content="website" />
+    <link rel="preload" href={serifNormal} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={serifItalic} as="font" type="font/woff2" crossorigin />
+    <meta property="og:type" content={article ? 'article' : 'website'} />
     <meta property="og:site_name" content={SITE.name} />
     <meta property="og:locale" content="en_AE" />
     <meta property="og:title" content={fullTitle} />
@@ -64,8 +64,10 @@ const ld = {
     <meta property="og:image" content={`${SITE.origin}/og.png`} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={OG_IMAGE_ALT} />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:image" content={`${SITE.origin}/og.png`} />
+    <meta name="twitter:image:alt" content={OG_IMAGE_ALT} />
     <script type="application/ld+json" set:html={JSON.stringify(ld)} />
     <script is:inline>
       // First-touch attribution for the lead form. Wrapped: storage can be unavailable.

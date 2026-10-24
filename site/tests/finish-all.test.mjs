@@ -41,11 +41,11 @@ test('B: with GOLIVE empty, no page shows an agency, BRN, card or permit line, a
     assert.doesNotMatch(h, /"identifier"|"worksFor"/, `${f}: JSON-LD`);
     assert.match(h, /<meta name="robots" content="noindex,nofollow">/, f);
   }
-  assert.match(read('robots.txt'), /Disallow: \//);
+  assert.match(read('robots.txt'), /^User-agent: \*\nAllow: \/\n$/);
 });
 
 test('B: a full GOLIVE public build shows each value where it belongs; GOLIVE without the deploy switch stays noindex', () => {
-  const env = (indexable) => ({ ...process.env, PUBLIC_INDEXABLE: indexable, GOLIVE_OVERRIDES: JSON.stringify({ ...JSON.parse(GOLIVE_TEST), brokerCardNo: 'TEST-CARD' }) });
+  const env = (indexable) => ({ ...process.env, PUBLIC_INDEXABLE: indexable, GOLIVE_OVERRIDES: JSON.stringify({ ...JSON.parse(GOLIVE_TEST), brokerCardNo: 'TEST-CARD', agencyAddress: 'Office 1, Example Tower, Dubai' }) });
   const out = mkdtempSync(join(tmpdir(), 'ck-golive-'));
   const r = spawnSync('npx', ['astro', 'build', '--outDir', out], { cwd: root, env: env('true'), encoding: 'utf8' });
   assert.equal(r.status, 0, r.stdout + r.stderr);
@@ -53,9 +53,18 @@ test('B: a full GOLIVE public build shows each value where it belongs; GOLIVE wi
   const footer = page('index.html').match(/<footer[\s\S]*<\/footer>/)[0];
   assert.match(footer, /<p class="disclosure">Working with Example Agency · BRN TEST-BRN · RERA card TEST-CARD · UAE Media Council advertiser permit TEST-PERMIT<\/p>/);
   assert.match(page('about.html'), /Working with Example Agency · BRN TEST-BRN · RERA card TEST-CARD<\/p>/);
+  // Audit item 16: Person and the agency in an @graph, linked by @id; the BRN on the agency, card and permit on the person.
   const ld = JSON.parse(page('index.html').match(/<script type="application\/ld\+json">(.*?)<\/script>/s)[1]);
-  assert.deepEqual(ld.worksFor, { '@type': 'RealEstateAgent', name: 'Example Agency' });
-  assert.deepEqual(ld.identifier.map((i) => [i.name, i.value]), [['BRN', 'TEST-BRN'], ['RERA card', 'TEST-CARD'], ['UAE Media Council advertiser permit', 'TEST-PERMIT']]);
+  const [person, agency] = ld['@graph'];
+  assert.equal(person['@type'], 'Person');
+  assert.deepEqual(person.worksFor, { '@id': 'https://www.sharjeelhashmat.com/#agency' });
+  assert.deepEqual(person.identifier.map((i) => [i.name, i.value]), [['RERA card', 'TEST-CARD'], ['UAE Media Council advertiser permit', 'TEST-PERMIT']]);
+  assert.deepEqual(agency, {
+    '@type': 'RealEstateAgent', '@id': 'https://www.sharjeelhashmat.com/#agency', name: 'Example Agency',
+    identifier: [{ '@type': 'PropertyValue', name: 'BRN', value: 'TEST-BRN' }],
+    address: { '@type': 'PostalAddress', streetAddress: 'Office 1, Example Tower, Dubai', addressCountry: 'AE' },
+    areaServed: 'United Arab Emirates',
+  });
   assert.match(page('areas/hudayriyat-island.html'), /<meta name="robots" content="index,follow/);
   assert.match(page('robots.txt'), /Allow: \/\n\nSitemap: https:\/\/www\.sharjeelhashmat\.com\/sitemap-index\.xml/);
   assert.doesNotMatch(page('index.html'), /\bbroker\b/i);
@@ -64,17 +73,22 @@ test('B: a full GOLIVE public build shows each value where it belongs; GOLIVE wi
   const s = spawnSync('npx', ['astro', 'build', '--outDir', staging], { cwd: root, env: env('false'), encoding: 'utf8' });
   assert.equal(s.status, 0, s.stdout + s.stderr);
   assert.match(readFileSync(join(staging, 'index.html'), 'utf8'), /<meta name="robots" content="noindex,nofollow">/);
-  assert.match(readFileSync(join(staging, 'robots.txt'), 'utf8'), /Disallow: \//);
+  assert.equal(readFileSync(join(staging, 'robots.txt'), 'utf8'), 'User-agent: *\nAllow: /\n');
 });
 
 test('A.9/B: launch cards need permit number, QR, agency and BRN; Abu Dhabi refused unless licensed; hidden until GOLIVE allows', () => {
-  const ok = { emirate: 'dubai', project: 'P', area: 'A', note: 'N', permit_number: '1', permit_qr: '/qr.png', agency_name: 'X', agency_brn: '2' };
+  const ok = { emirate: 'dubai', project: 'P', area: 'A', note: 'N', permit_number: '1', permit_qr: '/permits/qr-1.png', agency_name: 'X', agency_brn: '2' };
   assert.deepEqual(checkLaunchReviews([], { abuDhabiLicensed: false }), []);
   assert.deepEqual(checkLaunchReviews([ok], { abuDhabiLicensed: false }), []);
   for (const k of ['permit_number', 'permit_qr', 'agency_name', 'agency_brn']) {
     assert.match(checkLaunchReviews([{ ...ok, [k]: '' }], { abuDhabiLicensed: false }).join(), new RegExp(`${k} is required`), k);
   }
   assert.match(checkLaunchReviews([{ ...ok, emirate: 'abu_dhabi' }], { abuDhabiLicensed: false }).join(), /refused while GOLIVE\.abuDhabiLicensed is false/);
+  // Audit item 19: the QR is a self-hosted /permits/*.png|svg file, nothing else.
+  assert.deepEqual(checkLaunchReviews([{ ...ok, permit_qr: '/permits/qr-1.svg' }], { abuDhabiLicensed: false }), []);
+  for (const bad of ['/qr.png', 'https://example.com/permits/qr.png', '/permits/qr.jpg', '/permits/../x.png', '/permits/sub/qr.png', '//cdn.example/permits/qr.png']) {
+    assert.match(checkLaunchReviews([{ ...ok, permit_qr: bad }], { abuDhabiLicensed: false }).join(), /self-hosted \/permits\//, bad);
+  }
   assert.deepEqual(checkLaunchReviews([{ ...ok, emirate: 'abu_dhabi' }], { abuDhabiLicensed: true }), []);
   assert.deepEqual(JSON.parse(src('src/data/launch-reviews.json')), [], 'launch-reviews.json ships empty');
   const page = src('src/pages/new-launches.astro');
@@ -221,7 +235,7 @@ test('E: the switch shows only when both emirates have data; one emirate shows a
 
 test('E: /areas title, meta, eyebrow, H1, lede, closing line and switch markup are exact', () => {
   const h = read('areas.html');
-  assert.match(h, /<title>Areas: Dubai and Abu Dhabi — Sharjeel Hashmat<\/title>/);
+  assert.match(h, /<title>Areas: Dubai and Abu Dhabi · Sharjeel Hashmat<\/title>/);
   assert.match(h, /<meta name="description" content="Where Dubai and Abu Dhabi property money is going: top areas by residential sales value, change against last year, and area guides\. From official records\.">/);
   const m = main('areas.html');
   assert.match(m, /<p class="eyebrow"[^>]*>Areas<\/p>/);
@@ -310,8 +324,10 @@ test('F: every guide page renders the exact approved copy in the template order,
     const h = read(`areas/${g.slug}.html`);
     const m = main(`areas/${g.slug}.html`);
     const t = text(m);
-    assert.match(h, new RegExp(`<title>${g.h1.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} — Sharjeel Hashmat</title>`), g.slug);
-    assert.equal(h.match(/<meta name="description" content="([^"]*)">/)[1].replace(/&#39;/g, "'").replace(/&quot;/g, '"'), g.one_liner, g.slug);
+    assert.match(h, new RegExp(`<title>${g.h1.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} · Sharjeel Hashmat</title>`), g.slug);
+    // The meta description is the one-liner, or its shorter meta_description when the one-liner is over 160 characters.
+    assert.equal(h.match(/<meta name="description" content="([^"]*)">/)[1].replace(/&#39;/g, "'").replace(/&quot;/g, '"'), g.meta_description ?? g.one_liner, g.slug);
+    assert.ok(g.one_liner.length <= 160 || g.meta_description, `${g.slug}: one-liner over 160 characters needs meta_description`);
     const emirate = g.emirate === 'dubai' ? 'Dubai' : 'Abu Dhabi';
     const expected = [
       `Area guide · ${emirate}`, g.h1, g.one_liner,
@@ -373,7 +389,7 @@ test('A.8: Launch activity panel: under the hero, hidden by default, both cards 
   const both = renderLaunchPanel({ dubai, abu_dhabi: ad }, '2026-10-17');
   assert.match(both, /class="mk-launch-grid"/);
   const t = text(both);
-  assert.match(t, /Dubai 12 new projects registered in the last 90 days Top areas Palm Deira Dubai Islands 4 Business Bay 3 1 active project 52,000 units across active projects/);
+  assert.match(t, /Dubai 12 new projects registered in the 90 days to Oct 2026 Top areas Palm Deira Dubai Islands 4 Business Bay 3 1 active project 52,000 units across active projects/);
   assert.match(t, /Abu Dhabi AED 86\.1bn in sales, 2026 to date AED 117\.0bn total transactions AED 25\.5bn mortgages/);
   assert.match(t, /Source: Dubai Land Department, Real Estate Projects open data via Data\.Dubai \(Open Data Licence\), as of Oct 2026\./);
   assert.match(renderLaunchPanel({ dubai: null, abu_dhabi: ad }, '2026-10-17'), /mk-launch-grid mk-launch-grid--one/);
@@ -396,7 +412,9 @@ test('A.8 freshness: the Dubai card shows the month its data is from, hides past
   assert.doesNotMatch(stale, /Dubai Land Department|<h3>Dubai/);
   assert.equal(renderLaunchPanel({ dubai: { ...june, as_of: '2026-06-18' }, abu_dhabi: null }, '2026-10-17'), '');
   // "new projects" appears only when there are some in the 90 days ending at the data's date.
-  assert.match(text(renderLaunchPanel({ dubai: { ...june, new_projects_90d: 1 }, abu_dhabi: null }, '2026-10-17')), /^\s*Dubai 1 new project registered in the last 90 days 865 active projects/);
+  assert.match(text(renderLaunchPanel({ dubai: { ...june, new_projects_90d: 1 }, abu_dhabi: null }, '2026-10-17')), /^\s*Dubai 1 new project registered in the 90 days to Jun 2026 865 active projects/);
+  // The month comes from the data, never a constant: the same card dated in March says Mar.
+  assert.match(text(renderLaunchPanel({ dubai: { ...june, new_projects_90d: 2, as_of: '2026-03-31' }, abu_dhabi: null }, '2026-04-02')), /2 new projects registered in the 90 days to Mar 2026/);
   assert.equal(fmtMonth('2026-06-20'), 'Jun 2026');
   assert.equal(fmtMonth('bad'), '');
 });

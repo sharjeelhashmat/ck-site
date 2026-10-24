@@ -17,7 +17,7 @@ const bare = (h) => h.replace(/ data-astro-cid-[a-z0-9]+/g, '');
 const read = (p) => bare(readFileSync(join(dist, p), 'utf8'));
 const src = (p) => readFileSync(join(root, p), 'utf8');
 const main = (p) => read(p).match(/<main id="main">([\s\S]*?)<\/main>/)[1];
-const text = (html) => html.replace(/<template[\s\S]*?<\/template>/g, '').replace(/<[^>]+>/g, ' ').replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+const text = (html) => html.replace(/<div id="(lead|profile)-alert-tpl" hidden>[\s\S]*?<\/div>/g, '').replace(/<[^>]+>/g, ' ').replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const form = (p) => read(p).match(/<form class="card" id="lead-form"[\s\S]*?<\/form>/)[0];
 const FORMS = ['contact.html', 'sell.html', 'new-launches.html'];
 
@@ -97,7 +97,7 @@ test('new launches: no empty card, no WhatsApp link, no images, no banned wordin
   assert.doesNotMatch(m, /No launches listed/);
   assert.doesNotMatch(m, /What the major developers|Handpicked|Ask Sharjeel/);
   // The failure message template (shown only when sending fails) keeps the contact form's WhatsApp link; nothing else does.
-  assert.doesNotMatch(m.replace(/<template[\s\S]*?<\/template>/g, ''), /wa\.me/);
+  assert.doesNotMatch(m.replace(/<div id="(lead|profile)-alert-tpl" hidden>[\s\S]*?<\/div>/g, ''), /wa\.me/);
   assert.doesNotMatch(m, /<img\b/);
   assert.equal((m.match(/class="card\b/g) ?? []).length, 1, 'the form is the only card');
   const t = text(read('new-launches.html'));
@@ -105,8 +105,8 @@ test('new launches: no empty card, no WhatsApp link, no images, no banned wordin
     assert.doesNotMatch(t, new RegExp(banned, 'i'), banned);
   }
   const h = read('new-launches.html');
-  assert.match(h, /<title>New Launches: Ask Before You Commit — Sharjeel Hashmat<\/title>/);
-  const desc = 'Thinking about a Dubai off-plan launch? Ask before you commit. The facts every buyer should know, the questions worth asking, and a straight answer within 24 hours.';
+  assert.match(h, /<title>New Launches: Ask Before You Commit · Sharjeel Hashmat<\/title>/);
+  const desc = 'Thinking about a Dubai off-plan launch? The facts every buyer should know, the questions worth asking, and a straight answer within 24 hours.';
   assert.ok(h.includes(`<meta name="description" content="${desc}">`));
   assert.match(h, /<meta name="robots" content="noindex,nofollow">/);
   assert.match(src('src/pages/new-launches.astro'), /noindex: remove with the site-wide indexing switch at go-live\./);

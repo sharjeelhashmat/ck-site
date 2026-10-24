@@ -20,16 +20,23 @@ const RETIRED = ['#0C3B6E', '#071E38', '#5B9BD5', '#C8922A', '#E8B44A', '#A8CBEC
 test('title: no "Real Estate Consultant" anywhere in the build, and "Property Consultant" is shown', () => {
   for (const f of textFiles) assert.doesNotMatch(readFileSync(f, 'utf8'), /real estate consultant/i, f);
   const home = readFileSync(join(dist, 'index.html'), 'utf8');
-  assert.match(home, /<title>Sharjeel Hashmat — Property Consultant<\/title>/);
+  assert.match(home, /<title>Sharjeel Hashmat, Property Consultant · UAE<\/title>/);
   for (const f of htmlFiles) assert.match(readFileSync(f, 'utf8'), /<span>Property Consultant · UAE<\/span>/, `${f}: footer title line`);
   assert.match(readFileSync(join(dist, 'llms.txt'), 'utf8'), /Title: Property Consultant · UAE/);
 });
 
-test('JSON-LD jobTitle is "Property Consultant" on every page', () => {
+test('JSON-LD: a Person with jobTitle "Property Consultant · UAE" on every page (audit item 16)', () => {
   for (const f of htmlFiles) {
     const m = readFileSync(f, 'utf8').match(/<script type="application\/ld\+json">(.*?)<\/script>/s);
     assert.ok(m, `${f}: JSON-LD`);
-    assert.equal(JSON.parse(m[1]).jobTitle, 'Property Consultant', f);
+    const ld = JSON.parse(m[1]);
+    const person = ld['@graph'] ? ld['@graph'].find((n) => n['@type'] === 'Person') : ld;
+    assert.equal(person['@type'], 'Person', f);
+    assert.equal(person.jobTitle, 'Property Consultant · UAE', f);
+    assert.equal(person.url, 'https://www.sharjeelhashmat.com/', f);
+    assert.deepEqual(person.sameAs, ['https://www.instagram.com/sharjeelhashmat', 'https://www.linkedin.com/in/sharjeel-hashmat-16944322'], f);
+    // Go-live values empty: no agency node anywhere.
+    assert.doesNotMatch(m[1], /RealEstateAgent|"BRN"/, f);
   }
 });
 
@@ -61,20 +68,15 @@ test('logo: header and footer use the ivory web lockup with alt and explicit siz
   assert.doesNotMatch(css, /--logo-h/, 'the v3.0 negative-margin crop is gone');
 });
 
-test('web logo lockups are the approved horizontal logos with exactly the five specified edits', () => {
+// The web lockups are the approved horizontal logos with five edits (tagline and metadata removed, wordmark and rule moved
+// up, cropped to viewBox "205 225 2480 510"), then run through svgo --multipass (audit item 20: 25 KB to 9.4 KB each; the
+// rendering differs only in anti-aliasing at 300 dpi). Their bytes are pinned with the other brand files below.
+test('web logo lockups: the cropped horizontal logo, optimised, with no tagline or metadata', () => {
   for (const v of ['ink', 'ivory']) {
-    const src = readFileSync(join(root, `public/logo-horizontal-${v}.svg`), 'utf8');
-    const expected = src
-      .replace(/<metadata>.*?<\/metadata>/s, '')
-      .replace(' xmlns:c2pa="http://c2pa.org/manifest"', '')
-      .replace(/<path transform="translate\(861\.55 640\.00\)"[^>]*\/>/, '')
-      .replace('<path transform="translate(861.55 465.00)"', '<path transform="translate(861.55 513.00)"')
-      .replace('<rect x="861.55" y="530.00"', '<rect x="861.55" y="578.00"')
-      .replace('width="2880" height="960" viewBox="0 0 2880 960"', 'width="2480" height="510" viewBox="205 225 2480 510"');
     const web = readFileSync(join(root, `public/logo-web-${v}.svg`), 'utf8');
-    assert.equal(web, expected, `logo-web-${v}.svg`);
-    assert.match(web, /viewBox="205 225 2480 510"/);
-    assert.doesNotMatch(web, /translate\(861\.55 640\.00\)|<metadata|c2pa/, `logo-web-${v}.svg: tagline and metadata removed`);
+    assert.match(web, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" width="2480" height="510" viewBox="205 225 2480 510">/);
+    assert.doesNotMatch(web, /translate\(861\.55 640|<metadata|c2pa/, `logo-web-${v}.svg: tagline and metadata removed`);
+    assert.ok(web.length < 12_000, `logo-web-${v}.svg is optimised (${web.length} bytes)`);
     assert.equal(readFileSync(join(dist, `logo-web-${v}.svg`), 'utf8'), web, `dist/logo-web-${v}.svg`);
   }
 });
@@ -82,12 +84,14 @@ test('web logo lockups are the approved horizontal logos with exactly the five s
 test('share image: /og.png at 1200x630, declared in og and twitter tags', () => {
   const png = readFileSync(join(dist, 'og.png'));
   assert.deepEqual([png.readUInt32BE(16), png.readUInt32BE(20)], [1200, 630]);
+  assert.ok(png.length < 150 * 1024, `og.png is under 150 KB (${png.length} bytes)`);
   for (const f of htmlFiles) {
     const h = readFileSync(f, 'utf8');
     assert.match(h, /<meta property="og:image" content="https:\/\/www\.sharjeelhashmat\.com\/og\.png">/, `${f}: og:image`);
     assert.match(h, /<meta property="og:image:width" content="1200">/, `${f}: og:image:width`);
     assert.match(h, /<meta property="og:image:height" content="630">/, `${f}: og:image:height`);
     assert.match(h, /<meta name="twitter:image" content="https:\/\/www\.sharjeelhashmat\.com\/og\.png">/, `${f}: twitter:image`);
+    assert.match(h, /<meta property="og:image:alt" content="Sharjeel Hashmat, Property Consultant · UAE">/, `${f}: og:image:alt`);
   }
 });
 
@@ -201,7 +205,10 @@ test('brand assets are the approved Brand Package v3.0 files (tab icons with the
     'icon-512.png': 'd71ab9b4bf05000fe6ad2f93770b2d42148ce1e2d6b1494746a4c31934061911',
     'logo-horizontal-ink.svg': 'f7f4530cc2bfc7b16c828ba4aec0dec03a02e1303d12469bed849a86662b0b55',
     'logo-horizontal-ivory.svg': '2162b5c1c6c33bedd447d7cb83a833deb8f91392cbb8e763a0ba64f2526a06b0',
-    'og.png': '60c8b85d3ba4936bb149c9a45bd5e1e2958e4ae4be5b087eeba434f88e1e0220',
+    'logo-web-ink.svg': '01ef41f695d2c78a74b6d269d898c8dc5ee66efb020919b96fc9b86cdb0bc78d',
+    'logo-web-ivory.svg': '54d4b338fedb6694cf9b4558bdb95e030a7a17f7c234037b9b9bb56f4fb61fc5',
+    // Recompressed (audit item 20): 256-colour palette PNG, 1200x630, 89 KB (was 279 KB).
+    'og.png': 'acdaa43dc06e13756331ab9bd42e0bf54950897b32b04d4582d89d16f56b9b86',
   };
   for (const [file, sha] of Object.entries(approved)) {
     for (const dir of [join(root, 'public'), dist]) {

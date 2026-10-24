@@ -1,6 +1,7 @@
 // Browser checks for /areas, the guides, /new-launches, the newsletter, the enquiry and profile forms, and the audit fixes
 // (320/375/1280, Worker blocked or malformed, Turnstile blocked, every page at 320px). Not part of `npm test`: it needs Chromium.
-//   PLAYWRIGHT=/path/to/playwright/index.mjs node tests/e2e/browser.e2e.mjs <distDir> [screenshotDir]
+//   PLAYWRIGHT=/path/to/playwright/index.mjs AXE=/path/to/axe-core/axe.min.js node tests/e2e/browser.e2e.mjs <distDir> [screenshotDir]
+// AXE (axe-core, any 4.x) runs the link-name rule on every page (audit item 36); without it that check fails.
 // The Worker and Turnstile are replaced by routes inside the browser; the market responses are fixtures (the owner's
 // expected Dubai output for 2026-H1 and invented launch/ADREC numbers), never real data.
 import http from 'node:http';
@@ -373,6 +374,24 @@ await check(`every built page (${builtPages.length}) at 320px: no horizontal ove
     await p.waitForTimeout(150);
     const w = await p.evaluate(() => [document.documentElement.scrollWidth, window.innerWidth]);
     if (w[0] > w[1]) bad.push(`${u} (${w[0]}px)`);
+  }
+  assert.deepEqual(bad, []);
+  await p.close();
+});
+
+// Audit item 36: every link has an accessible name (axe link-name), on every page, including the enquiry pages where an
+// unclosed mailto link used to wrap the "Prefer WhatsApp?" line.
+await check(`every built page (${builtPages.length}): axe link-name passes`, async () => {
+  assert.ok(process.env.AXE && fs.existsSync(process.env.AXE), 'set AXE to axe-core/axe.min.js');
+  const axe = fs.readFileSync(process.env.AXE, 'utf8');
+  const p = await page(1280);
+  const bad = [];
+  for (const u of builtPages) {
+    await p.goto(`${base}${u}`);
+    await p.addScriptTag({ content: axe });
+    const r = await p.evaluate(async () => (await window.axe.run(document, { runOnly: { type: 'rule', values: ['link-name'] } })).violations);
+    for (const v of r) bad.push(`${u}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`);
+    if (await p.evaluate(() => [...document.querySelectorAll('a')].some((a) => a.querySelector('#lead-next, a')))) bad.push(`${u}: a link wraps #lead-next or a link`);
   }
   assert.deepEqual(bad, []);
   await p.close();

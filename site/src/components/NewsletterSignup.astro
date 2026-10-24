@@ -126,6 +126,8 @@ const id = `nl-${variant}`;
         const res = await fetch(`${form.dataset.worker}/api/newsletter/subscribe`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
+          // 15 s cap (audit item 23): a hung request ends in the same connection message as a failed one.
+          signal: AbortSignal.timeout(15_000),
           body: JSON.stringify({
             email: value,
             source: form.dataset.source,

@@ -132,7 +132,7 @@ test('profile feedback: each answer maps to exactly one visible outcome; failure
   const hang = (_u, init) => new Promise((_, rej) => init.signal.addEventListener('abort', () => rej(new DOMException('aborted', 'AbortError'))));
   assert.equal((await sendProfile('u', {}, { fetchImpl: hang, timeoutMs: 50 })).kind, 'failure');
   assert.equal(TIMEOUT_MS, 15000);
-  const tpl = page().match(/<template id="profile-alert-tpl">([\s\S]*?)<\/template>/)?.[1] ?? '';
+  const tpl = page().match(/<div id="profile-alert-tpl" hidden>([\s\S]*?)<\/div>/)?.[1] ?? '';
   assert.ok(tpl.replace(/<[^>]+>/g, '').startsWith(MESSAGES.failure), 'failure panel text');
   assert.match(tpl, /<a href="https:\/\/wa\.me\/[^"]+" target="_blank" rel="noopener">Message me on WhatsApp<\/a>/);
   assert.match(page(), /<div class="profile-alert" id="profile-alert" role="alert"><\/div>/);
