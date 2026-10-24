@@ -70,6 +70,7 @@ The Worker's daily cron (`17 1 * * *`, `worker/src/retention.ts`) applies this i
 | All other leads | 24 months (730 days) after `created_at` |
 | Investor profiles | Deleted once their lead no longer exists |
 | Events (log rows) | 12 months |
+| Message log (`messages`: one row per email sent) | 24 months (730 days) after `created_at` |
 | Newsletter subscribers, active | While subscribed |
 | Unsubscribe feedback text (`unsubscribe_reason_detail`) | 180 days after the feedback |
 | Newsletter subscribers, unsubscribed | 24 months; then the address is replaced by its SHA-256 hash (so the opt-out still holds) and the other personal fields are cleared |

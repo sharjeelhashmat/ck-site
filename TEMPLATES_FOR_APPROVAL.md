@@ -200,10 +200,10 @@ Hash: `13403984358a`
 ## NEWS-WELCOME (v1)
 **Sent when:** Someone subscribes to the newsletter (site footer or end of an article). Single opt-in; sent once per new or returning subscriber, from brief@news.
 
-**Subject:** Subscribed · The Investor's Brief
+**Subject:** Subscribed · The Compass Key Monthly
 
 ```
-Thank you for subscribing to The Investor's Brief.
+Thank you for subscribing to The Compass Key Monthly.
 
 What to expect: an occasional note on the UAE property market. Sourced figures, the analysis that matters, nothing else.
 
@@ -216,7 +216,7 @@ Real Estate Consultant · UAE
 Automated message. You receive it because you subscribed on sharjeelhashmat.com.
 ```
 
-Hash: `c8dd8ca2d0b0`
+Hash: `23254f31c43c`
 
 ---
 

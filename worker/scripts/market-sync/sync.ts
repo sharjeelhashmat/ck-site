@@ -44,15 +44,38 @@ export async function listParts(ctx: Ctx, datasetId: number): Promise<CsvPart[]>
   return parts;
 }
 
+/**
+ * Hosts a CSV part may be downloaded from (audit item 8). The listing (data.dubai) returns signed file URLs on its CDN;
+ * confirmed from the dld job log of run #8 (2026-10-18): every part came from cdn.data.dubai.
+ */
+export const DLD_FILE_HOSTS = ['cdn.data.dubai'];
+/** One part may take at most 15 minutes and 2 GB (the largest part on 2026-10-18 was about 600 MB). */
+export const DLD_DOWNLOAD_TIMEOUT_MS = 15 * 60_000;
+export const DLD_DOWNLOAD_MAX_BYTES = 2 * 1024 ** 3;
+
+/** https and an allow-listed host, or an error that names the host only (never the signed query string). */
+export function assertDownloadUrl(url: string): void {
+  let u: URL;
+  try { u = new URL(url); } catch { throw new Error('download: unparseable file URL'); }
+  if (u.protocol !== 'https:') throw new Error(`download: ${safeUrl(url)} is not https`);
+  if (!DLD_FILE_HOSTS.includes(u.hostname)) throw new Error(`download: host ${u.hostname} is not allowed`);
+}
+
 /** Streams one CSV through the RFC 4180 parser; the file is never held in memory. */
-export async function streamRecords(ctx: Ctx, url: string, onRecord: (fields: string[] | null) => void): Promise<number> {
-  const res = await ctx.fetch(url);
+export async function streamRecords(ctx: Ctx, url: string, onRecord: (fields: string[] | null) => void, maxBytes = DLD_DOWNLOAD_MAX_BYTES): Promise<number> {
+  assertDownloadUrl(url);
+  const res = await ctx.fetch(url, { signal: AbortSignal.timeout(DLD_DOWNLOAD_TIMEOUT_MS) });
+  // A redirect must not leave the allow-list either (res.url is the final URL; empty for a constructed Response).
+  if (res.url) assertDownloadUrl(res.url);
   if (!res.ok || !res.body) throw new Error(`download ${safeUrl(url)} returned HTTP ${res.status}`);
+  const declared = Number(res.headers.get('content-length') ?? '');
+  if (Number.isFinite(declared) && declared > maxBytes) throw new Error(`download ${safeUrl(url)}: ${declared} bytes is over the ${maxBytes} byte limit`);
   const parser = new CsvParser(onRecord);
   const decoder = new TextDecoder('utf-8');
   let bytes = 0;
   for await (const chunk of res.body as unknown as AsyncIterable<Uint8Array>) {
     bytes += chunk.byteLength;
+    if (bytes > maxBytes) throw new Error(`download ${safeUrl(url)}: over the ${maxBytes} byte limit, aborted`);
     parser.feed(decoder.decode(chunk, { stream: true }));
   }
   parser.feed(decoder.decode());

@@ -92,7 +92,11 @@ const resend = () => calls.filter((c) => c.url.includes('resend'));
 
 describe('worker on workerd', () => {
   it('serves /health and 404s unknown paths', async () => {
-    expect((await worker.fetch(new Request('https://api.test/health'), baseEnv())).status).toBe(200);
+    const health = await worker.fetch(new Request('https://api.test/health'), baseEnv());
+    expect(health.status).toBe(200);
+    // Exactly {"ok":true}: no config state or outbound field on any public route (audit item 37).
+    expect(await health.text()).toBe('{"ok":true}');
+    expect(health.headers.get('x-content-type-options')).toBe('nosniff');
     expect((await worker.fetch(new Request('https://api.test/nope'), baseEnv())).status).toBe(404);
   });
 
@@ -318,13 +322,29 @@ describe('worker on workerd', () => {
     const ack = brevo()[0]!.body as { textContent: string; headers?: Record<string, string> };
     const link = ack.textContent.match(/https:\/\/[^\s]+\/unsubscribe\?[^\s]+/)![0];
     expect(ack.headers?.['List-Unsubscribe']).toContain('/unsubscribe');
+    expect(ack.headers?.['List-Unsubscribe-Post']).toBe('List-Unsubscribe=One-Click');
+    const oneClick = (url: string) => worker.fetch(new Request(url, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'List-Unsubscribe=One-Click' }), e);
 
-    const bad = await worker.fetch(new Request(link.replace(/t=[0-9a-f]+/, 't=deadbeef')), e);
-    expect(bad.status).toBe(400);
+    const forged = link.replace(/t=[0-9a-f]+/, 't=deadbeef');
+    expect((await worker.fetch(new Request(forged), e)).status).toBe(400);
+    expect((await oneClick(forged)).status).toBe(400);
     expect(await rows('SELECT * FROM suppression')).toHaveLength(0);
 
-    const good = await worker.fetch(new Request(link), e);
+    // GET (a link scanner, a preview, a person) shows a confirm button that posts back to the same URL; nothing changes.
+    const confirm = await worker.fetch(new Request(link), e);
+    expect(confirm.status).toBe(200);
+    const html = await confirm.text();
+    expect(html).toContain('<form method="post" action="/unsubscribe?e=');
+    expect(html).toContain('>Unsubscribe</button>');
+    expect(confirm.headers.get('content-security-policy')).toBe("default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
+    expect(confirm.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(confirm.headers.get('referrer-policy')).toBe('no-referrer');
+    expect(await rows('SELECT * FROM suppression')).toHaveLength(0);
+
+    // POST (the button, or the mail client's RFC 8058 one-click request) suppresses.
+    const good = await oneClick(link);
     expect(good.status).toBe(200);
+    expect(await good.text()).toContain('You are unsubscribed');
     expect(await rows('SELECT * FROM suppression')).toHaveLength(1);
 
     // Push the earlier lead outside the 24h window, then the same person enquires again.
@@ -401,7 +421,9 @@ describe('newsletter on workerd', () => {
     return worker.fetch(new Request('https://api.test/api/newsletter/subscribe', { method: 'POST', headers, body: JSON.stringify(body) }), e);
   };
   const signup = (over: Record<string, unknown> = {}) => ({ email: 'reader@example.com', source: 'footer', company_website: '', turnstile_token: 'ok', ...over });
-  const unsubscribe = (url: string, e: Env) => worker.fetch(new Request(url.replace('https://ck-lead-worker.example.workers.dev', 'https://api.test')), e);
+  const local = (url: string) => url.replace('https://ck-lead-worker.example.workers.dev', 'https://api.test');
+  // The confirm button (and a mail client's one-click request) is a POST to the link itself.
+  const unsubscribe = (url: string, e: Env) => worker.fetch(new Request(local(url), { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'List-Unsubscribe=One-Click' }), e);
 
   it('CORS, Turnstile and validation match the enquiry route', async () => {
     const pre = await worker.fetch(new Request('https://api.test/api/newsletter/subscribe', { method: 'OPTIONS', headers: { origin: 'https://www.sharjeelhashmat.com' } }), baseEnv());
@@ -412,6 +434,14 @@ describe('newsletter on workerd', () => {
     const bad = await sub(signup({ email: 'nope' }), baseEnv());
     expect(bad.status).toBe(400);
     expect(await bad.json()).toEqual({ ok: false, error: 'invalid_input', field: 'email' });
+    expect(await rows('SELECT id FROM newsletter_subscribers')).toHaveLength(0);
+  });
+
+  it('missing TURNSTILE_SECRET fails closed with 503 and stores nothing, like /lead (audit item 10)', async () => {
+    const res = await sub(signup(), baseEnv({ TURNSTILE_SECRET: '' }));
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ ok: false, error: 'verification_unavailable' });
+    expect(res.headers.get('access-control-allow-origin')).toBe(ORIGIN);
     expect(await rows('SELECT id FROM newsletter_subscribers')).toHaveLength(0);
   });
 
@@ -433,8 +463,9 @@ describe('newsletter on workerd', () => {
     expect(brevo()).toHaveLength(1);
     const mail = brevo()[0]!.body as { sender: { email: string }; subject: string; textContent: string; headers: Record<string, string> };
     expect(mail.sender.email).toBe('brief@news.sharjeelhashmat.com');
-    expect(mail.subject).toBe("Subscribed · The Investor's Brief");
+    expect(mail.subject).toBe('Subscribed · The Compass Key Monthly');
     expect(mail.headers['List-Unsubscribe']).toMatch(/\/api\/newsletter\/unsubscribe\?token=/);
+    expect(mail.headers['List-Unsubscribe-Post']).toBe('List-Unsubscribe=One-Click');
     expect(await rows("SELECT template_id FROM messages WHERE outcome = 'sent'")).toEqual([{ template_id: 'NEWS-WELCOME' }]);
   });
 
@@ -445,6 +476,13 @@ describe('newsletter on workerd', () => {
     const link = (brevo()[0]!.body as { headers: Record<string, string> }).headers['List-Unsubscribe']!.slice(1, -1);
 
     expect((await worker.fetch(new Request('https://api.test/api/newsletter/unsubscribe?token=forged.00'), e)).status).toBe(400);
+    expect((await unsubscribe('https://api.test/api/newsletter/unsubscribe?token=forged.00', e)).status).toBe(400);
+    // GET only confirms: still subscribed afterwards.
+    const confirm = await worker.fetch(new Request(local(link)), e);
+    expect(confirm.status).toBe(200);
+    expect(await confirm.text()).toContain('<form method="post" action="/api/newsletter/unsubscribe?token=');
+    expect(confirm.headers.get('content-security-policy')).toContain("form-action 'self'");
+    expect((await rows('SELECT unsubscribed_at FROM newsletter_subscribers'))[0]!.unsubscribed_at).toBeNull();
     const res = await unsubscribe(link, e);
     expect(res.status).toBe(200);
     expect(await res.text()).toContain('unsubscribed');
@@ -485,14 +523,14 @@ describe('newsletter on workerd', () => {
     };
     const fb = () => rows('SELECT unsubscribe_reason AS reason, unsubscribe_reason_detail AS detail, unsubscribe_feedback_at IS NOT NULL AS at FROM newsletter_subscribers');
 
-    it('the unsubscribe happens on the GET itself; the page then offers the optional form with Skip beside Send', async () => {
+    it('the unsubscribe happens on the POST itself; the page then offers the optional form with Skip beside Send', async () => {
       const { e, link, token } = await setup();
       const res = await unsubscribe(link, e);
       expect(res.status).toBe(200);
       // Already unsubscribed before anyone sees or touches the form.
       expect((await rows('SELECT unsubscribed_at FROM newsletter_subscribers'))[0]!.unsubscribed_at).not.toBeNull();
       const html = await res.text();
-      expect(html).toContain('You are unsubscribed');
+      expect(html).toContain('You are unsubscribed from The Compass Key Monthly');
       expect(html).toContain('action="/api/newsletter/unsubscribe/feedback"');
       expect(html).toContain(`name="token" value="${token}"`);
       expect(html).toMatch(/value="send"[^>]*>Send<\/button><button type="submit" name="action" value="skip"/);

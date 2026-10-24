@@ -47,7 +47,7 @@ export function readConfig(env: Record<string, string | undefined>): Config {
     senders: {
       leads: { email: (env.FROM_LEADS_EMAIL ?? '').trim().toLowerCase(), name: (env.FROM_LEADS_NAME ?? 'Sharjeel Hashmat').trim() },
       alerts: { email: (env.FROM_ALERTS_EMAIL ?? '').trim().toLowerCase(), name: (env.FROM_ALERTS_NAME ?? 'Lead desk').trim() },
-      news: { email: (env.FROM_NEWS_EMAIL ?? '').trim().toLowerCase(), name: (env.FROM_NEWS_NAME ?? "The Investor's Brief").trim() },
+      news: { email: (env.FROM_NEWS_EMAIL ?? '').trim().toLowerCase(), name: (env.FROM_NEWS_NAME ?? 'The Compass Key Monthly').trim() },
     },
     replyTo: (env.REPLY_TO ?? '').trim().toLowerCase(),
     mailboxConfirmed: (env.MAILBOX_CONFIRMED ?? 'no').toLowerCase() === 'yes',

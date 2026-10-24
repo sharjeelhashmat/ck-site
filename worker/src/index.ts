@@ -1,4 +1,4 @@
-import { readConfig } from './config';
+import { readConfig, type Config } from './config';
 import { sha256Hex } from './hash';
 import { subscribe, unsubscribeFeedbackForm, validateFeedback, type NewsletterDeps } from './newsletter';
 import { processLead, type AlertPayload, type Deps, type LeadRow } from './pipeline';
@@ -66,7 +66,7 @@ function allowedOrigins(siteUrl: string, extra: string[] = []): string[] {
 }
 
 function json(body: unknown, status: number, origin?: string): Response {
-  const headers: Record<string, string> = { 'content-type': 'application/json', 'cache-control': 'no-store' };
+  const headers: Record<string, string> = { 'content-type': 'application/json', 'cache-control': 'no-store', 'x-content-type-options': 'nosniff' };
   if (origin) {
     headers['access-control-allow-origin'] = origin;
     headers['vary'] = 'origin';
@@ -83,43 +83,34 @@ function preflight(corsOrigin: string | undefined): Response {
   });
 }
 
+// Every page and plain-text answer the Worker serves to a browser (audit item 7): nothing loads, nothing frames it,
+// forms post only back to the Worker, and no referrer leaves it.
+export const PAGE_CSP = "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'";
+const PAGE_SECURITY = { 'content-security-policy': PAGE_CSP, 'x-content-type-options': 'nosniff', 'referrer-policy': 'no-referrer', 'cache-control': 'no-store' };
+
 function page(status: number, title: string, message: string, extra = ''): Response {
   return new Response(`<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title}</title><main style="font:16px system-ui;margin:3rem auto;max-width:28rem;padding:0 1rem"><p>${message}</p>${extra}</main>`, {
     status,
-    headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' },
+    headers: { 'content-type': 'text/html; charset=utf-8', ...PAGE_SECURITY },
   });
 }
 
-function makeNewsletterDeps(env: Env): NewsletterDeps {
-  const cfg = readConfig(env as unknown as Record<string, string | undefined>);
-  const keys = { resend: env.RESEND_API_KEY, brevo: env.BREVO_API_KEY };
-  return {
-    now: () => new Date(),
-    uuid: () => crypto.randomUUID(),
-    async upsertSubscriber(row) {
-      // An unsubscribed address stays unsubscribed: a POST never clears unsubscribed_at (H8). Rows the retention job
-      // anonymised keep only the address's hash, so they are matched by it and the opt-out still holds.
-      const existing = await env.DB.prepare('SELECT id FROM newsletter_subscribers WHERE email = ?1 OR email = ?2 LIMIT 1')
-        .bind(row.email, `${SUBSCRIBER_HASH_PREFIX}${await sha256Hex(row.email)}`).first<{ id: string }>();
-      if (existing) return { id: existing.id, confirm: false };
-      const r = await env.DB.prepare('INSERT INTO newsletter_subscribers (id, email, subscribed_at, source) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(email) DO NOTHING')
-        .bind(row.id, row.email, row.subscribed_at, row.source).run();
-      return { id: row.id, confirm: (r.meta.changes ?? 0) > 0 };
-    },
-    async countSentSince(sinceIso) {
-      const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM messages WHERE outcome = 'sent' AND created_at >= ?1").bind(sinceIso).first<{ n: number }>();
-      return r?.n ?? 0;
-    },
-    async logMessage(m) {
-      await env.DB.prepare('INSERT INTO messages (id, lead_id, created_at, template_id, template_hash, provider_id, outcome) VALUES (?1,?2,?3,?4,?5,?6,?7)')
-        .bind(m.id, m.lead_id, m.created_at, m.template_id, m.template_hash, m.provider_id, m.outcome).run();
-    },
-    async send(msg) {
-      const sender = cfg.senders.news;
-      if (!sender.email || !cfg.replyTo) throw new Error('no_sender');
-      return sendEmail(cfg.emailProvider, keys, sender, cfg.replyTo, msg);
-    },
-  };
+function plain(status: number, text: string): Response {
+  return new Response(text, { status, headers: { 'content-type': 'text/plain; charset=utf-8', ...PAGE_SECURITY } });
+}
+
+const attr = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+
+// GET on an unsubscribe link changes nothing (link scanners and previews open it): it shows one button that POSTs back to
+// the same URL. Mail clients that support RFC 8058 POST to it directly (List-Unsubscribe-Post).
+function confirmUnsubscribe(action: string, question: string): Response {
+  const button = 'font:inherit;padding:.5rem 1.25rem;border:1px solid #333;border-radius:4px;background:#fff;color:#111;cursor:pointer';
+  return page(200, 'Unsubscribe', question, `<form method="post" action="${attr(action)}"><button type="submit" style="${button}">Unsubscribe</button></form>`);
+}
+
+/** POST bodies on the unsubscribe routes carry nothing we need ("List-Unsubscribe=One-Click" or an empty form): capped and dropped. */
+async function bodyTooLarge(req: Request): Promise<boolean> {
+  return (await req.arrayBuffer()).byteLength > MAX_BODY;
 }
 
 // Cloudflare's documented Turnstile test secrets (always pass / always fail / token already spent). Refused unless
@@ -143,10 +134,28 @@ export async function verifyTurnstile(secret: string | undefined, token: unknown
   }
 }
 
-function makeDeps(env: Env): Deps {
-  const cfg = readConfig(env as unknown as Record<string, string | undefined>);
+// One factory for every route's dependencies (audit item 27): the config is read once per request, and the shared D1
+// writers (messages, events) and the owner-alert sender exist once.
+function makeDeps(env: Env, cfg: Config): { lead: Deps; newsletter: NewsletterDeps; profile: ProfileDeps } {
   const keys = { resend: env.RESEND_API_KEY, brevo: env.BREVO_API_KEY };
-  return {
+  const countSentSince = async (sinceIso: string) => {
+    const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM messages WHERE outcome = 'sent' AND created_at >= ?1").bind(sinceIso).first<{ n: number }>();
+    return r?.n ?? 0;
+  };
+  const logMessage: Deps['logMessage'] = async (m) => {
+    await env.DB.prepare('INSERT INTO messages (id, lead_id, created_at, template_id, template_hash, provider_id, outcome) VALUES (?1,?2,?3,?4,?5,?6,?7)')
+      .bind(m.id, m.lead_id, m.created_at, m.template_id, m.template_hash, m.provider_id, m.outcome).run();
+  };
+  const logEvent: Deps['logEvent'] = async (type, leadId, detail) => {
+    await env.DB.prepare('INSERT INTO events (id, created_at, type, lead_id, detail) VALUES (?1,?2,?3,?4,?5)')
+      .bind(crypto.randomUUID(), new Date().toISOString(), type, leadId, detail).run();
+  };
+  const notifyOwner = async (subject: string, text: string) => {
+    if (!cfg.hasEmailKey || !cfg.alertEmail || !cfg.senders.alerts.email) return;
+    await sendEmail(cfg.emailProvider, keys, cfg.senders.alerts, cfg.alertEmail, { stream: 'leads', to: cfg.alertEmail, toName: 'Sharjeel Hashmat', subject, text });
+  };
+
+  const lead: Deps = {
     now: () => new Date(),
     uuid: () => crypto.randomUUID(),
     hash: sha256Hex,
@@ -159,10 +168,7 @@ function makeDeps(env: Env): Deps {
       const r = await env.DB.prepare('SELECT 1 AS x FROM suppression WHERE email_hash = ?1').bind(hash).first();
       return r !== null;
     },
-    async countSentSince(sinceIso) {
-      const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM messages WHERE outcome = 'sent' AND created_at >= ?1").bind(sinceIso).first<{ n: number }>();
-      return r?.n ?? 0;
-    },
+    countSentSince,
     async insertLead(row: LeadRow) {
       const l = row.lead;
       const a = l.attribution;
@@ -177,21 +183,14 @@ function makeDeps(env: Env): Deps {
         row.status, JSON.stringify(row.reasons), JSON.stringify(row.escalation), row.score, row.lane, row.alert_level, row.status === 'VALID' ? 0 : 1,
       ).run();
     },
-    async logMessage(m) {
-      await env.DB.prepare('INSERT INTO messages (id, lead_id, created_at, template_id, template_hash, provider_id, outcome) VALUES (?1,?2,?3,?4,?5,?6,?7)')
-        .bind(m.id, m.lead_id, m.created_at, m.template_id, m.template_hash, m.provider_id, m.outcome).run();
-    },
-    async logEvent(type, leadId, detail) {
-      await env.DB.prepare('INSERT INTO events (id, created_at, type, lead_id, detail) VALUES (?1,?2,?3,?4,?5)')
-        .bind(crypto.randomUUID(), new Date().toISOString(), type, leadId, detail).run();
-    },
+    logMessage,
+    logEvent,
     async send(msg) {
       const sender = cfg.senders[msg.stream];
       if (!sender.email || !cfg.replyTo) throw new Error('no_sender');
       return sendEmail(cfg.emailProvider, keys, sender, cfg.replyTo, msg);
     },
     async alertOwner(p: AlertPayload) {
-      if (!cfg.hasEmailKey || !cfg.alertEmail || !cfg.senders.alerts.email) return;
       const l = p.lead;
       const tag = p.outbound === 'not_stored' ? 'NOT STORED: reply by hand' : p.alert_level === 'instant' ? 'ACTION' : 'DIGEST';
       const subject = `[${tag}] ${p.lane} ${p.score}/100 · ${l.name} · ${l.intent}`;
@@ -203,15 +202,33 @@ function makeDeps(env: Env): Deps {
         `Source: ${l.attribution.source_type} (${l.attribution.utm_source ?? '-'} / ${l.attribution.utm_campaign ?? '-'})  Landing: ${l.attribution.landing_page ?? '-'}`,
         `Automated reply: ${p.outbound}`, '', 'Message:', l.message.slice(0, 600) || '-', '', `Lead ID: ${p.id}`,
       ].filter(Boolean).join('\n');
-      await sendEmail(cfg.emailProvider, keys, cfg.senders.alerts, cfg.alertEmail, { stream: 'leads', to: cfg.alertEmail, toName: 'Sharjeel Hashmat', subject, text });
+      await notifyOwner(subject, text);
     },
   };
-}
 
-function makeProfileDeps(env: Env): ProfileDeps {
-  const cfg = readConfig(env as unknown as Record<string, string | undefined>);
-  const keys = { resend: env.RESEND_API_KEY, brevo: env.BREVO_API_KEY };
-  return {
+  const newsletter: NewsletterDeps = {
+    now: () => new Date(),
+    uuid: () => crypto.randomUUID(),
+    async upsertSubscriber(row) {
+      // An unsubscribed address stays unsubscribed: a POST never clears unsubscribed_at (H8). Rows the retention job
+      // anonymised keep only the address's hash, so they are matched by it and the opt-out still holds.
+      const existing = await env.DB.prepare('SELECT id FROM newsletter_subscribers WHERE email = ?1 OR email = ?2 LIMIT 1')
+        .bind(row.email, `${SUBSCRIBER_HASH_PREFIX}${await sha256Hex(row.email)}`).first<{ id: string }>();
+      if (existing) return { id: existing.id, confirm: false };
+      const r = await env.DB.prepare('INSERT INTO newsletter_subscribers (id, email, subscribed_at, source) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(email) DO NOTHING')
+        .bind(row.id, row.email, row.subscribed_at, row.source).run();
+      return { id: row.id, confirm: (r.meta.changes ?? 0) > 0 };
+    },
+    countSentSince,
+    logMessage,
+    async send(msg) {
+      const sender = cfg.senders.news;
+      if (!sender.email || !cfg.replyTo) throw new Error('no_sender');
+      return sendEmail(cfg.emailProvider, keys, sender, cfg.replyTo, msg);
+    },
+  };
+
+  const profile: ProfileDeps = {
     now: () => new Date(),
     async findLead(id) {
       return env.DB.prepare('SELECT created_at, quarantined, status, name, email, intent, lane FROM leads WHERE id = ?1').bind(id).first();
@@ -225,18 +242,14 @@ function makeProfileDeps(env: Env): ProfileDeps {
       ).bind(leadId, nowIso, p.objective, p.property_type, p.risk_tolerance, p.holding_period, JSON.stringify(p.areas)).run();
       return existing ? 'updated' : 'created';
     },
-    async logEvent(type, leadId, detail) {
-      await env.DB.prepare('INSERT INTO events (id, created_at, type, lead_id, detail) VALUES (?1,?2,?3,?4,?5)')
-        .bind(crypto.randomUUID(), new Date().toISOString(), type, leadId, detail).run();
-    },
-    async notifyOwner(subject, text) {
-      if (!cfg.hasEmailKey || !cfg.alertEmail || !cfg.senders.alerts.email) return;
-      await sendEmail(cfg.emailProvider, keys, cfg.senders.alerts, cfg.alertEmail, { stream: 'leads', to: cfg.alertEmail, toName: 'Sharjeel Hashmat', subject, text });
-    },
+    logEvent,
+    notifyOwner,
   };
+
+  return { lead, newsletter, profile };
 }
 
-function corsFor(req: Request, cfg: ReturnType<typeof readConfig>) {
+function corsFor(req: Request, cfg: Config) {
   const origins = allowedOrigins(cfg.siteUrl, cfg.extraOrigins);
   const origin = req.headers.get('origin') ?? '';
   const corsOrigin = origins.includes(origin) ? origin : undefined;
@@ -301,7 +314,7 @@ async function handle(req: Request, env: Env): Promise<Response> {
     if (!human) return json({ ok: false, error: 'verification_failed' }, 403, corsOrigin);
 
     const approved = await approvedTemplates(env);
-    const result = await processLead(raw, { config: cfg, templates: TEMPLATES, approved, unsubSecret: env.UNSUB_SECRET, staging }, makeDeps(env));
+    const result = await processLead(raw, { config: cfg, templates: TEMPLATES, approved, unsubSecret: env.UNSUB_SECRET, staging }, makeDeps(env, cfg).lead);
     return json(result.body, result.status, corsOrigin);
   }
 
@@ -314,16 +327,18 @@ async function handle(req: Request, env: Env): Promise<Response> {
     if (text.length > MAX_PROFILE_BODY) return json({ ok: false, error: 'too_large' }, 413, corsOrigin);
     let raw: unknown;
     try { raw = JSON.parse(text); } catch { return json({ ok: false, error: 'invalid_input', field: 'body' }, 400, corsOrigin); }
-    const result = await saveProfile(raw, makeProfileDeps(env), { staging });
+    const result = await saveProfile(raw, makeDeps(env, cfg).profile, { staging });
     return json(result.body, result.status, corsOrigin);
   }
 
-  if (url.pathname === '/unsubscribe' && req.method === 'GET') {
+  // Lead-reply unsubscribe (audit item 2). GET shows a confirm button and changes nothing; POST (that button, or a mail
+  // client's RFC 8058 one-click request) suppresses the address. Both check the same signed token.
+  if (url.pathname === '/unsubscribe' && (req.method === 'GET' || req.method === 'POST')) {
     const email = (url.searchParams.get('e') ?? '').trim().toLowerCase();
     const token = url.searchParams.get('t') ?? '';
-    if (!env.UNSUB_SECRET || !email || !(await verifyUnsubToken(email, token, env.UNSUB_SECRET))) {
-      return new Response('Invalid link.', { status: 400, headers: { 'content-type': 'text/plain' } });
-    }
+    if (req.method === 'POST' && (await bodyTooLarge(req))) return plain(413, 'Too large.');
+    if (!env.UNSUB_SECRET || !email || !(await verifyUnsubToken(email, token, env.UNSUB_SECRET))) return plain(400, 'Invalid link.');
+    if (req.method === 'GET') return confirmUnsubscribe(`/unsubscribe${url.search}`, 'Stop all further messages to this address?');
     const hash = await sha256Hex(email);
     await env.DB.prepare('INSERT OR IGNORE INTO suppression (email_hash, created_at, reason) VALUES (?1, ?2, ?3)').bind(hash, new Date().toISOString(), 'unsubscribe').run();
     return page(200, 'Unsubscribed', 'You are unsubscribed. No further messages will be sent.');
@@ -339,31 +354,41 @@ async function handle(req: Request, env: Env): Promise<Response> {
     let raw: unknown;
     try { raw = JSON.parse(text); } catch { return json({ ok: false, error: 'invalid_input', field: 'body' }, 400, corsOrigin); }
 
+    // Same fail-closed guard as /lead (audit item 10).
+    if (!env.TURNSTILE_SECRET) {
+      console.error('newsletter: TURNSTILE_SECRET is not set; rejecting the signup (fail closed)');
+      return json({ ok: false, error: 'verification_unavailable' }, 503, corsOrigin);
+    }
     const token = (raw as Record<string, unknown> | null)?.turnstile_token;
     const human = await verifyTurnstile(env.TURNSTILE_SECRET, token, req.headers.get('cf-connecting-ip'), env.ALLOW_TEST_TURNSTILE === 'yes');
     if (!human) return json({ ok: false, error: 'verification_failed' }, 403, corsOrigin);
 
     const approved = await approvedTemplates(env);
-    const result = await subscribe(raw, { config: cfg, templates: TEMPLATES, approved, unsubSecret: env.UNSUB_SECRET }, makeNewsletterDeps(env));
+    const result = await subscribe(raw, { config: cfg, templates: TEMPLATES, approved, unsubSecret: env.UNSUB_SECRET }, makeDeps(env, cfg).newsletter);
     return json(result.body, result.status, corsOrigin);
   }
 
-  if (url.pathname === '/api/newsletter/unsubscribe' && req.method === 'GET') {
-    const email = env.UNSUB_SECRET ? await verifyNewsletterToken(url.searchParams.get('token') ?? '', env.UNSUB_SECRET) : null;
-    if (!email) return new Response('Invalid link.', { status: 400, headers: { 'content-type': 'text/plain' } });
+  // Newsletter unsubscribe (audit item 2): GET confirms and changes nothing; POST unsubscribes, then offers the optional
+  // feedback form. Both check the same signed token.
+  if (url.pathname === '/api/newsletter/unsubscribe' && (req.method === 'GET' || req.method === 'POST')) {
+    const token = url.searchParams.get('token') ?? '';
+    if (req.method === 'POST' && (await bodyTooLarge(req))) return plain(413, 'Too large.');
+    const email = env.UNSUB_SECRET ? await verifyNewsletterToken(token, env.UNSUB_SECRET) : null;
+    if (!email) return plain(400, 'Invalid link.');
+    if (req.method === 'GET') return confirmUnsubscribe(`/api/newsletter/unsubscribe${url.search}`, 'Stop receiving The Compass Key Monthly?');
     await env.DB.prepare('UPDATE newsletter_subscribers SET unsubscribed_at = ?1 WHERE email = ?2 AND unsubscribed_at IS NULL')
       .bind(new Date().toISOString(), email).run();
-    return page(200, 'Unsubscribed', "You are unsubscribed from The Investor's Brief. No further issues will be sent.", unsubscribeFeedbackForm(url.searchParams.get('token')!));
+    return page(200, 'Unsubscribed', 'You are unsubscribed from The Compass Key Monthly. No further issues will be sent.', unsubscribeFeedbackForm(token));
   }
 
   // Optional feedback, posted from the page above. The same signed token identifies the subscriber; it is not
   // consumed by the unsubscribe, so no second token is needed. Only a row that is actually unsubscribed is updated.
   if (url.pathname === '/api/newsletter/unsubscribe/feedback' && req.method === 'POST') {
     const body = await req.arrayBuffer();
-    if (body.byteLength > MAX_BODY) return new Response('Too large.', { status: 413, headers: { 'content-type': 'text/plain' } });
+    if (body.byteLength > MAX_BODY) return plain(413, 'Too large.');
     const form = new URLSearchParams(new TextDecoder().decode(body));
     const email = env.UNSUB_SECRET ? await verifyNewsletterToken(form.get('token') ?? '', env.UNSUB_SECRET) : null;
-    if (!email) return new Response('Invalid link.', { status: 400, headers: { 'content-type': 'text/plain' } });
+    if (!email) return plain(400, 'Invalid link.');
     const fb = validateFeedback(form);
     if (fb.kind === 'skip') return page(200, 'Unsubscribed', 'You are unsubscribed. Nothing else to do.');
     try {

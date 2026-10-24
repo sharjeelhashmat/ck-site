@@ -3,6 +3,7 @@
 //   all other leads                      deleted 24 months (730 days) after created_at
 //   investor_profiles                    deleted once their lead no longer exists
 //   events                               deleted after 12 months (365 days)
+//   messages (send log)                  deleted after 24 months (730 days)
 //   newsletter_subscribers               active subscribers kept while subscribed;
 //                                        unsubscribe_reason_detail cleared 180 days after the feedback;
 //                                        unsubscribed for over 24 months: the email is replaced by its SHA-256 hash
@@ -14,7 +15,7 @@ import { sha256Hex } from './hash';
 /** An anonymised newsletter row stores this prefix + the hex SHA-256 of the lower-cased address. */
 export const SUBSCRIBER_HASH_PREFIX = 'sha256:';
 
-export const RETENTION_DAYS = { quarantinedLead: 30, lead: 730, event: 365, feedbackDetail: 180, unsubscribed: 730 } as const;
+export const RETENTION_DAYS = { quarantinedLead: 30, lead: 730, event: 365, message: 730, feedbackDetail: 180, unsubscribed: 730 } as const;
 
 /** At most this many newsletter rows are anonymised per run; the rest follow on the next days. */
 const HASH_BATCH = 200;
@@ -26,6 +27,7 @@ export interface RetentionResult {
   leads_expired: number;
   investor_profiles: number;
   events: number;
+  messages: number;
   feedback_details: number;
   subscribers_anonymised: number;
 }
@@ -45,6 +47,7 @@ export async function runRetention(db: D1Database, now: Date): Promise<Retention
     db.prepare('DELETE FROM leads WHERE created_at < ?1').bind(before(now, RETENTION_DAYS.lead)),
     db.prepare('DELETE FROM investor_profiles WHERE lead_id NOT IN (SELECT id FROM leads)'),
     db.prepare('DELETE FROM events WHERE created_at < ?1').bind(before(now, RETENTION_DAYS.event)),
+    db.prepare('DELETE FROM messages WHERE created_at < ?1').bind(before(now, RETENTION_DAYS.message)),
     db.prepare('UPDATE newsletter_subscribers SET unsubscribe_reason_detail = NULL WHERE unsubscribe_reason_detail IS NOT NULL AND unsubscribe_feedback_at < ?1')
       .bind(before(now, RETENTION_DAYS.feedbackDetail)),
     ...anonymise,
@@ -55,7 +58,8 @@ export async function runRetention(db: D1Database, now: Date): Promise<Retention
     leads_expired: changes(1),
     investor_profiles: changes(2),
     events: changes(3),
-    feedback_details: changes(4),
-    subscribers_anonymised: anonymise.reduce((n, _, i) => n + changes(5 + i), 0),
+    messages: changes(4),
+    feedback_details: changes(5),
+    subscribers_anonymised: anonymise.reduce((n, _, i) => n + changes(6 + i), 0),
   };
 }

@@ -26,7 +26,7 @@ describe('outbound gate', () => {
     const c = readConfig(goodEnv);
     expect(outboundBlockers(c)).toEqual([]);
     expect(c.senders.alerts.name).toBe('Lead desk');
-    expect(c.senders.news.name).toBe("The Investor's Brief");
+    expect(c.senders.news.name).toBe('The Compass Key Monthly');
   });
   it('provider defaults to brevo (backward compatible) and needs its own key', () => {
     const { BREVO_API_KEY: _drop, ...noKey } = goodEnv;

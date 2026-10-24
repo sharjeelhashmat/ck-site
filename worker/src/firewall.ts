@@ -8,6 +8,7 @@ import {
   type Lead,
   type SourceType,
 } from './types';
+import { validE164 } from './phone';
 
 // Autonomous-maintainable file: security mechanics only. Routing policy lives elsewhere.
 
@@ -34,11 +35,10 @@ function clean(v: unknown, max: number): string | null {
   return s.slice(0, max);
 }
 
-export function normalizePhone(v: unknown): string | null {
-  if (typeof v !== 'string') return null;
-  let s = v.replace(/[\s\-.()]/g, '');
-  if (s.startsWith('00')) s = '+' + s.slice(2);
-  return /^\+[1-9]\d{6,14}$/.test(s) ? s : null;
+/** The one email check for every route (enquiry, newsletter): at most 254 characters, no whitespace, local@domain.tld. */
+export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+export function isValidEmail(email: string): boolean {
+  return email.length <= 254 && !/\s/.test(email) && EMAIL_RE.test(email);
 }
 
 export function emailDomain(email: string): string {
@@ -78,9 +78,7 @@ export function validateLead(raw: unknown): ValidationResult {
   if (!name || !/^[\p{L}\p{M}' .\-]{2,80}$/u.test(name)) return { ok: false, field: 'name' };
 
   const emailRaw = typeof r.email === 'string' ? r.email.trim().toLowerCase() : '';
-  if (emailRaw.length > 254 || /[\r\n\s]/.test(emailRaw) || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(emailRaw)) {
-    return { ok: false, field: 'email' };
-  }
+  if (!isValidEmail(emailRaw)) return { ok: false, field: 'email' };
 
   const intent = oneOf(INTENTS, r.intent);
   if (!intent) return { ok: false, field: 'intent' };
@@ -111,7 +109,7 @@ export function validateLead(raw: unknown): ValidationResult {
     lead: {
       name,
       email: emailRaw,
-      phone: normalizePhone(r.phone),
+      phone: validE164(r.phone),
       country: country && /^[A-Z]{2}$/.test(country) ? country : null,
       intent,
       budget_band: budget,
@@ -134,6 +132,5 @@ export function classify(lead: Lead, ctx: { duplicate: boolean }): { status: Fir
   const urls = (lead.message.match(/https?:\/\/|www\./gi) ?? []).length;
   if (urls >= 2) reasons.push('many_links');
   if (SPAM_TERMS.some((re) => re.test(lead.message))) reasons.push('spam_terms');
-  if (/^\d+$/.test(lead.name.replace(/[ .\-']/g, ''))) reasons.push('numeric_name');
   return reasons.length ? { status: 'SUSPICIOUS', reasons } : { status: 'VALID', reasons: [] };
 }

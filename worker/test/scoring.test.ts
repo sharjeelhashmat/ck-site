@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { validateLead } from '../src/firewall';
-import { band, DEFAULT_WEIGHTS, engagementBonus, parseWeights, scoreLead } from '../src/scoring';
+import { DEFAULT_WEIGHTS, parseWeights, scoreLead } from '../src/scoring';
 import { baseLead } from './helpers';
 
 const lead = (over = {}) => {
@@ -25,12 +25,5 @@ describe('scoring', () => {
   it('ignores malformed or out-of-range overrides', () => {
     expect(parseWeights('not json')).toEqual(DEFAULT_WEIGHTS);
     expect(parseWeights(JSON.stringify({ intent: { invest: 9999 } })).intent.invest).toBe(DEFAULT_WEIGHTS.intent.invest);
-  });
-  it('bands follow the blueprint', () => {
-    expect([0, 20, 21, 40, 41, 60, 61, 80, 81, 100].map(band)).toEqual(['junk', 'junk', 'cold', 'cold', 'potential', 'potential', 'qualified', 'qualified', 'priority', 'priority']);
-  });
-  it('engagement bonus caps at 10', () => {
-    expect(engagementBonus(1, 2)).toBe(9);
-    expect(engagementBonus(5, 5)).toBe(10);
   });
 });

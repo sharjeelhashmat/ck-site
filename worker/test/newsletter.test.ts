@@ -110,17 +110,18 @@ describe('newsletter: subscribe', () => {
     expect((await subscribe(body(), edited, fake().deps)).internal?.outbound).toBe('skipped:not_approved');
   });
 
-  // Pins the owner-approved NEWS-WELCOME v1 wording (TEMPLATES_FOR_APPROVAL.md, hash c8dd8ca2d0b0). Editing the
+  // Pins the NEWS-WELCOME v1 wording (TEMPLATES_FOR_APPROVAL.md, hash 23254f31c43c: the newsletter name changed to The
+  // Compass Key Monthly, item 39; the owner re-approves this hash before it can send). Editing the
   // template must fail here until the owner re-approves and this literal is updated with them.
-  it('the welcome actually sent is the owner-approved v1 wording, hash c8dd8ca2d0b0', async () => {
+  it('the welcome actually sent is the owner-approved v1 wording, hash 23254f31c43c', async () => {
     const tpl = TEMPLATES.find((t) => t.id === NEWS_WELCOME_ID)!;
-    expect((await templateHash(tpl)).slice(0, 12)).toBe('c8dd8ca2d0b0');
+    expect((await templateHash(tpl)).slice(0, 12)).toBe('23254f31c43c');
     const f = fake();
     expect((await subscribe(body(), await nctx(), f.deps)).internal?.outbound).toBe('sent');
     const m = f.sent[0]!;
-    expect(m.subject).toBe("Subscribed · The Investor's Brief");
+    expect(m.subject).toBe("Subscribed · The Compass Key Monthly");
     expect(m.text).toBe([
-      "Thank you for subscribing to The Investor's Brief.",
+      "Thank you for subscribing to The Compass Key Monthly.",
       '',
       'What to expect: an occasional note on the UAE property market. Sourced figures, the analysis that matters, nothing else.',
       '',
