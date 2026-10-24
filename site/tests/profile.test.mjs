@@ -88,7 +88,7 @@ test('profile form: the eight areas, then "Elsewhere in the UAE" (other) and "No
   const values = [...h.matchAll(/<input type="checkbox" name="areas" value="([^"]+)"/g)].map((m) => m[1]);
   assert.deepEqual(values, ['downtown-dubai', 'dubai-marina', 'dubai-hills', 'dubai-creek-harbour', 'dubai-islands', 'palm-jumeirah', 'palm-jebel-ali', 'dubai-maritime-city', 'other', 'advice']);
   assert.match(h, /value="other" aria-controls="p-other-wrap"[^>]*><span>Elsewhere in the UAE<\/span>/);
-  assert.match(h, /value="advice"[^>]*><span>Not sure yet – I’d like your advice<\/span>/);
+  assert.match(h, /value="advice"[^>]*><span>Not sure yet, I’d like your advice<\/span>/);
   // When the Worker carries the extra values (PR "staging investor profiles; Other area"), the two lists must agree.
   const w = existsSync(join(root, '../worker/src/profile.ts')) ? read('../worker/src/profile.ts') : '';
   const extras = w.match(/AREA_EXTRAS\s*=\s*\[([^\]]*)\]/);

@@ -22,13 +22,13 @@ To move faster, choose a time that suits you: {{booking_url}}
 Come with one answer: what should this property do for you?
 
 Sharjeel Hashmat
-Real Estate Consultant · UAE
+Property Consultant · UAE
 {{affiliation_line}}
 
 Automated acknowledgment. The follow-up is not automated.
 ```
 
-Hash: `76cb93623957`
+Hash: `2f7f9486d784`
 
 ---
 
@@ -47,13 +47,13 @@ If you would rather book a time directly: {{booking_url}}
 Before we speak, read how I evaluate a property: {{resource_url}}
 
 Sharjeel Hashmat
-Real Estate Consultant · UAE
+Property Consultant · UAE
 {{affiliation_line}}
 
 Automated acknowledgment. The follow-up is not automated.
 ```
 
-Hash: `979a1618f735`
+Hash: `f506b896a3c1`
 
 ---
 
@@ -72,13 +72,13 @@ You opted in to my weekly note. One message, the analysis that matters, nothing 
 When the timing changes, reply to this email.
 
 Sharjeel Hashmat
-Real Estate Consultant · UAE
+Property Consultant · UAE
 {{affiliation_line}}
 
 Automated message. You receive it because you opted in.
 ```
 
-Hash: `8acddaaf1f4e`
+Hash: `5f6b42423008`
 
 ---
 
@@ -95,13 +95,13 @@ Received. Before any property is discussed, this is how I approach a purchase: {
 If you want a conversation, reply to this email or book a time: {{booking_url}}
 
 Sharjeel Hashmat
-Real Estate Consultant · UAE
+Property Consultant · UAE
 {{affiliation_line}}
 
 Automated acknowledgment. The follow-up is not automated.
 ```
 
-Hash: `037778dd74e2`
+Hash: `bdc74c637149`
 
 ---
 
@@ -120,13 +120,13 @@ Send me: the unit or title deed reference, size, floor and view, current status 
 To talk it through: {{booking_url}}
 
 Sharjeel Hashmat
-Real Estate Consultant · UAE
+Property Consultant · UAE
 {{affiliation_line}}
 
 Automated acknowledgment. The follow-up is not automated.
 ```
 
-Hash: `b141a6b91d3b`
+Hash: `5c379e01375c`
 
 ---
 
@@ -145,13 +145,13 @@ Book a time that suits you: {{booking_url}}
 I reply personally within {{sla_hours}} hours. My approach, in the meantime: {{resource_url}}
 
 Sharjeel Hashmat
-Real Estate Consultant · UAE
+Property Consultant · UAE
 {{affiliation_line}}
 
 Automated acknowledgment. The follow-up is not automated.
 ```
 
-Hash: `8024be4b8919`
+Hash: `b0ffb8d00f9d`
 
 ---
 
@@ -166,13 +166,13 @@ Hash: `8024be4b8919`
 Received. If there is a fit, you will hear from me directly.
 
 Sharjeel Hashmat
-Real Estate Consultant · UAE
+Property Consultant · UAE
 {{affiliation_line}}
 
 Automated acknowledgment. The follow-up is not automated.
 ```
 
-Hash: `3f45475dd1e2`
+Hash: `dd1aa9b6546c`
 
 ---
 
@@ -187,13 +187,13 @@ Hash: `3f45475dd1e2`
 Received. This one needs me personally, not a template. You will hear from me within {{sla_hours}} hours.
 
 Sharjeel Hashmat
-Real Estate Consultant · UAE
+Property Consultant · UAE
 {{affiliation_line}}
 
 Automated acknowledgment. The follow-up is not automated.
 ```
 
-Hash: `13403984358a`
+Hash: `dec963e513a6`
 
 ---
 
@@ -210,13 +210,13 @@ What to expect: an occasional note on the UAE property market. Sourced figures, 
 Stop whenever you like: {{unsubscribe_url}}
 
 Sharjeel Hashmat
-Real Estate Consultant · UAE
+Property Consultant · UAE
 {{affiliation_line}}
 
 Automated message. You receive it because you subscribed on sharjeelhashmat.com.
 ```
 
-Hash: `23254f31c43c`
+Hash: `538697a20823`
 
 ---
 
