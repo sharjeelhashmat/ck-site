@@ -137,7 +137,7 @@ Links carry `v2.<list>.<sha256 of the address>.<HMAC with UNSUB_SECRET>`, never 
 
 ## Readiness check (PR 2c item 6; gap G08)
 
-No public route shows configuration, switch state or counts: `/health` answers exactly `{"ok":true}`. Instead `.github/workflows/readiness.yml` runs daily at 05:23 UTC (and by hand), in the `production` environment with the existing Cloudflare secrets, and runs read-only SELECTs (`.github/scripts/readiness.mjs`) against production D1:
+No public route shows configuration, switch state or counts: `/health` answers exactly `{"ok":true}`. Instead `.github/workflows/readiness.yml` runs daily at 05:23 UTC (and by hand), unattended in the `market-data` environment (no required reviewer) with its existing D1-only token `CF_D1_TOKEN`, and runs read-only SELECTs (`.github/scripts/readiness.mjs`) against production D1:
 
 | Check | FAIL when |
 |---|---|
@@ -147,7 +147,7 @@ No public route shows configuration, switch state or counts: `/health` answers e
 | `market-data` | The newest written DLD run finished more than 8 days ago (none = unknown) |
 | `replies` | Only when the repository variable `REPLIES_LIVE` is `yes` (set at go-live, Runbook step 5.4): a lead that is not TEST or SPAM, 15 min to 24 h old, has no `lead_reply` row that is `sent` or `skipped` for `suppressed`, `daily_cap`, `duplicate` or `quarantined` |
 
-An unknown answer is read again after 60 s; unknown twice is FAIL. Any FAIL fails the job, so GitHub emails the owner. The repository is public and so are the logs: the job prints only `<check>: PASS` or `<check>: FAIL`, with no counts, timestamps, ids or values, no step summary and no artifact (workflow-guard R17). If `production` requires a reviewer, each scheduled run waits for that approval.
+An unknown answer is read again after 60 s; unknown twice is FAIL. Any FAIL fails the job, so GitHub emails the owner. The repository is public and so are the logs: the job prints only `<check>: PASS` or `<check>: FAIL`, with no counts, timestamps, ids or values, no step summary and no artifact (workflow-guard R17, which also pins the `market-data` environment and its two secrets; no other workflow but market-data-sync may use that environment).
 
 ## Delivery proof (PR 2c item 7; gap G11)
 
