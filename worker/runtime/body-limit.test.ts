@@ -61,7 +61,7 @@ describe('body limit counts bytes, not characters', () => {
 
     it(`${r.path}: a Content-Length above the limit is refused before the body is read`, async () => {
       let pulled = false;
-      const body = new ReadableStream<Uint8Array>({ pull(c) { pulled = true; c.enqueue(new TextEncoder().encode('{}')); c.close(); } });
+      const body = new ReadableStream<Uint8Array>({ pull(c) { pulled = true; c.enqueue(new TextEncoder().encode('{}')); c.close(); } }, { highWaterMark: 0 });
       const res = await send(r.path, body, { 'content-type': 'application/json', 'content-length': String(r.max + 1) });
       expect(res.status).toBe(413);
       expect(res.headers.get('access-control-allow-origin')).toBe(ORIGIN);

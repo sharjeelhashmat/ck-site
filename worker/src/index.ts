@@ -10,6 +10,7 @@ import type { Template } from './templates';
 import { verifyNewsletterToken, verifyUnsubToken } from './unsub';
 import { runAndRecordRetention, SUBSCRIBER_HASH_PREFIX } from './retention';
 import { safeError } from './log';
+import { MAX_BODY, readBody, utf8 } from './body';
 
 export interface Env {
   DB: D1Database;
@@ -54,7 +55,6 @@ async function approvedTemplates(env: Env): Promise<Record<string, string>> {
     return {};
   }
 }
-const MAX_BODY = 8 * 1024;
 
 function allowedOrigins(siteUrl: string, extra: string[] = []): string[] {
   try {
@@ -111,7 +111,14 @@ function confirmUnsubscribe(action: string, question: string): Response {
 
 /** POST bodies on the unsubscribe routes carry nothing we need ("List-Unsubscribe=One-Click" or an empty form): capped and dropped. */
 async function bodyTooLarge(req: Request): Promise<boolean> {
-  return (await req.arrayBuffer()).byteLength > MAX_BODY;
+  return (await readBody(req, MAX_BODY)) === null;
+}
+
+/** A JSON body within the limit, or the 413 / 400 answer (with the route's CORS header) to return instead. */
+async function jsonBody(req: Request, max: number, corsOrigin: string | undefined): Promise<{ raw: unknown } | { res: Response }> {
+  const bytes = await readBody(req, max);
+  if (!bytes) return { res: json({ ok: false, error: 'too_large' }, 413, corsOrigin) };
+  try { return { raw: JSON.parse(utf8(bytes)) }; } catch { return { res: json({ ok: false, error: 'invalid_input', field: 'body' }, 400, corsOrigin) }; }
 }
 
 // Cloudflare's documented Turnstile test secrets (always pass / always fail / token already spent). Refused unless
@@ -304,10 +311,9 @@ async function handle(req: Request, env: Env): Promise<Response> {
     if (req.method !== 'POST') return json({ ok: false }, 405);
     if (!corsOrigin) return json({ ok: false, error: 'forbidden' }, 403);
 
-    const text = await req.text();
-    if (text.length > MAX_BODY) return json({ ok: false, error: 'too_large' }, 413);
-    let raw: unknown;
-    try { raw = JSON.parse(text); } catch { return json({ ok: false, error: 'invalid_input', field: 'body' }, 400, corsOrigin); }
+    const body = await jsonBody(req, MAX_BODY, corsOrigin);
+    if ('res' in body) return body.res;
+    const raw = body.raw;
 
     // Fail closed: without the Turnstile secret no enquiry can be verified, so none is accepted.
     if (!env.TURNSTILE_SECRET) {
@@ -328,11 +334,9 @@ async function handle(req: Request, env: Env): Promise<Response> {
     if (req.method === 'OPTIONS') return preflight(corsOrigin);
     if (req.method !== 'POST') return json({ ok: false }, 405);
     if (!corsOrigin) return json({ ok: false, error: 'forbidden' }, 403);
-    const text = await req.text();
-    if (text.length > MAX_PROFILE_BODY) return json({ ok: false, error: 'too_large' }, 413, corsOrigin);
-    let raw: unknown;
-    try { raw = JSON.parse(text); } catch { return json({ ok: false, error: 'invalid_input', field: 'body' }, 400, corsOrigin); }
-    const result = await saveProfile(raw, makeDeps(env, cfg).profile, { staging });
+    const body = await jsonBody(req, MAX_PROFILE_BODY, corsOrigin);
+    if ('res' in body) return body.res;
+    const result = await saveProfile(body.raw, makeDeps(env, cfg).profile, { staging });
     return json(result.body, result.status, corsOrigin);
   }
 
@@ -354,10 +358,9 @@ async function handle(req: Request, env: Env): Promise<Response> {
     if (req.method !== 'POST') return json({ ok: false }, 405);
     if (!corsOrigin) return json({ ok: false, error: 'forbidden' }, 403);
 
-    const text = await req.text();
-    if (text.length > MAX_BODY) return json({ ok: false, error: 'too_large' }, 413);
-    let raw: unknown;
-    try { raw = JSON.parse(text); } catch { return json({ ok: false, error: 'invalid_input', field: 'body' }, 400, corsOrigin); }
+    const body = await jsonBody(req, MAX_BODY, corsOrigin);
+    if ('res' in body) return body.res;
+    const raw = body.raw;
 
     // Same fail-closed guard as /lead (audit item 10).
     if (!env.TURNSTILE_SECRET) {
@@ -389,9 +392,9 @@ async function handle(req: Request, env: Env): Promise<Response> {
   // Optional feedback, posted from the page above. The same signed token identifies the subscriber; it is not
   // consumed by the unsubscribe, so no second token is needed. Only a row that is actually unsubscribed is updated.
   if (url.pathname === '/api/newsletter/unsubscribe/feedback' && req.method === 'POST') {
-    const body = await req.arrayBuffer();
-    if (body.byteLength > MAX_BODY) return plain(413, 'Too large.');
-    const form = new URLSearchParams(new TextDecoder().decode(body));
+    const body = await readBody(req, MAX_BODY);
+    if (!body) return plain(413, 'Too large.');
+    const form = new URLSearchParams(utf8(body));
     const email = env.UNSUB_SECRET ? await verifyNewsletterToken(form.get('token') ?? '', env.UNSUB_SECRET) : null;
     if (!email) return plain(400, 'Invalid link.');
     const fb = validateFeedback(form);
