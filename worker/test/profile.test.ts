@@ -156,3 +156,19 @@ describe('saveProfile', () => {
     expect(f.saved).toHaveLength(0);
   });
 });
+
+// PR 2c item 1e (G06): the first-save alert is decided by "created" from the single upsert AND the outbox claim.
+describe('saveProfile: first alert exactly once', () => {
+  it('an update never alerts, even with no outbox row for the lead (a profile stored before the outbox)', async () => {
+    const f = fake();
+    f.existing = true;
+    expect((await saveProfile(good, f.deps)).status).toBe(200);
+    expect(f.mails).toHaveLength(0);
+  });
+  it('two saves that both read "created" still alert once (the claim decides)', async () => {
+    const f = fake();
+    f.deps.upsertProfile = async () => 'created';
+    await Promise.all([saveProfile(good, f.deps), saveProfile(good, f.deps)]);
+    expect(f.mails).toHaveLength(1);
+  });
+});

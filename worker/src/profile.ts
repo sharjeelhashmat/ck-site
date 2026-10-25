@@ -115,10 +115,11 @@ export async function saveProfile(raw: unknown, deps: ProfileDeps, opts: { stagi
   const outcome = await deps.upsertProfile(v.leadId, v.profile, nowIso);
   await deps.logEvent(outcome === 'created' ? 'profile_saved' : 'profile_updated', v.leadId, JSON.stringify({ areas: v.profile.areas.length, ...(test ? { test: true } : {}) }));
 
-  // Tell the owner once (G06): the outbox claim owner_alert:profile:<lead id> decides, so two first saves at the same
-  // time, or a later update, never alert twice. Best effort and after the response: the profile is already stored.
-  // Never for a TEST lead.
-  if (!test && !deps.alertsBlocked()) {
+  // Tell the owner once (G06), on the first save: the single upsert statement says "created", and the outbox claim
+  // owner_alert:profile:<lead id> makes it exactly once even when two first saves arrive together. A later update never
+  // alerts (nor does an update to a profile stored before the outbox existed). Best effort and after the response: the
+  // profile is already stored. Never for a TEST lead.
+  if (outcome === 'created' && !test && !deps.alertsBlocked()) {
     const p = v.profile;
     const subject = `[PROFILE] ${clean(lead.name)} · ${p.objective}`;
     const text = [
