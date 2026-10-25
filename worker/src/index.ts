@@ -10,6 +10,7 @@ import type { Template } from './templates';
 import { verifyNewsletterToken, verifyUnsubToken } from './unsub';
 import { runAndRecordRetention, SUBSCRIBER_HASH_PREFIX } from './retention';
 import { safeError } from './log';
+import { d1Outbox } from './outbox';
 import { MAX_BODY, readBody, utf8 } from './body';
 import { TURNSTILE_ACTIONS, turnstileHosts, verifyTurnstile } from './turnstile';
 
@@ -141,12 +142,11 @@ async function human(req: Request, env: Env, cfg: Config, raw: unknown, action: 
 
 // One factory for every route's dependencies (audit item 27): the config is read once per request, and the shared D1
 // writers (messages, events) and the owner-alert sender exist once.
-function makeDeps(env: Env, cfg: Config): { lead: Deps; newsletter: NewsletterDeps; profile: ProfileDeps } {
+function makeDeps(env: Env, cfg: Config, ctx?: ExecutionContext): { lead: Deps; newsletter: NewsletterDeps; profile: ProfileDeps } {
   const keys = { resend: env.RESEND_API_KEY, brevo: env.BREVO_API_KEY };
-  const countSentSince = async (sinceIso: string) => {
-    const r = await env.DB.prepare("SELECT COUNT(*) AS n FROM messages WHERE outcome = 'sent' AND created_at >= ?1").bind(sinceIso).first<{ n: number }>();
-    return r?.n ?? 0;
-  };
+  const outbox = d1Outbox(env.DB);
+  // Owner alerts go out after the response (PR 2c item 1d). Without an execution context (tests) they are awaited.
+  const defer = ctx ? (work: Promise<unknown>) => ctx.waitUntil(work) : undefined;
   const logMessage: Deps['logMessage'] = async (m) => {
     await env.DB.prepare('INSERT INTO messages (id, lead_id, created_at, template_id, template_hash, provider_id, outcome) VALUES (?1,?2,?3,?4,?5,?6,?7)')
       .bind(m.id, m.lead_id, m.created_at, m.template_id, m.template_hash, m.provider_id, m.outcome).run();
@@ -155,9 +155,9 @@ function makeDeps(env: Env, cfg: Config): { lead: Deps; newsletter: NewsletterDe
     await env.DB.prepare('INSERT INTO events (id, created_at, type, lead_id, detail) VALUES (?1,?2,?3,?4,?5)')
       .bind(crypto.randomUUID(), new Date().toISOString(), type, leadId, detail).run();
   };
-  const notifyOwner = async (subject: string, text: string) => {
-    if (outboundBlockers(cfg, 'alerts').length > 0) return;
-    await sendEmail(cfg.emailProvider, keys, cfg.senders.alerts, cfg.alertEmail, { stream: 'leads', to: cfg.alertEmail, toName: 'Sharjeel Hashmat', subject, text });
+  const notifyOwner = async (subject: string, text: string, idempotencyKey: string) => {
+    if (outboundBlockers(cfg, 'alerts').length > 0) throw new Error('no_sender');
+    return sendEmail(cfg.emailProvider, keys, cfg.senders.alerts, cfg.alertEmail, { stream: 'leads', to: cfg.alertEmail, toName: 'Sharjeel Hashmat', subject, text }, idempotencyKey);
   };
 
   const lead: Deps = {
@@ -173,7 +173,6 @@ function makeDeps(env: Env, cfg: Config): { lead: Deps; newsletter: NewsletterDe
       const r = await env.DB.prepare('SELECT 1 AS x FROM suppression WHERE email_hash = ?1').bind(hash).first();
       return r !== null;
     },
-    countSentSince,
     async insertLead(row: LeadRow) {
       const l = row.lead;
       const a = l.attribution;
@@ -190,12 +189,14 @@ function makeDeps(env: Env, cfg: Config): { lead: Deps; newsletter: NewsletterDe
     },
     logMessage,
     logEvent,
-    async send(msg) {
+    outbox,
+    defer,
+    async send(msg, idempotencyKey) {
       const sender = cfg.senders[msg.stream];
       if (!sender.email || !cfg.replyTo) throw new Error('no_sender');
-      return sendEmail(cfg.emailProvider, keys, sender, cfg.replyTo, msg);
+      return sendEmail(cfg.emailProvider, keys, sender, cfg.replyTo, msg, idempotencyKey);
     },
-    async alertOwner(p: AlertPayload) {
+    async alertOwner(p: AlertPayload, idempotencyKey) {
       const l = p.lead;
       const tag = p.outbound === 'not_stored' ? 'NOT STORED: reply by hand' : p.alert_level === 'instant' ? 'ACTION' : 'DIGEST';
       const subject = `[${tag}] ${p.lane} ${p.score}/100 · ${l.name} · ${l.intent}`;
@@ -207,7 +208,7 @@ function makeDeps(env: Env, cfg: Config): { lead: Deps; newsletter: NewsletterDe
         `Source: ${l.attribution.source_type} (${l.attribution.utm_source ?? '-'} / ${l.attribution.utm_campaign ?? '-'})  Landing: ${l.attribution.landing_page ?? '-'}`,
         `Automated reply: ${p.outbound}`, '', 'Message:', l.message.slice(0, 600) || '-', '', `Lead ID: ${p.id}`,
       ].filter(Boolean).join('\n');
-      await notifyOwner(subject, text);
+      return notifyOwner(subject, text, idempotencyKey);
     },
   };
 
@@ -224,12 +225,12 @@ function makeDeps(env: Env, cfg: Config): { lead: Deps; newsletter: NewsletterDe
         .bind(row.id, row.email, row.subscribed_at, row.source).run();
       return { id: row.id, confirm: (r.meta.changes ?? 0) > 0 };
     },
-    countSentSince,
     logMessage,
-    async send(msg) {
+    outbox,
+    async send(msg, idempotencyKey) {
       const sender = cfg.senders.news;
       if (!sender.email || !cfg.replyTo) throw new Error('no_sender');
-      return sendEmail(cfg.emailProvider, keys, sender, cfg.replyTo, msg);
+      return sendEmail(cfg.emailProvider, keys, sender, cfg.replyTo, msg, idempotencyKey);
     },
   };
 
@@ -239,16 +240,22 @@ function makeDeps(env: Env, cfg: Config): { lead: Deps; newsletter: NewsletterDe
       return env.DB.prepare('SELECT created_at, quarantined, status, name, email, intent, lane FROM leads WHERE id = ?1').bind(id).first();
     },
     async upsertProfile(leadId, p, nowIso) {
-      const existing = await env.DB.prepare('SELECT 1 AS x FROM investor_profiles WHERE lead_id = ?1').bind(leadId).first();
-      await env.DB.prepare(
+      // One statement decides (G06): an update keeps the first created_at, so created_at = this request's time means
+      // this request inserted the row. The owner alert does not rely on it: its outbox claim makes it exactly once.
+      const r = await env.DB.prepare(
         `INSERT INTO investor_profiles (lead_id, created_at, updated_at, objective, property_type, risk_tolerance, holding_period, areas)
          VALUES (?1,?2,?2,?3,?4,?5,?6,?7)
-         ON CONFLICT(lead_id) DO UPDATE SET updated_at = ?2, objective = ?3, property_type = ?4, risk_tolerance = ?5, holding_period = ?6, areas = ?7`,
-      ).bind(leadId, nowIso, p.objective, p.property_type, p.risk_tolerance, p.holding_period, JSON.stringify(p.areas)).run();
-      return existing ? 'updated' : 'created';
+         ON CONFLICT(lead_id) DO UPDATE SET updated_at = ?2, objective = ?3, property_type = ?4, risk_tolerance = ?5, holding_period = ?6, areas = ?7
+         RETURNING created_at = ?2 AS created`,
+      ).bind(leadId, nowIso, p.objective, p.property_type, p.risk_tolerance, p.holding_period, JSON.stringify(p.areas)).first<{ created: number }>();
+      return r?.created ? 'created' : 'updated';
     },
     logEvent,
+    uuid: () => crypto.randomUUID(),
+    outbox,
+    defer,
     notifyOwner,
+    alertsBlocked: () => outboundBlockers(cfg, 'alerts').length > 0,
   };
 
   return { lead, newsletter, profile };
@@ -267,9 +274,9 @@ function corsFor(req: Request, cfg: Config) {
 export default {
   // Anything unexpected becomes a JSON 500 that still carries the request's CORS header, so the site can show its
   // retry / WhatsApp message instead of a CORS error. Never a stack trace.
-  async fetch(req: Request, env: Env): Promise<Response> {
+  async fetch(req: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
     try {
-      return await handle(req, env);
+      return await handle(req, env, ctx);
     } catch (e) {
       console.error('worker: unhandled error', safeError(e));
       let cors: string | undefined;
@@ -291,7 +298,7 @@ export default {
   },
 };
 
-async function handle(req: Request, env: Env): Promise<Response> {
+async function handle(req: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
   const url = new URL(req.url);
   const cfg = readConfig(env as unknown as Record<string, string | undefined>);
   const { corsOrigin, staging, leadCors } = corsFor(req, cfg);
@@ -321,7 +328,7 @@ async function handle(req: Request, env: Env): Promise<Response> {
     if (!(await human(req, env, cfg, raw, TURNSTILE_ACTIONS.lead))) return json({ ok: false, error: 'verification_failed' }, 403, corsOrigin);
 
     const approved = await approvedTemplates(env);
-    const result = await processLead(raw, { config: cfg, templates: TEMPLATES, approved, unsubSecret: env.UNSUB_SECRET, staging }, makeDeps(env, cfg).lead);
+    const result = await processLead(raw, { config: cfg, templates: TEMPLATES, approved, unsubSecret: env.UNSUB_SECRET, staging }, makeDeps(env, cfg, ctx).lead);
     return json(result.body, result.status, corsOrigin);
   }
 
@@ -332,7 +339,7 @@ async function handle(req: Request, env: Env): Promise<Response> {
     if (!corsOrigin) return json({ ok: false, error: 'forbidden' }, 403);
     const body = await jsonBody(req, MAX_PROFILE_BODY, corsOrigin);
     if ('res' in body) return body.res;
-    const result = await saveProfile(body.raw, makeDeps(env, cfg).profile, { staging });
+    const result = await saveProfile(body.raw, makeDeps(env, cfg, ctx).profile, { staging });
     return json(result.body, result.status, corsOrigin);
   }
 
@@ -366,7 +373,7 @@ async function handle(req: Request, env: Env): Promise<Response> {
     if (!(await human(req, env, cfg, raw, TURNSTILE_ACTIONS.newsletter))) return json({ ok: false, error: 'verification_failed' }, 403, corsOrigin);
 
     const approved = await approvedTemplates(env);
-    const result = await subscribe(raw, { config: cfg, templates: TEMPLATES, approved, unsubSecret: env.UNSUB_SECRET }, makeDeps(env, cfg).newsletter);
+    const result = await subscribe(raw, { config: cfg, templates: TEMPLATES, approved, unsubSecret: env.UNSUB_SECRET }, makeDeps(env, cfg, ctx).newsletter);
     return json(result.body, result.status, corsOrigin);
   }
 

@@ -70,6 +70,7 @@ beforeEach(async () => {
   await cf.DB.exec('DELETE FROM events');
   await cf.DB.exec('DELETE FROM suppression');
   await cf.DB.exec('DELETE FROM newsletter_subscribers');
+  await cf.DB.exec('DELETE FROM outbox');
   await cf.KV.delete('approved_templates');
   vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;

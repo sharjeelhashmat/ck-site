@@ -77,10 +77,13 @@ describe('send: timeout, idempotency key, receipt id', () => {
     expect(h['idempotency-key']).toBe('outbox-id-1');
     expect(calls[0]!.init.signal).toBeInstanceOf(AbortSignal);
   });
-  it('brevo: AbortSignal on the fetch too', async () => {
+  it('brevo: AbortSignal on the fetch too, and its idempotencyKey (inside the body headers) when given', async () => {
     stub();
-    await brevoSend('k', sender, 'r@x.com', msg);
+    await brevoSend('k', sender, 'r@x.com', msg, '2f0c1a7e-0000-4000-8000-000000000001');
     expect(calls[0]!.init.signal).toBeInstanceOf(AbortSignal);
+    const p = JSON.parse(calls[0]!.init.body as string);
+    expect(p.headers.idempotencyKey).toBe('2f0c1a7e-0000-4000-8000-000000000001');
+    expect(p.headers['List-Unsubscribe']).toBe('<https://api.example.com/unsubscribe?e=a&t=b>');
   });
   it('a 2xx answer without an id throws no_provider_id, for both providers', async () => {
     stub(200, {});

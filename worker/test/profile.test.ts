@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { memOutbox } from './helpers';
 import { AREA_SLUGS, cleanOtherArea, PROFILE_WINDOW_DAYS, saveProfile, validateProfile, type LeadRef, type Profile, type ProfileDeps } from '../src/profile';
 
 const ID = '3f2b8c1e-7d4a-4e6b-9c10-2a5d8e9f0b11';
@@ -13,10 +14,13 @@ function fake(lead: Partial<LeadRef> | null = {}) {
   };
   f.deps = {
     now: () => NOW,
+    uuid: () => `u-${f.saved.length}-${f.mails.length}-${Math.random()}`,
+    outbox: memOutbox(),
+    alertsBlocked: () => false,
     findLead: async () => (lead === null ? null : { created_at: '2026-09-20T08:00:00Z', quarantined: 0, name: 'Amira Khan', email: 'amira@example.com', intent: 'invest', lane: 'QUALIFIED', ...lead }),
     upsertProfile: async (id, p) => { f.saved.push({ id, p }); const was = f.existing; f.existing = true; return was ? 'updated' : 'created'; },
     logEvent: async (t) => { f.events.push(t); },
-    notifyOwner: async (subject, text) => { if (f.failMail) throw new Error('mail down'); f.mails.push({ subject, text }); },
+    notifyOwner: async (subject, text) => { if (f.failMail) throw new Error('mail down'); f.mails.push({ subject, text }); return { provider_id: 'p' }; },
   };
   return f;
 }

@@ -177,7 +177,7 @@ describe('pipeline', () => {
 
   it('daily send cap stops replies', async () => {
     const f = makeFake();
-    f.state.sentToday = 80;
+    f.outbox.extraToday = 80;
     const r = await processLead(baseLead(), await ctx(), f.deps);
     expect(r.internal?.outbound).toBe('skipped:daily_cap');
   });

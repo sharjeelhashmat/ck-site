@@ -3,6 +3,7 @@ import { readConfig, type Config } from '../src/config';
 import { sha256Hex } from '../src/hash';
 import type { AlertPayload, Deps, LeadRow, OutboundMessage, PipelineCtx } from '../src/pipeline';
 import { templateHash, type Template } from '../src/templates';
+import type { ClaimGuard, Outbox, OutboxRow } from '../src/outbox';
 
 export const TEMPLATES = (JSON.parse(readFileSync(new URL('../templates/lead-replies.v1.json', import.meta.url), 'utf8')) as { templates: Template[] }).templates;
 
@@ -29,6 +30,41 @@ export function baseLead(over: Record<string, unknown> = {}): Record<string, unk
   };
 }
 
+// An in-memory twin of the D1 outbox (src/outbox.ts d1Outbox) with the same decisions: unique dedupe_key, the daily cap
+// over claimed and sent rows, and the 24 h recipient guard. `extraToday` stands for rows sent earlier today.
+export interface MemOutbox extends Outbox {
+  rows: Array<OutboxRow & { status: string; provider_id: string | null; error: string | null; sent_at: string | null }>;
+  extraToday: number;
+}
+export function memOutbox(leadEmailHash: (leadId: string) => string | undefined = () => undefined): MemOutbox {
+  const ob: MemOutbox = {
+    rows: [], extraToday: 0,
+    async claim(row: OutboxRow, g: ClaimGuard = {}) {
+      if (ob.rows.some((x) => x.dedupe_key === row.dedupe_key)) return { claimed: false, reason: 'duplicate' };
+      if (g.recipient && ob.rows.some((x) => x.kind === 'lead_reply' && x.lead_id !== row.lead_id && ['claimed', 'sent', 'failed'].includes(x.status)
+        && x.lead_id !== null && leadEmailHash(x.lead_id) === g.recipient!.emailHash)) return { claimed: false, reason: 'recipient' };
+      if (g.capKinds && g.cap !== undefined && g.since !== undefined) {
+        const n = ob.extraToday + ob.rows.filter((x) => g.capKinds!.includes(x.kind) && ['claimed', 'sent'].includes(x.status) && x.created_at >= g.since!).length;
+        if (n >= g.cap) return { claimed: false, reason: 'daily_cap' };
+      }
+      ob.rows.push({ ...row, status: 'claimed', provider_id: null, error: null, sent_at: null });
+      return { claimed: true, id: row.id };
+    },
+    async skip(row: OutboxRow, reason: string) {
+      if (!ob.rows.some((x) => x.dedupe_key === row.dedupe_key)) ob.rows.push({ ...row, status: 'skipped', provider_id: null, error: reason, sent_at: null });
+    },
+    async sent(id: string, providerId: string, at: string) {
+      const x = ob.rows.find((y) => y.id === id && y.status === 'claimed');
+      if (x) Object.assign(x, { status: 'sent', provider_id: providerId, sent_at: at });
+    },
+    async failed(id: string, code: string) {
+      const x = ob.rows.find((y) => y.id === id && y.status === 'claimed');
+      if (x) Object.assign(x, { status: 'failed', error: code });
+    },
+  };
+  return ob;
+}
+
 export interface Fake {
   deps: Deps;
   sent: OutboundMessage[];
@@ -36,12 +72,14 @@ export interface Fake {
   alerts: AlertPayload[];
   events: string[];
   suppressed: Set<string>;
-  state: { sentToday: number; duplicate: boolean };
+  outbox: MemOutbox;
+  state: { duplicate: boolean };
 }
 
 export function makeFake(now = new Date('2026-09-20T08:00:00Z')): Fake {
   const f: Fake = {
-    sent: [], rows: [], alerts: [], events: [], suppressed: new Set(), state: { sentToday: 0, duplicate: false },
+    sent: [], rows: [], alerts: [], events: [], suppressed: new Set(), state: { duplicate: false },
+    outbox: memOutbox((id) => f.rows.find((r) => r.id === id)?.email_hash),
     deps: undefined as unknown as Deps,
   };
   let n = 0;
@@ -51,12 +89,12 @@ export function makeFake(now = new Date('2026-09-20T08:00:00Z')): Fake {
     hash: sha256Hex,
     findRecentByEmailHash: async () => f.state.duplicate,
     isSuppressed: async (h) => f.suppressed.has(h),
-    countSentSince: async () => f.state.sentToday,
     insertLead: async (r) => { f.rows.push(r); },
-    logMessage: async () => { f.state.sentToday += 1; },
+    logMessage: async () => {},
     logEvent: async (type, _id, detail) => { f.events.push(`${type}:${detail}`); },
+    outbox: f.outbox,
     send: async (m) => { f.sent.push(m); return { provider_id: 'p1' }; },
-    alertOwner: async (p) => { f.alerts.push(p); },
+    alertOwner: async (p) => { f.alerts.push(p); return { provider_id: 'a1' }; },
   };
   return f;
 }

@@ -66,7 +66,7 @@ describe('retention (B4)', () => {
     expect(by['recent']).toMatchObject({ email: 'recent@example.com' });
     expect(r).toMatchObject({ feedback_details: 2, subscribers_anonymised: 1 }); // fb-old and gone
     // A second run changes nothing more.
-    expect(await runRetention(cf.DB, NOW)).toEqual({ leads_quarantined: 0, leads_expired: 0, investor_profiles: 0, events: 0, messages: 0, feedback_details: 0, subscribers_anonymised: 0 });
+    expect(await runRetention(cf.DB, NOW)).toEqual({ leads_quarantined: 0, leads_expired: 0, investor_profiles: 0, events: 0, messages: 0, feedback_details: 0, subscribers_anonymised: 0, outbox: 0 });
   });
 
   it('the Worker exposes it as the scheduled handler', async () => {

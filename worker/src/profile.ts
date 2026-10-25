@@ -10,6 +10,8 @@
 // profile is stored like any other but never alerts the owner. Nothing else reads investor_profiles: no score, lane,
 // message or nurture step uses them, so the owner alert below is the only consumer to skip.
 
+import { dedupeKey, sendOnce, type Outbox } from './outbox';
+
 export const OBJECTIVES = ['rental_income', 'capital_growth', 'mix', 'residency'] as const;
 export const PROPERTY_TYPES = ['apartment', 'townhouse', 'villa', 'no_preference'] as const;
 export const RISK_TOLERANCES = ['low', 'moderate', 'high'] as const;
@@ -75,10 +77,15 @@ export interface LeadRef { created_at: string; quarantined: number; status?: str
 
 export interface ProfileDeps {
   now(): Date;
+  uuid(): string;
   findLead(id: string): Promise<LeadRef | null>;
   upsertProfile(leadId: string, p: Profile, nowIso: string): Promise<'created' | 'updated'>;
   logEvent(type: string, leadId: string | null, detail: string): Promise<void>;
-  notifyOwner(subject: string, text: string): Promise<void>;
+  outbox: Outbox;
+  notifyOwner(subject: string, text: string, idempotencyKey: string): Promise<{ provider_id: string }>;
+  alertsBlocked(): boolean;
+  // Runs work after the response (ctx.waitUntil). Absent: awaited.
+  defer?(work: Promise<unknown>): void;
 }
 
 export interface ProfileResult { status: number; body: { ok: boolean; error?: string; field?: string } }
@@ -108,22 +115,25 @@ export async function saveProfile(raw: unknown, deps: ProfileDeps, opts: { stagi
   const outcome = await deps.upsertProfile(v.leadId, v.profile, nowIso);
   await deps.logEvent(outcome === 'created' ? 'profile_saved' : 'profile_updated', v.leadId, JSON.stringify({ areas: v.profile.areas.length, ...(test ? { test: true } : {}) }));
 
-  // Tell the owner once, on first save. Best effort: the profile is already stored. Never for a TEST lead.
-  if (outcome === 'created' && !test) {
+  // Tell the owner once (G06): the outbox claim owner_alert:profile:<lead id> decides, so two first saves at the same
+  // time, or a later update, never alert twice. Best effort and after the response: the profile is already stored.
+  // Never for a TEST lead.
+  if (!test && !deps.alertsBlocked()) {
     const p = v.profile;
-    try {
-      await deps.notifyOwner(
-        `[PROFILE] ${clean(lead.name)} · ${p.objective}`,
-        [
-          `Investor profile received for ${clean(lead.name)} (${clean(lead.email)}). Lane: ${lead.lane ?? '-'}   Intent: ${lead.intent}`,
-          `Objective: ${p.objective}`, `Property type: ${p.property_type}`, `Risk tolerance: ${p.risk_tolerance}`,
-          `Holding period: ${p.holding_period}`, `Preferred areas: ${p.areas.length ? p.areas.join(', ') : 'no preference'}`,
-          '', `Lead ID: ${v.leadId}`,
-        ].join('\n'),
-      );
-    } catch {
-      await deps.logEvent('profile_alert_failed', v.leadId, 'owner alert could not be sent');
-    }
+    const subject = `[PROFILE] ${clean(lead.name)} · ${p.objective}`;
+    const text = [
+      `Investor profile received for ${clean(lead.name)} (${clean(lead.email)}). Lane: ${lead.lane ?? '-'}   Intent: ${lead.intent}`,
+      `Objective: ${p.objective}`, `Property type: ${p.property_type}`, `Risk tolerance: ${p.risk_tolerance}`,
+      `Holding period: ${p.holding_period}`, `Preferred areas: ${p.areas.length ? p.areas.join(', ') : 'no preference'}`,
+      '', `Lead ID: ${v.leadId}`,
+    ].join('\n');
+    const row = { id: deps.uuid(), dedupe_key: dedupeKey.profileAlert(v.leadId), kind: 'owner_alert' as const, lead_id: v.leadId, template_id: null, template_hash: null, created_at: nowIso };
+    const job = sendOnce(deps.outbox, row, undefined, deps.now, (key) => deps.notifyOwner(subject, text, key))
+      .then((r) => { if (r.outcome === 'failed') throw new Error(r.code); })
+      .catch(() => deps.logEvent('profile_alert_failed', v.leadId, 'owner alert could not be sent'))
+      .catch(() => undefined);
+    if (deps.defer) deps.defer(job);
+    else await job;
   }
   return { status: 200, body: { ok: true } };
 }

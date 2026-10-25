@@ -4,7 +4,7 @@ import { FEEDBACK_DETAIL_MAX, NEWS_WELCOME_ID, UNSUBSCRIBE_REASONS, newsletterBl
 import type { OutboundMessage } from '../src/pipeline';
 import { templateHash } from '../src/templates';
 import { newsletterToken, unsubToken, verifyNewsletterToken } from '../src/unsub';
-import { TEMPLATES, approveAll, goodEnv } from './helpers';
+import { TEMPLATES, approveAll, goodEnv, memOutbox } from './helpers';
 
 const newsEnv = { ...goodEnv, FROM_NEWS_EMAIL: 'brief@news.sharjeelhashmat.com' };
 
@@ -13,15 +13,15 @@ async function nctx(env: Record<string, string> = newsEnv, approved?: Record<str
 }
 
 function fake(existing: 'none' | 'active' | 'unsubscribed' = 'none') {
-  const f = { sent: [] as OutboundMessage[], upserts: 0, logged: [] as string[], sentToday: 0, deps: undefined as unknown as NewsletterDeps };
+  const f = { sent: [] as OutboundMessage[], upserts: 0, logged: [] as string[], outbox: memOutbox(), deps: undefined as unknown as NewsletterDeps };
   let n = 0;
   f.deps = {
     now: () => new Date('2026-09-24T08:00:00Z'),
     uuid: () => `id-${++n}`,
     // The real store (src/index.ts) confirms only a new row: an active or an unsubscribed address is never re-activated.
     upsertSubscriber: async (r) => { f.upserts += 1; return { id: existing === 'none' ? r.id : 'sub-1', confirm: existing === 'none' }; },
-    countSentSince: async () => f.sentToday,
-    logMessage: async (m) => { f.logged.push(`${m.lead_id}:${m.template_id}`); f.sentToday += 1; },
+    logMessage: async (m) => { f.logged.push(`${m.lead_id}:${m.template_id}`); },
+    outbox: f.outbox,
     send: async (m) => { f.sent.push(m); return { provider_id: 'p1' }; },
   };
   return f;
@@ -137,7 +137,7 @@ describe('newsletter: subscribe', () => {
 
   it('daily send cap is shared with lead replies', async () => {
     const f = fake();
-    f.sentToday = 80;
+    f.outbox.extraToday = 80;
     expect((await subscribe(body(), await nctx(), f.deps)).internal?.outbound).toBe('skipped:daily_cap');
   });
 });

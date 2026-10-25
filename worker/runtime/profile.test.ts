@@ -14,7 +14,7 @@ const e = (): Env =>
 let mails: Array<{ subject: string; text: string }> = [];
 beforeEach(async () => {
   mails = [];
-  for (const t of ['leads', 'messages', 'events', 'investor_profiles']) await cf.DB.exec(`DELETE FROM ${t}`);
+  for (const t of ['leads', 'messages', 'events', 'investor_profiles', 'outbox']) await cf.DB.exec(`DELETE FROM ${t}`);
   vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
     if (url.startsWith('https://challenges.cloudflare.com')) return Response.json({ success: true, hostname: 'sharjeelhashmat.com', action: 'lead' });

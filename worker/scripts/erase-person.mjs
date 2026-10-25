@@ -4,7 +4,8 @@
 //   npx wrangler d1 execute ck-leads --remote --file erase.sql      (one --file import is atomic)
 // The address is validated strictly (letters, digits and . _ % + - only) and lower-cased, so it can never break out of
 // its SQL string; leads are matched by the same SHA-256 the Worker stores in leads.email_hash.
-// Tables: leads (and, through the lead ids, investor_profiles, events and messages) are deleted; the newsletter row,
+// Tables: leads (and, through the lead ids, investor_profiles, events, messages and outbox rows) are deleted, with the
+// outbox welcome row keyed by the address's hash; the newsletter row,
 // if any, keeps only the address's hash, marked unsubscribed, so the opt-out still holds (src/retention.ts does the
 // same after 24 months). The lead-reply suppression table already holds hashes only and is kept for the same reason.
 import { createHash } from 'node:crypto';
@@ -26,6 +27,7 @@ export function eraseSql(input, now = new Date()) {
     `DELETE FROM investor_profiles WHERE lead_id IN (${leadIds});`,
     `DELETE FROM events WHERE lead_id IN (${leadIds});`,
     `DELETE FROM messages WHERE lead_id IN (${leadIds}) OR lead_id IN (${subscriberIds});`,
+    `DELETE FROM outbox WHERE lead_id IN (${leadIds}) OR dedupe_key = 'newsletter_welcome:${hash}:monthly';`,
     `DELETE FROM leads WHERE email_hash = '${hash}' OR email = '${email}';`,
     `UPDATE newsletter_subscribers SET email = '${SUBSCRIBER_HASH_PREFIX}${hash}', source = NULL, unsubscribe_reason = NULL, unsubscribe_reason_detail = NULL, unsubscribe_feedback_at = NULL, unsubscribed_at = COALESCE(unsubscribed_at, '${at}') WHERE email = '${email}';`,
     '',
