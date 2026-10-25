@@ -11,6 +11,7 @@ import { verifyNewsletterToken, verifyUnsubToken } from './unsub';
 import { runAndRecordRetention, SUBSCRIBER_HASH_PREFIX } from './retention';
 import { safeError } from './log';
 import { MAX_BODY, readBody, utf8 } from './body';
+import { TURNSTILE_ACTIONS, turnstileHosts, verifyTurnstile } from './turnstile';
 
 export interface Env {
   DB: D1Database;
@@ -121,25 +122,17 @@ async function jsonBody(req: Request, max: number, corsOrigin: string | undefine
   try { return { raw: JSON.parse(utf8(bytes)) }; } catch { return { res: json({ ok: false, error: 'invalid_input', field: 'body' }, 400, corsOrigin) }; }
 }
 
-// Cloudflare's documented Turnstile test secrets (always pass / always fail / token already spent). Refused unless
-// ALLOW_TEST_TURNSTILE === 'yes', which is for local and staging tests only and is never set in production.
-export const TURNSTILE_TEST_SECRETS = ['1x0000000000000000000000000000000AA', '2x0000000000000000000000000000000AA', '3x0000000000000000000000000000000AA'];
+// Turnstile (src/turnstile.ts): re-exported for the runtime tests.
+export { TURNSTILE_TEST_SECRETS, verifyTurnstile } from './turnstile';
 
-export async function verifyTurnstile(secret: string | undefined, token: unknown, ip: string | null, allowTest = false): Promise<boolean> {
-  if (!secret || (TURNSTILE_TEST_SECRETS.includes(secret.trim()) && !allowTest)) return false;
-  if (typeof token !== 'string' || !token) return false;
-  const form = new FormData();
-  form.append('secret', secret);
-  form.append('response', token);
-  if (ip) form.append('remoteip', ip);
-  // 5 s cap: a slow or unreachable siteverify counts as a failed check, never as a pass.
-  try {
-    const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { method: 'POST', body: form, signal: AbortSignal.timeout(5000) });
-    const out = (await res.json().catch(() => ({}))) as { success?: boolean };
-    return out.success === true;
-  } catch {
-    return false;
-  }
+/** The route's Turnstile check; a failure logs its reason code only (never the token). */
+async function human(req: Request, env: Env, cfg: Config, raw: unknown, action: string): Promise<boolean> {
+  const token = (raw as Record<string, unknown> | null)?.turnstile_token;
+  const v = await verifyTurnstile(env.TURNSTILE_SECRET, token, req.headers.get('cf-connecting-ip'), {
+    hosts: turnstileHosts(cfg.siteUrl, cfg.stagingOrigin), action, allowTest: env.ALLOW_TEST_TURNSTILE === 'yes',
+  });
+  if (!v.ok) console.warn('turnstile: rejected', v.reason);
+  return v.ok;
 }
 
 // One factory for every route's dependencies (audit item 27): the config is read once per request, and the shared D1
@@ -320,9 +313,7 @@ async function handle(req: Request, env: Env): Promise<Response> {
       console.error('lead: TURNSTILE_SECRET is not set; rejecting the enquiry (fail closed)');
       return json({ ok: false, error: 'verification_unavailable' }, 503, corsOrigin);
     }
-    const token = (raw as Record<string, unknown> | null)?.turnstile_token;
-    const human = await verifyTurnstile(env.TURNSTILE_SECRET, token, req.headers.get('cf-connecting-ip'), env.ALLOW_TEST_TURNSTILE === 'yes');
-    if (!human) return json({ ok: false, error: 'verification_failed' }, 403, corsOrigin);
+    if (!(await human(req, env, cfg, raw, TURNSTILE_ACTIONS.lead))) return json({ ok: false, error: 'verification_failed' }, 403, corsOrigin);
 
     const approved = await approvedTemplates(env);
     const result = await processLead(raw, { config: cfg, templates: TEMPLATES, approved, unsubSecret: env.UNSUB_SECRET, staging }, makeDeps(env, cfg).lead);
@@ -367,9 +358,7 @@ async function handle(req: Request, env: Env): Promise<Response> {
       console.error('newsletter: TURNSTILE_SECRET is not set; rejecting the signup (fail closed)');
       return json({ ok: false, error: 'verification_unavailable' }, 503, corsOrigin);
     }
-    const token = (raw as Record<string, unknown> | null)?.turnstile_token;
-    const human = await verifyTurnstile(env.TURNSTILE_SECRET, token, req.headers.get('cf-connecting-ip'), env.ALLOW_TEST_TURNSTILE === 'yes');
-    if (!human) return json({ ok: false, error: 'verification_failed' }, 403, corsOrigin);
+    if (!(await human(req, env, cfg, raw, TURNSTILE_ACTIONS.newsletter))) return json({ ok: false, error: 'verification_failed' }, 403, corsOrigin);
 
     const approved = await approvedTemplates(env);
     const result = await subscribe(raw, { config: cfg, templates: TEMPLATES, approved, unsubSecret: env.UNSUB_SECRET }, makeDeps(env, cfg).newsletter);

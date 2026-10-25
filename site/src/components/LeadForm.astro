@@ -151,7 +151,7 @@ const countries = [
     <label class="check"><input type="checkbox" name="consent_nurture" /><span>Send me the occasional market note. I can unsubscribe at any time. (Optional)</span></label>
   </div>
 
-  <div class="turnstile" id="lead-turnstile" data-sitekey={SITE.turnstileSiteKey}></div>
+  <div class="turnstile" id="lead-turnstile" data-sitekey={SITE.turnstileSiteKey} data-action="lead"></div>
   <span class="err lead-err" id="lead-turnstile-err" data-err="turnstile" role="alert"></span>
 
   <div class="form-foot">
@@ -239,7 +239,7 @@ const countries = [
         .then((t: Turnstile) => {
           const box = form.querySelector<HTMLElement>('#lead-turnstile')!;
           const id = t.render(box, {
-            sitekey: box.dataset.sitekey, theme: 'light', appearance: 'always',
+            sitekey: box.dataset.sitekey, action: box.dataset.action, theme: 'light', appearance: 'always',
             callback: () => { widgetErrored = false; },
             'error-callback': () => { widgetErrored = true; },
           });

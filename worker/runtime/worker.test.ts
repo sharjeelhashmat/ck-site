@@ -34,6 +34,9 @@ const LIVE = { OUTBOUND: 'on', BRN: '12345' };
 
 interface Call { url: string; body: Record<string, unknown> | null }
 let calls: Call[] = [];
+// The Turnstile action the route under test expects (PR 2c item 2): siteverify answers with it and our hostname.
+let action = 'lead';
+const verified = (success: boolean) => Response.json({ success, hostname: 'sharjeelhashmat.com', action });
 
 function lead(over: Record<string, unknown> = {}) {
   return {
@@ -46,6 +49,7 @@ function lead(over: Record<string, unknown> = {}) {
 }
 
 function post(body: unknown, e: Env, origin: string | null = ORIGIN) {
+  action = 'lead';
   const headers: Record<string, string> = { 'content-type': 'application/json' };
   if (origin) headers.origin = origin;
   return worker.fetch(new Request('https://api.test/lead', { method: 'POST', headers, body: typeof body === 'string' ? body : JSON.stringify(body) }), e);
@@ -72,7 +76,7 @@ beforeEach(async () => {
     if (url.startsWith('https://challenges.cloudflare.com/turnstile/v0/siteverify')) {
       const form = init?.body as FormData;
       calls.push({ url, body: { response: form.get('response'), secret: form.get('secret') } });
-      return Response.json({ success: form.get('response') === 'ok' });
+      return verified(form.get('response') === 'ok');
     }
     if (url === 'https://api.resend.com/emails') {
       calls.push({ url, body: { ...JSON.parse(init?.body as string), _auth: (init?.headers as Record<string, string>).authorization } });
@@ -372,7 +376,7 @@ describe('worker on workerd', () => {
     await approveAllInKv(e);
     vi.stubGlobal('fetch', async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-      if (url.includes('turnstile')) return Response.json({ success: true });
+      if (url.includes('turnstile')) return verified(true);
       return new Response('down', { status: 503 });
     });
     const res = await post(lead(), e);
@@ -418,6 +422,7 @@ describe('worker on workerd', () => {
 describe('newsletter on workerd', () => {
   const NEWS = { FROM_NEWS_EMAIL: 'brief@news.sharjeelhashmat.com' };
   const sub = (body: Record<string, unknown>, e: Env, origin: string | null = ORIGIN) => {
+    action = 'newsletter';
     const headers: Record<string, string> = { 'content-type': 'application/json' };
     if (origin) headers.origin = origin;
     return worker.fetch(new Request('https://api.test/api/newsletter/subscribe', { method: 'POST', headers, body: JSON.stringify(body) }), e);

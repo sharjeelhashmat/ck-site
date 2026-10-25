@@ -13,5 +13,5 @@
     "noEmit": true,
     "allowImportingTsExtensions": true
   },
-  "include": ["test/**/*.ts", "scripts/**/*.ts", "src/types.ts", "src/hash.ts", "src/firewall.ts", "src/scoring.ts", "src/escalation.ts", "src/lanes.ts", "src/templates.ts", "src/config.ts", "src/pipeline.ts", "src/unsub.ts"]
+  "include": ["test/**/*.ts", "scripts/**/*.ts", "src/types.ts", "src/hash.ts", "src/firewall.ts", "src/scoring.ts", "src/escalation.ts", "src/lanes.ts", "src/templates.ts", "src/config.ts", "src/pipeline.ts", "src/unsub.ts", "src/turnstile.ts"]
 }
