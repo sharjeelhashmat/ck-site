@@ -91,7 +91,7 @@ describe('POST /profile on workerd with real D1', () => {
 });
 
 describe('POST /profile from the staging origin (TEST leads only)', () => {
-  const STAGING = 'https://ck-site-web.sharjeelhashmat.workers.dev';
+  const STAGING = 'https://ck-site-staging.sharjeelhashmat.workers.dev';
   const env2 = (over: Record<string, string> = {}): Env => ({ ...e(), STAGING_ORIGIN: STAGING, ...over }) as Env;
   const post = (path: string, body: unknown, origin: string | null, en: Env) =>
     worker.fetch(new Request(`https://api.test${path}`, { method: 'POST', headers: { 'content-type': 'application/json', ...(origin ? { origin } : {}) }, body: JSON.stringify(body) }), en);

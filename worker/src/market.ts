@@ -11,6 +11,7 @@ import {
   areaBodies, areasBody, cacheKey, launchesAbuDhabi, launchesDubai, parsePeriod, priorPeriod,
   type AdrecPayload, type AreaSums, type MarketResult, type Period, type ProjectsPayload, type TotalsRow,
 } from './market-core';
+import { safeError } from './log';
 
 export * from './market-core';
 
@@ -164,7 +165,7 @@ export async function handleMarket(req: Request, url: URL, db: D1Database, corsO
   } catch (e) {
     // Tables not migrated yet, or D1 unavailable (including the Free plan's daily read limit): nothing to show, and
     // nothing any cache may keep. Never a stack trace.
-    console.error('market: read failed', e instanceof Error ? e.message : 'unknown');
+    console.error('market: read failed', safeError(e));
     const body = url.pathname === '/market/launches' ? { dubai: null, abu_dhabi: null }
       : isStatus ? { dld_synced_at: null, adrec_synced_at: null }
       : { ok: false, error: 'unavailable' };

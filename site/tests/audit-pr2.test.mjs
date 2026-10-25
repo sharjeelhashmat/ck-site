@@ -47,7 +47,9 @@ test('22: public build is unchanged: robots advertises the sitemap, no X-Robots-
   assert.equal(readFileSync(join(out, 'robots.txt'), 'utf8'), 'User-agent: *\nAllow: /\n\nSitemap: https://www.sharjeelhashmat.com/sitemap-index.xml\n');
   assert.doesNotMatch(readFileSync(join(out, '_headers'), 'utf8'), /X-Robots-Tag/);
   const s = readFileSync(join(out, 'sitemap-0.xml'), 'utf8');
-  for (const p of ['/new-launches', '/investor-profile']) assert.doesNotMatch(s, new RegExp(p + '<'), p);
+  assert.doesNotMatch(s, /\/investor-profile</);
+  // /new-launches enters with the agency, BRN and permit (audit M2; tests/new-launches-indexing.test.mjs).
+  assert.match(s, /\/new-launches</);
   for (const p of ['/areas', '/areas/downtown-dubai', '/areas/hudayriyat-island', '/areas/zayed-city', '/buy', '/invest', '/investment-approach', '/contact']) {
     assert.match(s, new RegExp(p + '<'), p);
   }

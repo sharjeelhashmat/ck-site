@@ -41,8 +41,9 @@ const QUESTIONS = [
   'What happens if handover is late, or the project is cancelled?',
 ];
 ---
-<!-- noindex: remove with the site-wide indexing switch at go-live. -->
-<Base title="New Launches: Ask Before You Commit" description="Thinking about a Dubai off-plan launch? The facts every buyer should know, the questions worth asking, and a straight answer within 24 hours." noindex>
+{/* Indexing (audit M2): noindex until LAUNCH_CARDS_ALLOWED (agency, BRN and advertiser permit in golive.ts); from then on
+    the page follows the site-wide switch and enters the sitemap (astro.config.mjs). */}
+<Base title="New Launches: Ask Before You Commit" description="Thinking about a Dubai off-plan launch? The facts every buyer should know, the questions worth asking, and a straight answer within 24 hours." noindex={!LAUNCH_CARDS_ALLOWED}>
   <section class="section">
     <div class="narrow launches">
       <p class="eyebrow">New Launches</p>

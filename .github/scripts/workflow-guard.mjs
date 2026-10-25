@@ -21,6 +21,12 @@
 // Uptime monitor (audit item 31, Coordinator 2026-10-18): uptime.yml may run on one fixed cron (every 30 minutes) plus
 // workflow_dispatch, on GitHub-hosted runners only, and must not reference secrets or use an environment (R2, R3, R12).
 //
+// Staging site (PR 2b item 2, audit M5): deploy-staging.yml deploys the separate Worker ck-site-staging. It is a deploy
+// workflow (R1: workflow_dispatch only; R4: "production" environment and the ref guard, like every secret-bearing job;
+// R9 group staging-ck-site-staging). R16 keeps it non-indexable and on its own target: PUBLIC_INDEXABLE is 'false'
+// wherever it is set and on every job that builds the site, GOLIVE_OVERRIDES never appears, and every wrangler command
+// uses --config wrangler.staging.jsonc and names no Worker other than ck-site-staging.
+//
 // Rules (see RULES below). R0 covers scope (.github/actions/, workflow files outside .github/workflows/) and YAML
 // parsing (any parse error or warning, alias explosion). Rules for deploy/deploy-site/rollback key off the file name
 // stem, case-insensitive, so deploy.yaml and Deploy.yml get the same rules as deploy.yml.
@@ -52,13 +58,14 @@ export const RULES = {
   R13: 'no container: or services: in any job',
   R14: 'shell is bash, cmd or pwsh',
   R15: 'no ${{ github.event.* / github.head_ref / inputs.* }} inside run:',
+  R16: 'deploy-staging.yml: non-indexable build, ck-site-staging only',
 };
 
 const SECRET_RE = /\$\{\{[\s\S]*?\bsecrets\b[\s\S]*?\}\}/i;
 const GUARD = "github.ref == 'refs/heads/phase2-site'";
-const DEPLOY_STEMS = new Set(['deploy', 'deploy-site', 'rollback']);
+const DEPLOY_STEMS = new Set(['deploy', 'deploy-site', 'deploy-staging', 'rollback']);
 const ROLLBACK_TARGETS = { 'rollback-worker': 'ck-lead-worker', 'rollback-site': 'ck-site-web' };
-const CONCURRENCY = { deploy: 'prod-ck-lead-worker', 'deploy-site': 'prod-ck-site-web', 'market-data-sync': 'market-data-sync' };
+const CONCURRENCY = { deploy: 'prod-ck-lead-worker', 'deploy-site': 'prod-ck-site-web', 'deploy-staging': 'staging-ck-site-staging', 'market-data-sync': 'market-data-sync' };
 const ROLLBACK_CONCURRENCY = { 'rollback-worker': 'prod-ck-lead-worker', 'rollback-site': 'prod-ck-site-web' };
 // Events each workflow may use (R2). Anything else, including pull_request_target, workflow_run, workflow_call,
 // repository_dispatch, issue_comment, or schedule outside market-data-sync, is refused.
@@ -67,6 +74,7 @@ const EVENT_ALLOW = {
   'market-data-sync': ['schedule', 'workflow_dispatch'],
   deploy: ['workflow_dispatch'],
   'deploy-site': ['workflow_dispatch'],
+  'deploy-staging': ['workflow_dispatch'],
   rollback: ['workflow_dispatch'],
   uptime: ['schedule', 'workflow_dispatch'],
 };
@@ -83,6 +91,12 @@ const MARKET_SYNC_CRONS = ['7 22 * * *', '7 10 * * *'];
 const MARKET_SYNC_ENV = 'market-data';
 const UPTIME = 'uptime';
 const UPTIME_CRONS = ['*/30 * * * *'];
+const STAGING = 'deploy-staging';
+const STAGING_CONFIG = 'wrangler.staging.jsonc';
+const STAGING_WORKER = 'ck-site-staging';
+const BUILD_RE = /\b(npm run build|astro build)\b/;
+const INDEXABLE_SET_RE = /\bPUBLIC_INDEXABLE\s*=(?!\s*false(\s|$))/;
+const isFalse = (v) => v === 'false' || v === false;
 const MARKET_SYNC_D1 = 'npx --no-install wrangler d1 execute ck-leads --remote --file market-sync.sql';
 const MARKET_SYNC_VERSION_RE = /(^|[\s(=])npx --no-install wrangler --version$/;
 const WRANGLER_CMD_RE = /(^|[^\w.\-])wrangler(?=\s|$|[;&|)<>])/i;
@@ -250,6 +264,11 @@ export function analyse(fileName, src) {
   // R3 (workflow level): no secret reference anywhere outside jobs (covers env and defaults).
   for (const k of Object.keys(wf)) {
     if (k !== 'jobs' && containsSecret(wf[k])) add('R3', null, `workflow-level "${k}" references secrets`, [k]);
+  }
+  // R16 (workflow level): staging is never indexable and never takes go-live overrides.
+  if (stem === STAGING) {
+    if (isObj(wf.env) && 'PUBLIC_INDEXABLE' in wf.env && !isFalse(wf.env.PUBLIC_INDEXABLE)) add('R16', null, `env.PUBLIC_INDEXABLE must be 'false' (found ${JSON.stringify(wf.env.PUBLIC_INDEXABLE)})`, ['env', 'PUBLIC_INDEXABLE']);
+    if (/GOLIVE_OVERRIDES/.test(JSON.stringify(wf))) add('R16', null, 'GOLIVE_OVERRIDES is forbidden in deploy-staging.yml');
   }
   // R5 (workflow level)
   if (!same(wf.permissions, { contents: 'read' })) {
@@ -425,6 +444,26 @@ export function analyse(fileName, src) {
       if (stem === MARKET_SYNC && (id === UAE_JOB || id === GATE_JOB) && /\bwrangler\b/i.test(flat)) add('R12', id, `the ${id} job must not run wrangler`, R);
     });
 
+    // R16 (per job)
+    if (stem === STAGING) {
+      const jobIdx = isObj(job.env) ? job.env.PUBLIC_INDEXABLE : undefined;
+      if (isObj(job.env) && 'PUBLIC_INDEXABLE' in job.env && !isFalse(jobIdx)) add('R16', id, `env.PUBLIC_INDEXABLE must be 'false' (found ${JSON.stringify(jobIdx)})`, J('env', 'PUBLIC_INDEXABLE'));
+      if (steps.some((st) => isObj(st) && BUILD_RE.test(String(st.run ?? ''))) && !isFalse(jobIdx)) add('R16', id, "a job that builds the site must set env PUBLIC_INDEXABLE: 'false'", J('env'));
+      steps.forEach((st, i) => {
+        if (!isObj(st)) return;
+        if (isObj(st.env) && 'PUBLIC_INDEXABLE' in st.env && !isFalse(st.env.PUBLIC_INDEXABLE)) add('R16', id, `step env.PUBLIC_INDEXABLE must be 'false' (found ${JSON.stringify(st.env.PUBLIC_INDEXABLE)})`, J('steps', i, 'env'));
+        if (st.run !== undefined && INDEXABLE_SET_RE.test(prepRun(st.run).flat)) add('R16', id, 'run: may set PUBLIC_INDEXABLE only to false', J('steps', i, 'run'));
+      });
+      for (const { c, path: p } of wranglerCommands) {
+        // echo text that mentions wrangler is not an invocation.
+        if (/\bwrangler (--version|-v)$/i.test(c) || /^\{?\s*echo\b/.test(c)) continue;
+        const configs = [...c.matchAll(/(?:--config|-c)(?:=|\s+)(\S+)/g)].map((m) => m[1]);
+        const names = [...c.matchAll(/--name(?:=|\s+)(\S+)/g)].map((m) => m[1]);
+        if (!configs.length || configs.some((x) => x !== STAGING_CONFIG)) add('R16', id, `wrangler must run with --config ${STAGING_CONFIG}: "${c}"`, p);
+        if (names.some((n) => n !== STAGING_WORKER)) add('R16', id, `wrangler --name must be ${STAGING_WORKER}: "${c}"`, p);
+      }
+    }
+
     // R11 (per rollback job)
     if (stem === 'rollback' && id in ROLLBACK_TARGETS) {
       const target = ROLLBACK_TARGETS[id];
@@ -489,7 +528,7 @@ function scope(root) {
 function rowsFor(file, violations) {
   const stem = stemOf(path.basename(file));
   const applicable = Object.keys(RULES).filter((r) =>
-    (r !== 'R1' || DEPLOY_STEMS.has(stem)) && (r !== 'R9' || stem in CONCURRENCY || stem === 'rollback') && (r !== 'R11' || stem === 'rollback'));
+    (r !== 'R1' || DEPLOY_STEMS.has(stem)) && (r !== 'R9' || stem in CONCURRENCY || stem === 'rollback') && (r !== 'R11' || stem === 'rollback') && (r !== 'R16' || stem === STAGING));
   const rows = [];
   for (const r of applicable) {
     const hits = violations.filter((x) => x.rule === r);
