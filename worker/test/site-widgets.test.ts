@@ -21,3 +21,13 @@ describe('site Turnstile widgets carry the action the Worker checks', () => {
     expect(TURNSTILE_ACTIONS.newsletter).toBe('newsletter');
   });
 });
+
+// PR 2c item 8b: the floating WhatsApp button sat outside every landmark (axe "region", moderate, on every page). The
+// whole floating stack is now a labelled complementary landmark; same class, so no visual change.
+describe('site floating actions sit inside a landmark', () => {
+  it('FloatingActions.astro wraps the stack in <aside aria-label>, keeping the fab-stack class', () => {
+    const src = site('FloatingActions.astro');
+    expect(src).toMatch(/<aside class="fab-stack noprint" aria-label="Quick actions">[\s\S]*class="fab fab--wa"[\s\S]*id="to-top"[\s\S]*<\/aside>/);
+    expect(src).not.toMatch(/<div class="fab-stack/);
+  });
+});
