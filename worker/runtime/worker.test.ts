@@ -30,7 +30,7 @@ const baseEnv = (over: Record<string, string> = {}): Env =>
     ...over,
   }) as Env;
 
-const LIVE = { OUTBOUND: 'on', BRN: '12345' };
+const LIVE = { OUTBOUND_REPLIES: 'on', OUTBOUND_NEWSLETTER: 'on', BRN: '12345' };
 
 interface Call { url: string; body: Record<string, unknown> | null }
 let calls: Call[] = [];
@@ -143,7 +143,7 @@ describe('worker on workerd', () => {
       }
     });
 
-    it('a staging lead is stored quarantined as TEST: no send, no alert, lane NONE, even with OUTBOUND on and templates approved', async () => {
+    it('a staging lead is stored quarantined as TEST: no send, no alert, lane NONE, even with every switch on and templates approved', async () => {
       const e = stagingEnv();
       await approveAllInKv(e);
       const res = await post(lead(), e, STAGING);
@@ -268,7 +268,7 @@ describe('worker on workerd', () => {
     expect(alert.subject).toMatch(/^\[ACTION\] PRIORITY/);
   });
 
-  it('default config (OUTBOUND off): lead stored and owner alerted, nothing sent to the lead', async () => {
+  it('default config (replies off): lead stored and owner alerted, nothing sent to the lead', async () => {
     const e = baseEnv();
     await approveAllInKv(e);
     const res = await post(lead(), e);
@@ -280,7 +280,7 @@ describe('worker on workerd', () => {
   });
 
   it('BRN pending: nothing is sent even with outbound on and every template approved', async () => {
-    const e = baseEnv({ OUTBOUND: 'on' });
+    const e = baseEnv({ OUTBOUND_REPLIES: 'on' });
     await approveAllInKv(e);
     await post(lead(), e);
     expect(await rows('SELECT id FROM messages')).toHaveLength(0);

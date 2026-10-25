@@ -74,7 +74,7 @@ export interface PipelineResult {
 async function attemptOutbound(lead: Lead, lane: Lane, emailHash: string, leadId: string, ctx: PipelineCtx, deps: Deps): Promise<string> {
   const tplId = templateFor(lane, lead);
   if (!tplId) return 'skipped:no_template';
-  if (outboundBlockers(ctx.config).length > 0) return 'skipped:blocked';
+  if (outboundBlockers(ctx.config, 'replies').length > 0) return 'skipped:blocked';
   const tpl = ctx.templates.find((t) => t.id === tplId);
   if (!tpl) return 'skipped:template_missing';
   // Newsletter-stream copy can never go out through the lead-reply pipeline.
@@ -171,7 +171,7 @@ export async function processLead(raw: unknown, ctx: PipelineCtx, deps: Deps): P
     // Never lose an enquiry: when it cannot be stored, the owner gets all of it by email (real enquiries only; a
     // staging TEST, SPAM or DUPLICATE is not alerted), no reply is attempted, and the visitor is asked to retry or
     // use WhatsApp. The answer is the same whatever the classification.
-    if (status === 'VALID' || status === 'SUSPICIOUS') {
+    if ((status === 'VALID' || status === 'SUSPICIOUS') && outboundBlockers(ctx.config, 'alerts').length === 0) {
       try {
         await deps.alertOwner({ id, lane, alert_level: 'instant', score, status, escalation, lead, outbound: 'not_stored' });
       } catch { /* nothing else can be done here */ }
@@ -188,10 +188,14 @@ export async function processLead(raw: unknown, ctx: PipelineCtx, deps: Deps): P
   }
 
   if (alert_level !== 'none') {
-    try {
-      await deps.alertOwner({ id, lane, alert_level, score, status, escalation, lead, outbound });
-    } catch {
-      await logEvent('alert_failed', 'owner alert could not be sent');
+    if (outboundBlockers(ctx.config, 'alerts').length > 0) {
+      await logEvent('alert_skipped', 'blocked');
+    } else {
+      try {
+        await deps.alertOwner({ id, lane, alert_level, score, status, escalation, lead, outbound });
+      } catch {
+        await logEvent('alert_failed', 'owner alert could not be sent');
+      }
     }
   }
 

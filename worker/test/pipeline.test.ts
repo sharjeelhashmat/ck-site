@@ -38,9 +38,9 @@ describe('pipeline', () => {
     expect(f.alerts).toHaveLength(0);
   });
 
-  it('OUTBOUND off: lead is stored and alerted, nothing is sent', async () => {
+  it('OUTBOUND_REPLIES off: lead is stored and alerted, nothing is sent', async () => {
     const f = makeFake();
-    const r = await processLead(baseLead(), await ctx({ ...goodEnv, OUTBOUND: 'off' }), f.deps);
+    const r = await processLead(baseLead(), await ctx({ ...goodEnv, OUTBOUND_REPLIES: 'off' }), f.deps);
     expect(r.internal?.outbound).toBe('skipped:blocked');
     expect(f.sent).toHaveLength(0);
     expect(f.rows).toHaveLength(1);

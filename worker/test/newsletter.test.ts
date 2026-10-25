@@ -45,7 +45,7 @@ describe('newsletter: validation', () => {
 describe('newsletter: subscribe', () => {
   it('go-live incomplete (default config): subscriber stored, nothing sent', async () => {
     const f = fake();
-    const r = await subscribe(body(), await nctx({ ...newsEnv, OUTBOUND: 'off' }), f.deps);
+    const r = await subscribe(body(), await nctx({ ...newsEnv, OUTBOUND_NEWSLETTER: 'off' }), f.deps);
     expect(r).toMatchObject({ status: 200, body: { ok: true }, internal: { confirm: true, outbound: 'skipped:blocked' } });
     expect(f.upserts).toBe(1);
     expect(f.sent).toHaveLength(0);
@@ -148,7 +148,7 @@ describe('newsletter: blockers', () => {
     expect(newsletterBlockers(await nctx({ ...newsEnv, FROM_NEWS_EMAIL: '' }))).toContain('FROM_NEWS_EMAIL not set');
     expect(newsletterBlockers(await nctx({ ...newsEnv, FROM_NEWS_EMAIL: 'brief@sharjeelhashmat.com' }))).toContain('FROM_NEWS_EMAIL must be on a subdomain, not the root domain');
     expect(newsletterBlockers(await nctx({ ...newsEnv, BRN: '' }))).toContain('BRN not set');
-    expect(newsletterBlockers(await nctx({ ...newsEnv, OUTBOUND: 'off' }))).toContain('OUTBOUND is off');
+    expect(newsletterBlockers(await nctx({ ...newsEnv, OUTBOUND_NEWSLETTER: 'off' }))).toContain('OUTBOUND_NEWSLETTER is off');
   });
 });
 

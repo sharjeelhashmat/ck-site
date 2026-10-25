@@ -1,4 +1,4 @@
-import { readConfig, type Config } from './config';
+import { outboundBlockers, readConfig, type Config } from './config';
 import { sha256Hex } from './hash';
 import { subscribe, unsubscribeFeedbackForm, validateFeedback, type NewsletterDeps } from './newsletter';
 import { processLead, type AlertPayload, type Deps, type LeadRow } from './pipeline';
@@ -22,6 +22,10 @@ export interface Env {
   EMAIL_PROVIDER?: string;
   UNSUB_SECRET?: string;
   SCORING_JSON?: string;
+  OUTBOUND_REPLIES?: string;
+  OUTBOUND_NEWSLETTER?: string;
+  OUTBOUND_ALERTS?: string;
+  /** Deprecated (PR 2c item 5): read for one release only, for a reply or newsletter switch that is unset. */
   OUTBOUND?: string;
   BRN?: string;
   AFFILIATION?: string;
@@ -152,7 +156,7 @@ function makeDeps(env: Env, cfg: Config): { lead: Deps; newsletter: NewsletterDe
       .bind(crypto.randomUUID(), new Date().toISOString(), type, leadId, detail).run();
   };
   const notifyOwner = async (subject: string, text: string) => {
-    if (!cfg.hasEmailKey || !cfg.alertEmail || !cfg.senders.alerts.email) return;
+    if (outboundBlockers(cfg, 'alerts').length > 0) return;
     await sendEmail(cfg.emailProvider, keys, cfg.senders.alerts, cfg.alertEmail, { stream: 'leads', to: cfg.alertEmail, toName: 'Sharjeel Hashmat', subject, text });
   };
 
@@ -291,6 +295,7 @@ async function handle(req: Request, env: Env): Promise<Response> {
   const url = new URL(req.url);
   const cfg = readConfig(env as unknown as Record<string, string | undefined>);
   const { corsOrigin, staging, leadCors } = corsFor(req, cfg);
+  if (cfg.deprecatedOutbound) console.warn('config: OUTBOUND is deprecated; set OUTBOUND_REPLIES, OUTBOUND_NEWSLETTER and OUTBOUND_ALERTS');
 
   if (url.pathname === '/health') return json({ ok: true }, 200, leadCors);
 

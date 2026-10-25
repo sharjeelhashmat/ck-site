@@ -46,11 +46,11 @@ export interface NewsletterCtx {
   unsubSecret?: string;
 }
 
-// Why the confirmation would not be sent right now. Empty = send. Lead-reply go-live blockers apply too, so the
-// OUTBOUND kill switch, BRN and sender checks cover the newsletter as well.
+// Why the confirmation would not be sent right now. Empty = send. The newsletter's own switch (OUTBOUND_NEWSLETTER) and the
+// same go-live checks as replies (BRN, sender checks) apply.
 export function newsletterBlockers(ctx: NewsletterCtx): string[] {
   const c = ctx.config;
-  const b = outboundBlockers(c);
+  const b = outboundBlockers(c, 'newsletter');
   if (!c.senders.news.email) b.push('FROM_NEWS_EMAIL not set');
   else if (!isSubdomainSender(c.senders.news.email, c.siteUrl)) b.push('FROM_NEWS_EMAIL must be on a subdomain, not the root domain');
   if (!ctx.unsubSecret) b.push('UNSUB_SECRET not set');

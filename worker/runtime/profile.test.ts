@@ -8,7 +8,7 @@ const e = (): Env =>
   ({
     ...cf, TURNSTILE_SECRET: 's', BREVO_API_KEY: 'b', RESEND_API_KEY: 'r', EMAIL_PROVIDER: 'resend', UNSUB_SECRET: 'u',
     SITE_URL: ORIGIN, WORKER_URL: 'https://ck-lead-worker.example.workers.dev', FROM_ALERTS_EMAIL: 'alerts@mail.sharjeelhashmat.com',
-    REPLY_TO: 'hello@sharjeelhashmat.com', ALERT_EMAIL: 'owner@example.com', OUTBOUND: 'off',
+    REPLY_TO: 'hello@sharjeelhashmat.com', ALERT_EMAIL: 'owner@example.com', OUTBOUND_REPLIES: 'off',
   }) as Env;
 
 let mails: Array<{ subject: string; text: string }> = [];

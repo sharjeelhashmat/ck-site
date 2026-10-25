@@ -10,7 +10,8 @@ import { newsletterBlockers } from '../src/newsletter';
 import { processLead } from '../src/pipeline';
 import { baseLead, ctx, goodEnv, makeFake, TEMPLATES, approveAll } from './helpers';
 
-const { OUTBOUND: _old, ...noOld } = goodEnv;
+// goodEnv with no switch at all.
+const { OUTBOUND_REPLIES: _r, OUTBOUND_NEWSLETTER: _n, OUTBOUND_ALERTS: _a, ...noOld } = goodEnv;
 const channels = (r: string, n: string, a: string) => ({ ...noOld, OUTBOUND_REPLIES: r, OUTBOUND_NEWSLETTER: n, OUTBOUND_ALERTS: a });
 
 describe('switches: config', () => {
