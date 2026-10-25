@@ -178,12 +178,12 @@ function makeDeps(env: Env, cfg: Config): { lead: Deps; newsletter: NewsletterDe
       const l = row.lead;
       const a = l.attribution;
       await env.DB.prepare(
-        `INSERT INTO leads (id, created_at, name, email, email_hash, phone, country, intent, budget_band, timeline, funding, message,
+        `INSERT INTO leads (id, created_at, name, email, email_hash, phone, phone_raw, phone_invalid, country, intent, budget_band, timeline, funding, message,
           consent_contact, consent_nurture, utm_source, utm_medium, utm_campaign, utm_content, utm_term, landing_page, referrer, source_type,
           status, reasons, escalation, score, lane, alert_level, quarantined)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29)`,
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31)`,
       ).bind(
-        row.id, row.created_at, l.name, l.email, row.email_hash, l.phone, l.country, l.intent, l.budget_band, l.timeline, l.funding, l.message,
+        row.id, row.created_at, l.name, l.email, row.email_hash, l.phone, l.phone_raw, l.phone_invalid ? 1 : 0, l.country, l.intent, l.budget_band, l.timeline, l.funding, l.message,
         1, l.consent_nurture ? 1 : 0, a.utm_source, a.utm_medium, a.utm_campaign, a.utm_content, a.utm_term, a.landing_page, a.referrer, a.source_type,
         row.status, JSON.stringify(row.reasons), JSON.stringify(row.escalation), row.score, row.lane, row.alert_level, row.status === 'VALID' ? 0 : 1,
       ).run();
@@ -202,7 +202,7 @@ function makeDeps(env: Env, cfg: Config): { lead: Deps; newsletter: NewsletterDe
       const text = [
         `Lane: ${p.lane}   Score: ${p.score}   Firewall: ${p.status}`,
         p.escalation.length ? `Escalation: ${p.escalation.join(', ')}` : '',
-        `Name: ${l.name}`, `Email: ${l.email}`, `Phone: ${l.phone ?? '-'}`, `Country: ${l.country ?? '-'}`,
+        `Name: ${l.name}`, `Email: ${l.email}`, l.phone_raw ? `Phone (unverified): ${l.phone_raw}` : `Phone: ${l.phone ?? '-'}`, `Country: ${l.country ?? '-'}`,
         `Intent: ${l.intent}   Budget (AED): ${l.budget_band}   Timeline: ${l.timeline}   Funding: ${l.funding}`,
         `Source: ${l.attribution.source_type} (${l.attribution.utm_source ?? '-'} / ${l.attribution.utm_campaign ?? '-'})  Landing: ${l.attribution.landing_page ?? '-'}`,
         `Automated reply: ${p.outbound}`, '', 'Message:', l.message.slice(0, 600) || '-', '', `Lead ID: ${p.id}`,

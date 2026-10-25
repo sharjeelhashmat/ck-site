@@ -1,7 +1,7 @@
 import { outboundBlockers, type Config } from './config';
 import { escalationReasons } from './escalation';
 import { classify, validateLead } from './firewall';
-import { phonePresent, validE164 } from './phone';
+import { phonePresent, rawPhone, validE164 } from './phone';
 import { assignLane, templateFor } from './lanes';
 import { scoreLead } from './scoring';
 import { firstName, isApproved, renderTemplate, templateHash, type Stream, type Template } from './templates';
@@ -138,11 +138,14 @@ export async function processLead(raw: unknown, ctx: PipelineCtx, deps: Deps): P
   if (!v.ok) return { status: 400, body: { ok: false, error: 'invalid_input', field: v.field } };
   const lead = v.lead;
   // Package B. A valid phone is stored as E.164. LEAD_STRICT="true": a phone is required and an invalid one is rejected.
-  // LEAD_STRICT="false" (until the domain cutover): today's behaviour, a phone that cannot be parsed is stored as empty.
-  const rawPhone = (raw as Record<string, unknown>).phone;
-  const e164 = phonePresent(rawPhone) ? validE164(rawPhone) : null;
+  // LEAD_STRICT="false" (until the domain cutover): a phone that cannot be parsed is kept as typed in phone_raw, flagged
+  // phone_invalid, for the owner alert only (PR 2c item 3); phone stays empty and replies never use it.
+  const typed = (raw as Record<string, unknown>).phone;
+  const e164 = phonePresent(typed) ? validE164(typed) : null;
   if (ctx.config.leadStrict && !e164) return { status: 400, body: { ok: false, error: 'invalid_phone' } };
   lead.phone = e164;
+  lead.phone_raw = e164 ? null : phonePresent(typed) ? rawPhone(typed) : null;
+  lead.phone_invalid = lead.phone_raw !== null;
 
   const now = deps.now();
   const emailHash = await deps.hash(lead.email);

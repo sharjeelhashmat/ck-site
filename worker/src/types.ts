@@ -26,6 +26,9 @@ export interface Lead {
   name: string;
   email: string;
   phone: string | null;
+  // LEAD_STRICT "false" only: the phone as typed when it is not a valid number (phone is then null). Owner alert only.
+  phone_raw: string | null;
+  phone_invalid: boolean;
   country: string | null;
   intent: Intent;
   budget_band: BudgetBand;

@@ -110,6 +110,8 @@ export function validateLead(raw: unknown): ValidationResult {
       name,
       email: emailRaw,
       phone: validE164(r.phone),
+      phone_raw: null,
+      phone_invalid: false,
       country: country && /^[A-Z]{2}$/.test(country) ? country : null,
       intent,
       budget_band: budget,
