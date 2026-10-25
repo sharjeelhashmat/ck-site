@@ -3,7 +3,8 @@ import { readConfig } from '../src/config';
 import { FEEDBACK_DETAIL_MAX, NEWS_WELCOME_ID, UNSUBSCRIBE_REASONS, newsletterBlockers, subscribe, unsubscribeFeedbackForm, validateFeedback, validateSubscribe, type NewsletterCtx, type NewsletterDeps } from '../src/newsletter';
 import type { OutboundMessage } from '../src/pipeline';
 import { templateHash } from '../src/templates';
-import { newsletterToken, unsubToken, verifyNewsletterToken } from '../src/unsub';
+import { newsletterToken, unsubToken, verifyLinkToken, verifyNewsletterToken } from '../src/unsub';
+import { sha256Hex } from '../src/hash';
 import { TEMPLATES, approveAll, goodEnv, memOutbox } from './helpers';
 
 const newsEnv = { ...goodEnv, FROM_NEWS_EMAIL: 'brief@news.sharjeelhashmat.com' };
@@ -64,7 +65,9 @@ describe('newsletter: subscribe', () => {
     expect(m.text).toContain(m.listUnsubscribe!);
     const token = new URL(m.listUnsubscribe!).searchParams.get('token')!;
     expect(m.listUnsubscribe!.startsWith('https://api.sharjeelhashmat.com/api/newsletter/unsubscribe?token=')).toBe(true);
-    expect(await verifyNewsletterToken(token, c.unsubSecret!)).toBe('amira@example.com');
+    // v2 (PR 2c item 8a): the token names the address's hash, never the address.
+    expect(await verifyLinkToken(token, 'monthly', c.unsubSecret!)).toBe(await sha256Hex('amira@example.com'));
+    expect(m.listUnsubscribe).not.toContain('amira');
     expect(f.logged).toEqual([`id-1:${NEWS_WELCOME_ID}`]);
   });
 

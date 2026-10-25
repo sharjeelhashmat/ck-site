@@ -39,3 +39,27 @@ export async function verifyNewsletterToken(token: string, secret: string): Prom
   try { email = unb64url(enc); } catch { return null; }
   return sameString(await hmac(secret, `newsletter\n${email}`), sig) ? email : null;
 }
+
+// Version 2 (PR 2c item 8a): the link carries no address. v2.<list>.<sha256 hex of the address>.<HMAC hex over
+// "unsub-v2", list and hash>. Lists: "leads" (lead-reply suppression, keyed by the same hash) and the newsletter's
+// list. The list is signed, so a token cannot be moved from one list to another.
+export const UNSUB_LISTS = ['leads', 'monthly'] as const;
+export type UnsubList = (typeof UNSUB_LISTS)[number];
+
+export async function linkToken(emailHash: string, list: UnsubList, secret: string): Promise<string> {
+  return `v2.${list}.${emailHash}.${await hmac(secret, `unsub-v2\n${list}\n${emailHash}`)}`;
+}
+
+/** The address hash a v2 token was issued for, when it is well formed, for this list, and signed with this secret. */
+export async function verifyLinkToken(token: string, list: UnsubList, secret: string): Promise<string | null> {
+  const m = /^v2\.([a-z]+)\.([0-9a-f]{64})\.([0-9a-f]{64})$/.exec(token);
+  if (!m || m[1] !== list) return null;
+  const hash = m[2]!;
+  return sameString(await hmac(secret, `unsub-v2\n${list}\n${hash}`), m[3]!) ? hash : null;
+}
+
+// The old formats (lead: ?e=<address>&t=<hmac>; newsletter: base64url(address).hmac) are accepted until this moment:
+// 60 days from the planned deploy of PR 2c (early November 2026). No link in either format has been sent by the Worker
+// (replies and the newsletter were never switched on), so this only covers a link sent by hand.
+export const LEGACY_UNSUB_UNTIL = '2027-01-01T00:00:00.000Z';
+export const legacyAccepted = (now: Date) => now.getTime() < Date.parse(LEGACY_UNSUB_UNTIL);

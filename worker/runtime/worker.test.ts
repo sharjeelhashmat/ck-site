@@ -334,7 +334,7 @@ describe('worker on workerd', () => {
     expect(ack.headers?.['List-Unsubscribe-Post']).toBe('List-Unsubscribe=One-Click');
     const oneClick = (url: string) => worker.fetch(new Request(url, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'List-Unsubscribe=One-Click' }), e);
 
-    const forged = link.replace(/t=[0-9a-f]+/, 't=deadbeef');
+    const forged = link.replace(/\.[0-9a-f]{64}$/, '.' + 'd'.repeat(64));
     expect((await worker.fetch(new Request(forged), e)).status).toBe(400);
     expect((await oneClick(forged)).status).toBe(400);
     expect(await rows('SELECT * FROM suppression')).toHaveLength(0);
@@ -343,7 +343,7 @@ describe('worker on workerd', () => {
     const confirm = await worker.fetch(new Request(link), e);
     expect(confirm.status).toBe(200);
     const html = await confirm.text();
-    expect(html).toContain('<form method="post" action="/unsubscribe?e=');
+    expect(html).toContain('<form method="post" action="/unsubscribe?t=v2.leads.');
     expect(html).toContain('>Unsubscribe</button>');
     expect(confirm.headers.get('content-security-policy')).toBe("default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
     expect(confirm.headers.get('x-content-type-options')).toBe('nosniff');

@@ -7,10 +7,10 @@ import { MAX_PROFILE_BODY, saveProfile, type ProfileDeps } from './profile';
 import { sendEmail } from './send';
 import templatesJson from '../templates/lead-replies.v1.json';
 import type { Template } from './templates';
-import { verifyNewsletterToken, verifyUnsubToken } from './unsub';
+import { legacyAccepted, verifyLinkToken, verifyNewsletterToken, verifyUnsubToken } from './unsub';
 import { runAndRecordRetention, SUBSCRIBER_HASH_PREFIX } from './retention';
 import { safeError } from './log';
-import { d1Outbox } from './outbox';
+import { d1Outbox, NEWSLETTER_LIST } from './outbox';
 import { overLimit, RETRY_AFTER_SECONDS } from './ratelimit';
 import { MAX_BODY, readBody, utf8 } from './body';
 import { TURNSTILE_ACTIONS, turnstileHosts, verifyTurnstile } from './turnstile';
@@ -155,6 +155,22 @@ async function human(req: Request, env: Env, cfg: Config, raw: unknown, action: 
   return v.ok;
 }
 
+// Who a newsletter unsubscribe token names (PR 2c item 8a): the address hash (v2), or, for a legacy token before
+// LEGACY_UNSUB_UNTIL, the address itself. The SQL matches the subscriber row either way, anonymised rows included.
+// where(n) numbers its parameters from ?n, after the statement's own.
+async function newsletterSubscriber(token: string, secret: string | undefined): Promise<{ where: (n: number) => string; bind: string[] } | null> {
+  if (!secret) return null;
+  if (token.startsWith('v2.')) {
+    const hash = await verifyLinkToken(token, NEWSLETTER_LIST, secret);
+    return hash ? { where: (n) => `(email_hash = ?${n} OR email = ?${n + 1})`, bind: [hash, `${SUBSCRIBER_HASH_PREFIX}${hash}`] } : null;
+  }
+  if (!legacyAccepted(new Date())) return null;
+  const email = await verifyNewsletterToken(token, secret);
+  if (!email) return null;
+  console.log('unsubscribe: legacy link used');
+  return { where: (n) => `email = ?${n}`, bind: [email] };
+}
+
 // One factory for every route's dependencies (audit item 27): the config is read once per request, and the shared D1
 // writers (messages, events) and the owner-alert sender exist once.
 function makeDeps(env: Env, cfg: Config, ctx?: ExecutionContext): { lead: Deps; newsletter: NewsletterDeps; profile: ProfileDeps } {
@@ -236,8 +252,8 @@ function makeDeps(env: Env, cfg: Config, ctx?: ExecutionContext): { lead: Deps; 
       const existing = await env.DB.prepare('SELECT id FROM newsletter_subscribers WHERE email = ?1 OR email = ?2 LIMIT 1')
         .bind(row.email, `${SUBSCRIBER_HASH_PREFIX}${await sha256Hex(row.email)}`).first<{ id: string }>();
       if (existing) return { id: existing.id, confirm: false };
-      const r = await env.DB.prepare('INSERT INTO newsletter_subscribers (id, email, subscribed_at, source) VALUES (?1, ?2, ?3, ?4) ON CONFLICT(email) DO NOTHING')
-        .bind(row.id, row.email, row.subscribed_at, row.source).run();
+      const r = await env.DB.prepare('INSERT INTO newsletter_subscribers (id, email, email_hash, subscribed_at, source) VALUES (?1, ?2, ?3, ?4, ?5) ON CONFLICT(email) DO NOTHING')
+        .bind(row.id, row.email, await sha256Hex(row.email), row.subscribed_at, row.source).run();
       return { id: row.id, confirm: (r.meta.changes ?? 0) > 0 };
     },
     logMessage,
@@ -361,13 +377,23 @@ async function handle(req: Request, env: Env, ctx?: ExecutionContext): Promise<R
 
   // Lead-reply unsubscribe (audit item 2). GET shows a confirm button and changes nothing; POST (that button, or a mail
   // client's RFC 8058 one-click request) suppresses the address. Both check the same signed token.
+  // The link carries an opaque v2 token (PR 2c item 8a); the legacy ?e=<address>&t=<hmac> form works until
+  // LEGACY_UNSUB_UNTIL and logs one fixed line.
   if (url.pathname === '/unsubscribe' && (req.method === 'GET' || req.method === 'POST')) {
-    const email = (url.searchParams.get('e') ?? '').trim().toLowerCase();
     const token = url.searchParams.get('t') ?? '';
     if (req.method === 'POST' && (await bodyTooLarge(req))) return plain(413, 'Too large.');
-    if (!env.UNSUB_SECRET || !email || !(await verifyUnsubToken(email, token, env.UNSUB_SECRET))) return plain(400, 'Invalid link.');
+    let hash: string | null = null;
+    if (env.UNSUB_SECRET && token.startsWith('v2.')) {
+      hash = await verifyLinkToken(token, 'leads', env.UNSUB_SECRET);
+    } else if (env.UNSUB_SECRET && legacyAccepted(new Date())) {
+      const email = (url.searchParams.get('e') ?? '').trim().toLowerCase();
+      if (email && (await verifyUnsubToken(email, token, env.UNSUB_SECRET))) {
+        console.log('unsubscribe: legacy link used');
+        hash = await sha256Hex(email);
+      }
+    }
+    if (!hash) return plain(400, 'Invalid link.');
     if (req.method === 'GET') return confirmUnsubscribe(`/unsubscribe${url.search}`, 'Stop all further messages to this address?');
-    const hash = await sha256Hex(email);
     await env.DB.prepare('INSERT OR IGNORE INTO suppression (email_hash, created_at, reason) VALUES (?1, ?2, ?3)').bind(hash, new Date().toISOString(), 'unsubscribe').run();
     return page(200, 'Unsubscribed', 'You are unsubscribed. No further messages will be sent.');
   }
@@ -398,11 +424,11 @@ async function handle(req: Request, env: Env, ctx?: ExecutionContext): Promise<R
   if (url.pathname === '/api/newsletter/unsubscribe' && (req.method === 'GET' || req.method === 'POST')) {
     const token = url.searchParams.get('token') ?? '';
     if (req.method === 'POST' && (await bodyTooLarge(req))) return plain(413, 'Too large.');
-    const email = env.UNSUB_SECRET ? await verifyNewsletterToken(token, env.UNSUB_SECRET) : null;
-    if (!email) return plain(400, 'Invalid link.');
+    const who = await newsletterSubscriber(token, env.UNSUB_SECRET);
+    if (!who) return plain(400, 'Invalid link.');
     if (req.method === 'GET') return confirmUnsubscribe(`/api/newsletter/unsubscribe${url.search}`, 'Stop receiving The Compass Key Monthly?');
-    await env.DB.prepare('UPDATE newsletter_subscribers SET unsubscribed_at = ?1 WHERE email = ?2 AND unsubscribed_at IS NULL')
-      .bind(new Date().toISOString(), email).run();
+    await env.DB.prepare(`UPDATE newsletter_subscribers SET unsubscribed_at = ?1 WHERE ${who.where(2)} AND unsubscribed_at IS NULL`)
+      .bind(new Date().toISOString(), ...who.bind).run();
     return page(200, 'Unsubscribed', 'You are unsubscribed from The Compass Key Monthly. No further issues will be sent.', unsubscribeFeedbackForm(token));
   }
 
@@ -412,13 +438,13 @@ async function handle(req: Request, env: Env, ctx?: ExecutionContext): Promise<R
     const body = await readBody(req, MAX_BODY);
     if (!body) return plain(413, 'Too large.');
     const form = new URLSearchParams(utf8(body));
-    const email = env.UNSUB_SECRET ? await verifyNewsletterToken(form.get('token') ?? '', env.UNSUB_SECRET) : null;
-    if (!email) return plain(400, 'Invalid link.');
+    const who = await newsletterSubscriber(form.get('token') ?? '', env.UNSUB_SECRET);
+    if (!who) return plain(400, 'Invalid link.');
     const fb = validateFeedback(form);
     if (fb.kind === 'skip') return page(200, 'Unsubscribed', 'You are unsubscribed. Nothing else to do.');
     try {
-      await env.DB.prepare('UPDATE newsletter_subscribers SET unsubscribe_reason = ?1, unsubscribe_reason_detail = ?2, unsubscribe_feedback_at = ?3 WHERE email = ?4 AND unsubscribed_at IS NOT NULL')
-        .bind(fb.reason, fb.detail, new Date().toISOString(), email).run();
+      await env.DB.prepare(`UPDATE newsletter_subscribers SET unsubscribe_reason = ?1, unsubscribe_reason_detail = ?2, unsubscribe_feedback_at = ?3 WHERE ${who.where(4)} AND unsubscribed_at IS NOT NULL`)
+        .bind(fb.reason, fb.detail, new Date().toISOString(), ...who.bind).run();
     } catch {
       return page(200, 'Unsubscribed', 'You are unsubscribed. Your feedback could not be saved, but nothing else is needed.');
     }

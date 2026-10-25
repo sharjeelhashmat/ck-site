@@ -18,8 +18,8 @@ migrations_dir = "migrations"
 crons = ["17 1 * * *"]
 
 # Workers Logs (audit F8; free plan: 200,000 events a day, all kept). Only the Worker's own console lines are stored:
-# invocation logs (which carry each request's URL and headers) are off, and query strings are redacted anyway, because
-# unsubscribe links carry the address (?e=). Every console call logs fixed text, counts or a redacted error message,
+# invocation logs (which carry each request's URL and headers) are off, and query strings are redacted anyway (links
+# from before PR 2c item 8a carry the address, ?e=; current ones carry an opaque token). Every console call logs fixed text, counts or a redacted error message,
 # never a request body, email, phone or name (test/wrangler-config.test.ts).
 [observability]
 enabled = true

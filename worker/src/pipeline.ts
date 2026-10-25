@@ -6,7 +6,7 @@ import { assignLane, templateFor } from './lanes';
 import { scoreLead } from './scoring';
 import { firstName, isApproved, renderTemplate, templateHash, type Stream, type Template } from './templates';
 import type { AlertLevel, FirewallStatus, Lane, Lead } from './types';
-import { unsubToken } from './unsub';
+import { linkToken } from './unsub';
 import { dedupeKey, sendOnce, type Outbox, type OutboxRow } from './outbox';
 
 export interface LeadRow {
@@ -98,8 +98,8 @@ async function attemptOutbound(lead: Lead, lane: Lane, emailHash: string, leadId
   let unsubscribeUrl: string | undefined;
   if (tpl.marketing) {
     if (!ctx.unsubSecret) return skip('blocked');
-    const token = await unsubToken(lead.email, ctx.unsubSecret);
-    unsubscribeUrl = `${c.workerUrl}/unsubscribe?e=${encodeURIComponent(lead.email)}&t=${token}`;
+    // No address in the link (PR 2c item 8a): the token names the hash the suppression table is keyed by.
+    unsubscribeUrl = `${c.workerUrl}/unsubscribe?t=${await linkToken(emailHash, 'leads', ctx.unsubSecret)}`;
   }
 
   let rendered: { subject: string; text: string };

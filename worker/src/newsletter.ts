@@ -2,9 +2,9 @@ import { isSubdomainSender, outboundBlockers, type Config } from './config';
 import { isDisposable, isValidEmail } from './firewall';
 import type { OutboundMessage } from './pipeline';
 import { isApproved, renderTemplate, templateHash, type Template } from './templates';
-import { newsletterToken } from './unsub';
+import { linkToken } from './unsub';
 import { sha256Hex } from './hash';
-import { dedupeKey, sendOnce, type Outbox } from './outbox';
+import { dedupeKey, NEWSLETTER_LIST, sendOnce, type Outbox } from './outbox';
 
 // Standalone newsletter signup, single opt-in (owner decision 2026-09-24). The subscriber row is written as soon as the
 // request is valid; the confirmation email is a separate, fully gated step that stays silent until go-live is complete.
@@ -68,7 +68,8 @@ async function sendWelcome(email: string, subscriberId: string, ctx: NewsletterC
   if (!isApproved(tpl, hash, ctx.approved)) return 'skipped:not_approved';
 
   const c = ctx.config;
-  const unsubscribeUrl = `${c.workerUrl}/api/newsletter/unsubscribe?token=${await newsletterToken(email, ctx.unsubSecret!)}`;
+  const emailHash = await sha256Hex(email);
+  const unsubscribeUrl = `${c.workerUrl}/api/newsletter/unsubscribe?token=${await linkToken(emailHash, NEWSLETTER_LIST, ctx.unsubSecret!)}`;
   let rendered: { subject: string; text: string };
   try {
     rendered = renderTemplate(tpl, { affiliation_line: `${c.affiliation} · BRN ${c.brn}`, unsubscribe_url: unsubscribeUrl });
@@ -79,7 +80,7 @@ async function sendWelcome(email: string, subscriberId: string, ctx: NewsletterC
   // stay within DAILY_SEND_CAP, so welcomes never use up the Resend allowance that replies and alerts need.
   const now = deps.now();
   const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
-  const row = { id: deps.uuid(), dedupe_key: dedupeKey.welcome(await sha256Hex(email)), kind: 'newsletter_welcome' as const, lead_id: null, template_id: tpl.id, template_hash: hash, created_at: now.toISOString() };
+  const row = { id: deps.uuid(), dedupe_key: dedupeKey.welcome(emailHash), kind: 'newsletter_welcome' as const, lead_id: null, template_id: tpl.id, template_hash: hash, created_at: now.toISOString() };
   let res;
   try {
     res = await sendOnce(deps.outbox, row, { capKinds: ['lead_reply', 'newsletter_welcome'], cap: c.dailySendCap, since: dayStart }, deps.now,

@@ -191,7 +191,8 @@ describe('pipeline', () => {
 
     const f2 = makeFake();
     await processLead(baseLead({ ...mid, consent_nurture: true }), await ctx(), f2.deps);
-    expect(f2.sent[0]!.text).toContain('https://api.sharjeelhashmat.com/unsubscribe?e=');
+    expect(f2.sent[0]!.text).toMatch(/https:\/\/api\.sharjeelhashmat\.com\/unsubscribe\?t=v2\.leads\.[0-9a-f]{64}\.[0-9a-f]{64}/);
+    expect(f2.sent[0]!.text).not.toContain('amira@example.com');
     expect(f2.sent[0]!.listUnsubscribe).toContain('/unsubscribe');
   });
 
