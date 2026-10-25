@@ -37,6 +37,7 @@ describe('logs carry nothing personal', () => {
       "index.ts: console.warn('config: OUTBOUND is deprecated; set OUTBOUND_REPLIES, OUTBOUND_NEWSLETTER and OUTBOUND_ALERTS');",
       "index.ts: console.warn('turnstile: rejected', v.reason);",
       "market.ts: console.error('market: read failed', safeError(e));",
+      "ratelimit.ts: console.warn('ratelimit: limiter unavailable, request allowed');",
     ]);
   });
 

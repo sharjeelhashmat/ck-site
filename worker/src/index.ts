@@ -11,6 +11,7 @@ import { verifyNewsletterToken, verifyUnsubToken } from './unsub';
 import { runAndRecordRetention, SUBSCRIBER_HASH_PREFIX } from './retention';
 import { safeError } from './log';
 import { d1Outbox } from './outbox';
+import { overLimit, RETRY_AFTER_SECONDS } from './ratelimit';
 import { MAX_BODY, readBody, utf8 } from './body';
 import { TURNSTILE_ACTIONS, turnstileHosts, verifyTurnstile } from './turnstile';
 
@@ -48,6 +49,11 @@ export interface Env {
   EXTRA_ORIGINS?: string;
   STAGING_ORIGIN?: string;
   ALLOW_TEST_TURNSTILE?: string;
+  // Rate limiters (wrangler.toml [[ratelimits]], PR 2c item 4b).
+  RL_FORMS?: RateLimit;
+  RL_UNSUB?: RateLimit;
+  RL_FEEDBACK?: RateLimit;
+  RL_READ?: RateLimit;
 }
 
 const TEMPLATES = (templatesJson as { templates: Template[] }).templates;
@@ -79,6 +85,15 @@ function json(body: unknown, status: number, origin?: string): Response {
     headers['vary'] = 'origin';
   }
   return new Response(JSON.stringify(body), { status, headers });
+}
+
+// 429 in the route's own format and with its own CORS header (PR 2c item 4b). Unsubscribe pages are plain text.
+function tooMany(path: string, corsOrigin: string | undefined, leadCors: string | undefined): Response {
+  const res = path === '/unsubscribe' || path.startsWith('/api/newsletter/unsubscribe')
+    ? plain(429, 'Too many requests. Please try again in a minute.')
+    : json({ ok: false, error: 'rate_limited' }, 429, path === '/api/newsletter/subscribe' ? corsOrigin : leadCors);
+  res.headers.set('retry-after', String(RETRY_AFTER_SECONDS));
+  return res;
 }
 
 function preflight(corsOrigin: string | undefined): Response {
@@ -305,6 +320,7 @@ async function handle(req: Request, env: Env, ctx?: ExecutionContext): Promise<R
   if (cfg.deprecatedOutbound) console.warn('config: OUTBOUND is deprecated; set OUTBOUND_REPLIES, OUTBOUND_NEWSLETTER and OUTBOUND_ALERTS');
 
   if (url.pathname === '/health') return json({ ok: true }, 200, leadCors);
+  if (await overLimit(env, req, url.pathname)) return tooMany(url.pathname, corsOrigin, leadCors);
 
   // Read-only market figures (aggregates only) for the site's /areas, area guide and /new-launches pages.
   const market = await handleMarket(req, url, env.DB, leadCors);

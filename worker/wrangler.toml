@@ -29,6 +29,29 @@ redact_query_string = true
 [observability.logs]
 invocation_logs = false
 
+# Per-IP rate limits (PR 2c item 4b, gap G05): the Workers Rate Limiting binding, per minute (period 60). Keys are
+# "<route>:<sha256 of the IP>" (src/ratelimit.ts). /health and preflights are not limited. Counts are per Cloudflare
+# location and approximate; Turnstile stays the gate on the forms.
+[[ratelimits]]
+name = "RL_FORMS"                     # POST /lead, /profile, /api/newsletter/subscribe: 5 a minute each
+namespace_id = "1001"
+simple = { limit = 5, period = 60 }
+
+[[ratelimits]]
+name = "RL_UNSUB"                     # GET and POST /unsubscribe and /api/newsletter/unsubscribe: 20 a minute each
+namespace_id = "1002"
+simple = { limit = 20, period = 60 }
+
+[[ratelimits]]
+name = "RL_FEEDBACK"                  # POST /api/newsletter/unsubscribe/feedback: 10 a minute
+namespace_id = "1003"
+simple = { limit = 10, period = 60 }
+
+[[ratelimits]]
+name = "RL_READ"                      # every other GET (the /market routes): 60 a minute
+namespace_id = "1004"
+simple = { limit = 60, period = 60 }
+
 [[kv_namespaces]]
 binding = "KV"
 id = "1201e75e1ed84ddeaeb756756cf86898"

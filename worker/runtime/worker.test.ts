@@ -4,6 +4,7 @@ import worker, { type Env } from '../src/index';
 import { sha256Hex } from '../src/hash';
 import { templateHash, type Template } from '../src/templates';
 import templatesJson from '../templates/lead-replies.v1.json';
+import { OPEN_LIMITS } from './helpers';
 
 const TEMPLATES = (templatesJson as { templates: Template[] }).templates;
 
@@ -12,6 +13,7 @@ const ORIGIN = 'https://sharjeelhashmat.com';
 const baseEnv = (over: Record<string, string> = {}): Env =>
   ({
     ...(env as unknown as Env),
+    ...OPEN_LIMITS, // the real limiters are tested in runtime/rate-limit.test.ts
     TURNSTILE_SECRET: 'test-secret',
     BREVO_API_KEY: 'brevo-test',
     UNSUB_SECRET: 'unsub-test-secret',

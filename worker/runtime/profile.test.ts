@@ -1,12 +1,13 @@
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import worker, { type Env } from '../src/index';
+import { OPEN_LIMITS } from './helpers';
 
 const cf = env as unknown as Env;
 const ORIGIN = 'https://sharjeelhashmat.com';
 const e = (): Env =>
   ({
-    ...cf, TURNSTILE_SECRET: 's', BREVO_API_KEY: 'b', RESEND_API_KEY: 'r', EMAIL_PROVIDER: 'resend', UNSUB_SECRET: 'u',
+    ...cf, ...OPEN_LIMITS, TURNSTILE_SECRET: 's', BREVO_API_KEY: 'b', RESEND_API_KEY: 'r', EMAIL_PROVIDER: 'resend', UNSUB_SECRET: 'u',
     SITE_URL: ORIGIN, WORKER_URL: 'https://ck-lead-worker.example.workers.dev', FROM_ALERTS_EMAIL: 'alerts@mail.sharjeelhashmat.com',
     REPLY_TO: 'hello@sharjeelhashmat.com', ALERT_EMAIL: 'owner@example.com', OUTBOUND_REPLIES: 'off',
   }) as Env;

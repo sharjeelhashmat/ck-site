@@ -6,11 +6,12 @@ import { clearMarketMemo } from '../src/market';
 import { DldTxAggregator, parseCsv } from '../scripts/market-sync/dld';
 import { buildSql } from '../scripts/market-sync/sql';
 import { fixtureLines } from '../test/market-fixture';
+import { OPEN_LIMITS } from './helpers';
 
 const ORIGIN = 'https://sharjeelhashmat.com';
 const STAGING = 'https://ck-site-staging.sharjeelhashmat.workers.dev';
 const cf = env as unknown as Env;
-const e = (over: Record<string, string> = {}) => ({ ...cf, SITE_URL: ORIGIN, STAGING_ORIGIN: '', ...over }) as Env;
+const e = (over: Record<string, string> = {}) => ({ ...cf, ...OPEN_LIMITS, SITE_URL: ORIGIN, STAGING_ORIGIN: '', ...over }) as Env;
 
 // Each test sees D1 as it is now, not a body memoised by an earlier test in this isolate.
 beforeEach(() => clearMarketMemo());
