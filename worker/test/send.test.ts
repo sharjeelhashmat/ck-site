@@ -66,3 +66,35 @@ describe('brevoSend and dispatch', () => {
     expect(calls).toHaveLength(2);
   });
 });
+
+// PR 2c item 1d: every provider call has an 8 s timeout; Resend carries Idempotency-Key = the outbox row id; an answer
+// without a message id is a failure (no 'unknown' receipt).
+describe('send: timeout, idempotency key, receipt id', () => {
+  it('resend: AbortSignal on the fetch and Idempotency-Key when given', async () => {
+    stub();
+    await resendSend('k', sender, 'r@x.com', msg, 'outbox-id-1');
+    const h = calls[0]!.init.headers as Record<string, string>;
+    expect(h['idempotency-key']).toBe('outbox-id-1');
+    expect(calls[0]!.init.signal).toBeInstanceOf(AbortSignal);
+  });
+  it('brevo: AbortSignal on the fetch too, and its idempotencyKey (inside the body headers) when given', async () => {
+    stub();
+    await brevoSend('k', sender, 'r@x.com', msg, '2f0c1a7e-0000-4000-8000-000000000001');
+    expect(calls[0]!.init.signal).toBeInstanceOf(AbortSignal);
+    const p = JSON.parse(calls[0]!.init.body as string);
+    expect(p.headers.idempotencyKey).toBe('2f0c1a7e-0000-4000-8000-000000000001');
+    expect(p.headers['List-Unsubscribe']).toBe('<https://api.example.com/unsubscribe?e=a&t=b>');
+  });
+  it('a 2xx answer without an id throws no_provider_id, for both providers', async () => {
+    stub(200, {});
+    await expect(resendSend('k', sender, 'r@x.com', msg)).rejects.toThrow('no_provider_id');
+    await expect(brevoSend('k', sender, 'r@x.com', msg)).rejects.toThrow('no_provider_id');
+  });
+  it('the timeout is 8 seconds', async () => {
+    const spy = vi.spyOn(AbortSignal, 'timeout');
+    stub();
+    await sendEmail('resend', { resend: 'a' }, sender, 'r@x.com', msg, 'k1');
+    expect(spy).toHaveBeenCalledWith(8000);
+    spy.mockRestore();
+  });
+});

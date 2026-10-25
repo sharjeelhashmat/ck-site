@@ -4,6 +4,7 @@
 //   investor_profiles                    deleted once their lead no longer exists
 //   events                               deleted after 12 months (365 days)
 //   messages (send log)                  deleted after 24 months (730 days)
+//   outbox (claims and receipts)         deleted after 24 months (730 days)
 //   newsletter_subscribers               active subscribers kept while subscribed;
 //                                        unsubscribe_reason_detail cleared 180 days after the feedback;
 //                                        unsubscribed for over 24 months: the email is replaced by its SHA-256 hash
@@ -18,7 +19,7 @@ import { safeError } from './log';
 /** An anonymised newsletter row stores this prefix + the hex SHA-256 of the lower-cased address. */
 export const SUBSCRIBER_HASH_PREFIX = 'sha256:';
 
-export const RETENTION_DAYS = { quarantinedLead: 30, lead: 730, event: 365, message: 730, feedbackDetail: 180, unsubscribed: 730 } as const;
+export const RETENTION_DAYS = { quarantinedLead: 30, lead: 730, event: 365, message: 730, outbox: 730, feedbackDetail: 180, unsubscribed: 730 } as const;
 
 /** At most this many newsletter rows are anonymised per run; the rest follow on the next days. */
 const HASH_BATCH = 200;
@@ -33,6 +34,7 @@ export interface RetentionResult {
   messages: number;
   feedback_details: number;
   subscribers_anonymised: number;
+  outbox: number;
 }
 
 export async function runRetention(db: D1Database, now: Date): Promise<RetentionResult> {
@@ -53,6 +55,7 @@ export async function runRetention(db: D1Database, now: Date): Promise<Retention
     db.prepare('DELETE FROM messages WHERE created_at < ?1').bind(before(now, RETENTION_DAYS.message)),
     db.prepare('UPDATE newsletter_subscribers SET unsubscribe_reason_detail = NULL WHERE unsubscribe_reason_detail IS NOT NULL AND unsubscribe_feedback_at < ?1')
       .bind(before(now, RETENTION_DAYS.feedbackDetail)),
+    db.prepare('DELETE FROM outbox WHERE created_at < ?1').bind(before(now, RETENTION_DAYS.outbox)),
     ...anonymise,
   ]);
   const changes = (i: number) => res[i]?.meta.changes ?? 0;
@@ -63,7 +66,8 @@ export async function runRetention(db: D1Database, now: Date): Promise<Retention
     events: changes(3),
     messages: changes(4),
     feedback_details: changes(5),
-    subscribers_anonymised: anonymise.reduce((n, _, i) => n + changes(6 + i), 0),
+    outbox: changes(6),
+    subscribers_anonymised: anonymise.reduce((n, _, i) => n + changes(7 + i), 0),
   };
 }
 
@@ -72,9 +76,9 @@ export const RETENTION_RUNS_DAYS = 400;
 
 async function recordRun(db: D1Database, now: Date, r: RetentionResult | null, error: string | null): Promise<void> {
   await db.batch([
-    db.prepare('INSERT INTO retention_runs (run_at, leads, events, feedback, newsletter, messages, ok, error) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)')
+    db.prepare('INSERT INTO retention_runs (run_at, leads, events, feedback, newsletter, messages, outbox, ok, error) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)')
       .bind(now.toISOString(), r ? r.leads_quarantined + r.leads_expired : 0, r?.events ?? 0, r?.feedback_details ?? 0, r?.subscribers_anonymised ?? 0,
-        r?.messages ?? 0, r ? 1 : 0, error),
+        r?.messages ?? 0, r?.outbox ?? 0, r ? 1 : 0, error),
     db.prepare('DELETE FROM retention_runs WHERE run_at < ?1').bind(before(now, RETENTION_RUNS_DAYS)),
   ]);
 }

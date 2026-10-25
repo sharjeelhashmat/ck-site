@@ -18,8 +18,8 @@ migrations_dir = "migrations"
 crons = ["17 1 * * *"]
 
 # Workers Logs (audit F8; free plan: 200,000 events a day, all kept). Only the Worker's own console lines are stored:
-# invocation logs (which carry each request's URL and headers) are off, and query strings are redacted anyway, because
-# unsubscribe links carry the address (?e=). Every console call logs fixed text, counts or a redacted error message,
+# invocation logs (which carry each request's URL and headers) are off, and query strings are redacted anyway (links
+# from before PR 2c item 8a carry the address, ?e=; current ones carry an opaque token). Every console call logs fixed text, counts or a redacted error message,
 # never a request body, email, phone or name (test/wrangler-config.test.ts).
 [observability]
 enabled = true
@@ -29,12 +29,41 @@ redact_query_string = true
 [observability.logs]
 invocation_logs = false
 
+# Per-IP rate limits (PR 2c item 4b, gap G05): the Workers Rate Limiting binding, per minute (period 60). Keys are
+# "<route>:<sha256 of the IP>" (src/ratelimit.ts). /health and preflights are not limited. Counts are per Cloudflare
+# location and approximate; Turnstile stays the gate on the forms.
+[[ratelimits]]
+name = "RL_FORMS"                     # POST /lead, /profile, /api/newsletter/subscribe: 5 a minute each
+namespace_id = "1001"
+simple = { limit = 5, period = 60 }
+
+[[ratelimits]]
+name = "RL_UNSUB"                     # GET and POST /unsubscribe and /api/newsletter/unsubscribe: 20 a minute each
+namespace_id = "1002"
+simple = { limit = 20, period = 60 }
+
+[[ratelimits]]
+name = "RL_FEEDBACK"                  # POST /api/newsletter/unsubscribe/feedback: 10 a minute
+namespace_id = "1003"
+simple = { limit = 10, period = 60 }
+
+[[ratelimits]]
+name = "RL_READ"                      # every other GET (the /market routes): 60 a minute
+namespace_id = "1004"
+simple = { limit = 60, period = 60 }
+
 [[kv_namespaces]]
 binding = "KV"
 id = "1201e75e1ed84ddeaeb756756cf86898"
 
 [vars]
-OUTBOUND = "off"                      # stays off until the go-live checklist is complete
+# One switch per channel (PR 2c item 5). Replies and the newsletter stay off until the go-live checklist is complete;
+# owner alerts are on (they were never gated). The go-live checks (BRN, affiliation, booking, senders) gate replies and
+# the newsletter only. The old single OUTBOUND is no longer set; the Worker reads it for one release only when a
+# channel switch is missing, and logs a deprecation line.
+OUTBOUND_REPLIES = "off"              # replies to leads (approved templates only)
+OUTBOUND_NEWSLETTER = "off"           # the newsletter welcome
+OUTBOUND_ALERTS = "on"                # owner alerts (lead, investor profile)
 EMAIL_PROVIDER = "resend"             # "resend" (default choice) or "brevo"; secrets: RESEND_API_KEY / BREVO_API_KEY
 BRN = ""                              # pending: owner to supply before go-live
 AFFILIATION = ""

@@ -1,23 +1,24 @@
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import worker, { type Env } from '../src/index';
+import { OPEN_LIMITS } from './helpers';
 
 const cf = env as unknown as Env;
 const ORIGIN = 'https://sharjeelhashmat.com';
 const e = (): Env =>
   ({
-    ...cf, TURNSTILE_SECRET: 's', BREVO_API_KEY: 'b', RESEND_API_KEY: 'r', EMAIL_PROVIDER: 'resend', UNSUB_SECRET: 'u',
+    ...cf, ...OPEN_LIMITS, TURNSTILE_SECRET: 's', BREVO_API_KEY: 'b', RESEND_API_KEY: 'r', EMAIL_PROVIDER: 'resend', UNSUB_SECRET: 'u',
     SITE_URL: ORIGIN, WORKER_URL: 'https://ck-lead-worker.example.workers.dev', FROM_ALERTS_EMAIL: 'alerts@mail.sharjeelhashmat.com',
-    REPLY_TO: 'hello@sharjeelhashmat.com', ALERT_EMAIL: 'owner@example.com', OUTBOUND: 'off',
+    REPLY_TO: 'hello@sharjeelhashmat.com', ALERT_EMAIL: 'owner@example.com', OUTBOUND_REPLIES: 'off',
   }) as Env;
 
 let mails: Array<{ subject: string; text: string }> = [];
 beforeEach(async () => {
   mails = [];
-  for (const t of ['leads', 'messages', 'events', 'investor_profiles']) await cf.DB.exec(`DELETE FROM ${t}`);
+  for (const t of ['leads', 'messages', 'events', 'investor_profiles', 'outbox']) await cf.DB.exec(`DELETE FROM ${t}`);
   vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    if (url.startsWith('https://challenges.cloudflare.com')) return Response.json({ success: true });
+    if (url.startsWith('https://challenges.cloudflare.com')) return Response.json({ success: true, hostname: 'sharjeelhashmat.com', action: 'lead' });
     if (url === 'https://api.resend.com/emails') { mails.push(JSON.parse(init?.body as string)); return Response.json({ id: 're-1' }); }
     return new Response('unexpected: ' + url, { status: 500 });
   });

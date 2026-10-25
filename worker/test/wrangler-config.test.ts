@@ -34,7 +34,12 @@ describe('logs carry nothing personal', () => {
       "index.ts: console.error('retention: failed', safeError(e)); throw e; },",
       "index.ts: console.error('worker: unhandled error', safeError(e));",
       "index.ts: console.log('retention', JSON.stringify(r)),",
+      "index.ts: console.log('unsubscribe: legacy link used');",
+      "index.ts: console.log('unsubscribe: legacy link used');",
+      "index.ts: console.warn('config: OUTBOUND is deprecated; set OUTBOUND_REPLIES, OUTBOUND_NEWSLETTER and OUTBOUND_ALERTS');",
+      "index.ts: console.warn('turnstile: rejected', v.reason);",
       "market.ts: console.error('market: read failed', safeError(e));",
+      "ratelimit.ts: console.warn('ratelimit: limiter unavailable, request allowed');",
     ]);
   });
 

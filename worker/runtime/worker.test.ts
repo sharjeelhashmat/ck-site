@@ -4,6 +4,7 @@ import worker, { type Env } from '../src/index';
 import { sha256Hex } from '../src/hash';
 import { templateHash, type Template } from '../src/templates';
 import templatesJson from '../templates/lead-replies.v1.json';
+import { OPEN_LIMITS } from './helpers';
 
 const TEMPLATES = (templatesJson as { templates: Template[] }).templates;
 
@@ -12,6 +13,7 @@ const ORIGIN = 'https://sharjeelhashmat.com';
 const baseEnv = (over: Record<string, string> = {}): Env =>
   ({
     ...(env as unknown as Env),
+    ...OPEN_LIMITS, // the real limiters are tested in runtime/rate-limit.test.ts
     TURNSTILE_SECRET: 'test-secret',
     BREVO_API_KEY: 'brevo-test',
     UNSUB_SECRET: 'unsub-test-secret',
@@ -30,10 +32,13 @@ const baseEnv = (over: Record<string, string> = {}): Env =>
     ...over,
   }) as Env;
 
-const LIVE = { OUTBOUND: 'on', BRN: '12345' };
+const LIVE = { OUTBOUND_REPLIES: 'on', OUTBOUND_NEWSLETTER: 'on', BRN: '12345' };
 
 interface Call { url: string; body: Record<string, unknown> | null }
 let calls: Call[] = [];
+// The Turnstile action the route under test expects (PR 2c item 2): siteverify answers with it and our hostname.
+let action = 'lead';
+const verified = (success: boolean) => Response.json({ success, hostname: 'sharjeelhashmat.com', action });
 
 function lead(over: Record<string, unknown> = {}) {
   return {
@@ -46,6 +51,7 @@ function lead(over: Record<string, unknown> = {}) {
 }
 
 function post(body: unknown, e: Env, origin: string | null = ORIGIN) {
+  action = 'lead';
   const headers: Record<string, string> = { 'content-type': 'application/json' };
   if (origin) headers.origin = origin;
   return worker.fetch(new Request('https://api.test/lead', { method: 'POST', headers, body: typeof body === 'string' ? body : JSON.stringify(body) }), e);
@@ -66,13 +72,14 @@ beforeEach(async () => {
   await cf.DB.exec('DELETE FROM events');
   await cf.DB.exec('DELETE FROM suppression');
   await cf.DB.exec('DELETE FROM newsletter_subscribers');
+  await cf.DB.exec('DELETE FROM outbox');
   await cf.KV.delete('approved_templates');
   vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
     if (url.startsWith('https://challenges.cloudflare.com/turnstile/v0/siteverify')) {
       const form = init?.body as FormData;
       calls.push({ url, body: { response: form.get('response'), secret: form.get('secret') } });
-      return Response.json({ success: form.get('response') === 'ok' });
+      return verified(form.get('response') === 'ok');
     }
     if (url === 'https://api.resend.com/emails') {
       calls.push({ url, body: { ...JSON.parse(init?.body as string), _auth: (init?.headers as Record<string, string>).authorization } });
@@ -139,7 +146,7 @@ describe('worker on workerd', () => {
       }
     });
 
-    it('a staging lead is stored quarantined as TEST: no send, no alert, lane NONE, even with OUTBOUND on and templates approved', async () => {
+    it('a staging lead is stored quarantined as TEST: no send, no alert, lane NONE, even with every switch on and templates approved', async () => {
       const e = stagingEnv();
       await approveAllInKv(e);
       const res = await post(lead(), e, STAGING);
@@ -264,7 +271,7 @@ describe('worker on workerd', () => {
     expect(alert.subject).toMatch(/^\[ACTION\] PRIORITY/);
   });
 
-  it('default config (OUTBOUND off): lead stored and owner alerted, nothing sent to the lead', async () => {
+  it('default config (replies off): lead stored and owner alerted, nothing sent to the lead', async () => {
     const e = baseEnv();
     await approveAllInKv(e);
     const res = await post(lead(), e);
@@ -276,7 +283,7 @@ describe('worker on workerd', () => {
   });
 
   it('BRN pending: nothing is sent even with outbound on and every template approved', async () => {
-    const e = baseEnv({ OUTBOUND: 'on' });
+    const e = baseEnv({ OUTBOUND_REPLIES: 'on' });
     await approveAllInKv(e);
     await post(lead(), e);
     expect(await rows('SELECT id FROM messages')).toHaveLength(0);
@@ -327,7 +334,7 @@ describe('worker on workerd', () => {
     expect(ack.headers?.['List-Unsubscribe-Post']).toBe('List-Unsubscribe=One-Click');
     const oneClick = (url: string) => worker.fetch(new Request(url, { method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'List-Unsubscribe=One-Click' }), e);
 
-    const forged = link.replace(/t=[0-9a-f]+/, 't=deadbeef');
+    const forged = link.replace(/\.[0-9a-f]{64}$/, '.' + 'd'.repeat(64));
     expect((await worker.fetch(new Request(forged), e)).status).toBe(400);
     expect((await oneClick(forged)).status).toBe(400);
     expect(await rows('SELECT * FROM suppression')).toHaveLength(0);
@@ -336,7 +343,7 @@ describe('worker on workerd', () => {
     const confirm = await worker.fetch(new Request(link), e);
     expect(confirm.status).toBe(200);
     const html = await confirm.text();
-    expect(html).toContain('<form method="post" action="/unsubscribe?e=');
+    expect(html).toContain('<form method="post" action="/unsubscribe?t=v2.leads.');
     expect(html).toContain('>Unsubscribe</button>');
     expect(confirm.headers.get('content-security-policy')).toBe("default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
     expect(confirm.headers.get('x-content-type-options')).toBe('nosniff');
@@ -372,7 +379,7 @@ describe('worker on workerd', () => {
     await approveAllInKv(e);
     vi.stubGlobal('fetch', async (input: RequestInfo | URL) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-      if (url.includes('turnstile')) return Response.json({ success: true });
+      if (url.includes('turnstile')) return verified(true);
       return new Response('down', { status: 503 });
     });
     const res = await post(lead(), e);
@@ -418,6 +425,7 @@ describe('worker on workerd', () => {
 describe('newsletter on workerd', () => {
   const NEWS = { FROM_NEWS_EMAIL: 'brief@news.sharjeelhashmat.com' };
   const sub = (body: Record<string, unknown>, e: Env, origin: string | null = ORIGIN) => {
+    action = 'newsletter';
     const headers: Record<string, string> = { 'content-type': 'application/json' };
     if (origin) headers.origin = origin;
     return worker.fetch(new Request('https://api.test/api/newsletter/subscribe', { method: 'POST', headers, body: JSON.stringify(body) }), e);

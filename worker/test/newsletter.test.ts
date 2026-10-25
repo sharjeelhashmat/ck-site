@@ -3,8 +3,9 @@ import { readConfig } from '../src/config';
 import { FEEDBACK_DETAIL_MAX, NEWS_WELCOME_ID, UNSUBSCRIBE_REASONS, newsletterBlockers, subscribe, unsubscribeFeedbackForm, validateFeedback, validateSubscribe, type NewsletterCtx, type NewsletterDeps } from '../src/newsletter';
 import type { OutboundMessage } from '../src/pipeline';
 import { templateHash } from '../src/templates';
-import { newsletterToken, unsubToken, verifyNewsletterToken } from '../src/unsub';
-import { TEMPLATES, approveAll, goodEnv } from './helpers';
+import { newsletterToken, unsubToken, verifyLinkToken, verifyNewsletterToken } from '../src/unsub';
+import { sha256Hex } from '../src/hash';
+import { TEMPLATES, approveAll, goodEnv, memOutbox } from './helpers';
 
 const newsEnv = { ...goodEnv, FROM_NEWS_EMAIL: 'brief@news.sharjeelhashmat.com' };
 
@@ -13,15 +14,15 @@ async function nctx(env: Record<string, string> = newsEnv, approved?: Record<str
 }
 
 function fake(existing: 'none' | 'active' | 'unsubscribed' = 'none') {
-  const f = { sent: [] as OutboundMessage[], upserts: 0, logged: [] as string[], sentToday: 0, deps: undefined as unknown as NewsletterDeps };
+  const f = { sent: [] as OutboundMessage[], upserts: 0, logged: [] as string[], outbox: memOutbox(), deps: undefined as unknown as NewsletterDeps };
   let n = 0;
   f.deps = {
     now: () => new Date('2026-09-24T08:00:00Z'),
     uuid: () => `id-${++n}`,
     // The real store (src/index.ts) confirms only a new row: an active or an unsubscribed address is never re-activated.
     upsertSubscriber: async (r) => { f.upserts += 1; return { id: existing === 'none' ? r.id : 'sub-1', confirm: existing === 'none' }; },
-    countSentSince: async () => f.sentToday,
-    logMessage: async (m) => { f.logged.push(`${m.lead_id}:${m.template_id}`); f.sentToday += 1; },
+    logMessage: async (m) => { f.logged.push(`${m.lead_id}:${m.template_id}`); },
+    outbox: f.outbox,
     send: async (m) => { f.sent.push(m); return { provider_id: 'p1' }; },
   };
   return f;
@@ -45,7 +46,7 @@ describe('newsletter: validation', () => {
 describe('newsletter: subscribe', () => {
   it('go-live incomplete (default config): subscriber stored, nothing sent', async () => {
     const f = fake();
-    const r = await subscribe(body(), await nctx({ ...newsEnv, OUTBOUND: 'off' }), f.deps);
+    const r = await subscribe(body(), await nctx({ ...newsEnv, OUTBOUND_NEWSLETTER: 'off' }), f.deps);
     expect(r).toMatchObject({ status: 200, body: { ok: true }, internal: { confirm: true, outbound: 'skipped:blocked' } });
     expect(f.upserts).toBe(1);
     expect(f.sent).toHaveLength(0);
@@ -64,7 +65,9 @@ describe('newsletter: subscribe', () => {
     expect(m.text).toContain(m.listUnsubscribe!);
     const token = new URL(m.listUnsubscribe!).searchParams.get('token')!;
     expect(m.listUnsubscribe!.startsWith('https://api.sharjeelhashmat.com/api/newsletter/unsubscribe?token=')).toBe(true);
-    expect(await verifyNewsletterToken(token, c.unsubSecret!)).toBe('amira@example.com');
+    // v2 (PR 2c item 8a): the token names the address's hash, never the address.
+    expect(await verifyLinkToken(token, 'monthly', c.unsubSecret!)).toBe(await sha256Hex('amira@example.com'));
+    expect(m.listUnsubscribe).not.toContain('amira');
     expect(f.logged).toEqual([`id-1:${NEWS_WELCOME_ID}`]);
   });
 
@@ -137,7 +140,7 @@ describe('newsletter: subscribe', () => {
 
   it('daily send cap is shared with lead replies', async () => {
     const f = fake();
-    f.sentToday = 80;
+    f.outbox.extraToday = 80;
     expect((await subscribe(body(), await nctx(), f.deps)).internal?.outbound).toBe('skipped:daily_cap');
   });
 });
@@ -148,7 +151,7 @@ describe('newsletter: blockers', () => {
     expect(newsletterBlockers(await nctx({ ...newsEnv, FROM_NEWS_EMAIL: '' }))).toContain('FROM_NEWS_EMAIL not set');
     expect(newsletterBlockers(await nctx({ ...newsEnv, FROM_NEWS_EMAIL: 'brief@sharjeelhashmat.com' }))).toContain('FROM_NEWS_EMAIL must be on a subdomain, not the root domain');
     expect(newsletterBlockers(await nctx({ ...newsEnv, BRN: '' }))).toContain('BRN not set');
-    expect(newsletterBlockers(await nctx({ ...newsEnv, OUTBOUND: 'off' }))).toContain('OUTBOUND is off');
+    expect(newsletterBlockers(await nctx({ ...newsEnv, OUTBOUND_NEWSLETTER: 'off' }))).toContain('OUTBOUND_NEWSLETTER is off');
   });
 });
 

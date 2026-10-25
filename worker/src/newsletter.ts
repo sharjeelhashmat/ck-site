@@ -2,7 +2,9 @@ import { isSubdomainSender, outboundBlockers, type Config } from './config';
 import { isDisposable, isValidEmail } from './firewall';
 import type { OutboundMessage } from './pipeline';
 import { isApproved, renderTemplate, templateHash, type Template } from './templates';
-import { newsletterToken } from './unsub';
+import { linkToken } from './unsub';
+import { sha256Hex } from './hash';
+import { dedupeKey, NEWSLETTER_LIST, sendOnce, type Outbox } from './outbox';
 
 // Standalone newsletter signup, single opt-in (owner decision 2026-09-24). The subscriber row is written as soon as the
 // request is valid; the confirmation email is a separate, fully gated step that stays silent until go-live is complete.
@@ -34,9 +36,9 @@ export interface NewsletterDeps {
   // Inserts a new subscriber; does nothing for an existing one, active or unsubscribed (an unsubscribe is never undone
   // by a signup form). Returns the row id and whether a confirmation is due (a new row only).
   upsertSubscriber(row: { id: string; email: string; source: string | null; subscribed_at: string }): Promise<{ id: string; confirm: boolean }>;
-  countSentSince(sinceIso: string): Promise<number>;
   logMessage(row: { id: string; lead_id: string; created_at: string; template_id: string; template_hash: string; provider_id: string; outcome: string }): Promise<void>;
-  send(msg: OutboundMessage): Promise<{ provider_id: string }>;
+  outbox: Outbox;
+  send(msg: OutboundMessage, idempotencyKey: string): Promise<{ provider_id: string }>;
 }
 
 export interface NewsletterCtx {
@@ -46,11 +48,11 @@ export interface NewsletterCtx {
   unsubSecret?: string;
 }
 
-// Why the confirmation would not be sent right now. Empty = send. Lead-reply go-live blockers apply too, so the
-// OUTBOUND kill switch, BRN and sender checks cover the newsletter as well.
+// Why the confirmation would not be sent right now. Empty = send. The newsletter's own switch (OUTBOUND_NEWSLETTER) and the
+// same go-live checks as replies (BRN, sender checks) apply.
 export function newsletterBlockers(ctx: NewsletterCtx): string[] {
   const c = ctx.config;
-  const b = outboundBlockers(c);
+  const b = outboundBlockers(c, 'newsletter');
   if (!c.senders.news.email) b.push('FROM_NEWS_EMAIL not set');
   else if (!isSubdomainSender(c.senders.news.email, c.siteUrl)) b.push('FROM_NEWS_EMAIL must be on a subdomain, not the root domain');
   if (!ctx.unsubSecret) b.push('UNSUB_SECRET not set');
@@ -65,28 +67,33 @@ async function sendWelcome(email: string, subscriberId: string, ctx: NewsletterC
   const hash = await templateHash(tpl);
   if (!isApproved(tpl, hash, ctx.approved)) return 'skipped:not_approved';
 
-  const now = deps.now();
-  const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
-  if ((await deps.countSentSince(dayStart)) >= ctx.config.dailySendCap) return 'skipped:daily_cap';
-
   const c = ctx.config;
-  const unsubscribeUrl = `${c.workerUrl}/api/newsletter/unsubscribe?token=${await newsletterToken(email, ctx.unsubSecret!)}`;
+  const emailHash = await sha256Hex(email);
+  const unsubscribeUrl = `${c.workerUrl}/api/newsletter/unsubscribe?token=${await linkToken(emailHash, NEWSLETTER_LIST, ctx.unsubSecret!)}`;
   let rendered: { subject: string; text: string };
   try {
     rendered = renderTemplate(tpl, { affiliation_line: `${c.affiliation} · BRN ${c.brn}`, unsubscribe_url: unsubscribeUrl });
   } catch {
     return 'skipped:render_failed';
   }
+  // Claim, then send: one welcome per address and list (the key holds the address's hash). Welcomes and replies together
+  // stay within DAILY_SEND_CAP, so welcomes never use up the Resend allowance that replies and alerts need.
+  const now = deps.now();
+  const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString();
+  const row = { id: deps.uuid(), dedupe_key: dedupeKey.welcome(emailHash), kind: 'newsletter_welcome' as const, lead_id: null, template_id: tpl.id, template_hash: hash, created_at: now.toISOString() };
+  let res;
   try {
-    const res = await deps.send({ stream: 'news', to: email, toName: email, subject: rendered.subject, text: rendered.text, listUnsubscribe: unsubscribeUrl });
-    await deps.logMessage({
-      id: deps.uuid(), lead_id: subscriberId, created_at: deps.now().toISOString(),
-      template_id: tpl.id, template_hash: hash, provider_id: res.provider_id, outcome: 'sent',
-    });
-    return 'sent';
+    res = await sendOnce(deps.outbox, row, { capKinds: ['lead_reply', 'newsletter_welcome'], cap: c.dailySendCap, since: dayStart }, deps.now,
+      (key) => deps.send({ stream: 'news', to: email, toName: email, subject: rendered.subject, text: rendered.text, listUnsubscribe: unsubscribeUrl }, key));
   } catch {
-    return 'failed:send';
+    return 'failed:claim';
   }
+  if (res.outcome === 'skipped') return `skipped:${res.reason}`;
+  if (res.outcome === 'failed') return 'failed:send';
+  try {
+    await deps.logMessage({ id: deps.uuid(), lead_id: subscriberId, created_at: deps.now().toISOString(), template_id: tpl.id, template_hash: hash, provider_id: res.provider_id, outcome: 'sent' });
+  } catch { /* history only: the outbox row is the receipt */ }
+  return 'sent';
 }
 
 export interface SubscribeResult {

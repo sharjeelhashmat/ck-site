@@ -17,7 +17,7 @@ const id = `nl-${variant}`;
       <button class="btn" type="submit">Subscribe</button>
     </div>
     <div class="hp" aria-hidden="true"><label>Website <input type="text" name="company_website" tabindex="-1" autocomplete="off" /></label></div>
-    <div class="nl-turnstile"></div>
+    <div class="nl-turnstile" data-action="newsletter"></div>
     <p class="status" role="status" aria-live="polite"></p>
     <p class="fine">Unsubscribe at any time. <a href="/privacy">Privacy</a></p>
   </form>
@@ -101,10 +101,10 @@ const id = `nl-${variant}`;
 
     const ensureWidget = () => {
       widget ??= loadTurnstile()
-        .then((t) => ({
-          t,
-          id: t.render(form.querySelector<HTMLElement>('.nl-turnstile')!, { sitekey: form.dataset.sitekey, appearance: 'interaction-only', theme: 'light' }),
-        }))
+        .then((t) => {
+          const box = form.querySelector<HTMLElement>('.nl-turnstile')!;
+          return { t, id: t.render(box, { sitekey: form.dataset.sitekey, action: box.dataset.action, appearance: 'interaction-only', theme: 'light' }) };
+        })
         .catch((e: unknown) => { widget = null; throw e; });
       return widget;
     };

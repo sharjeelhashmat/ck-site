@@ -38,9 +38,9 @@ describe('pipeline', () => {
     expect(f.alerts).toHaveLength(0);
   });
 
-  it('OUTBOUND off: lead is stored and alerted, nothing is sent', async () => {
+  it('OUTBOUND_REPLIES off: lead is stored and alerted, nothing is sent', async () => {
     const f = makeFake();
-    const r = await processLead(baseLead(), await ctx({ ...goodEnv, OUTBOUND: 'off' }), f.deps);
+    const r = await processLead(baseLead(), await ctx({ ...goodEnv, OUTBOUND_REPLIES: 'off' }), f.deps);
     expect(r.internal?.outbound).toBe('skipped:blocked');
     expect(f.sent).toHaveLength(0);
     expect(f.rows).toHaveLength(1);
@@ -177,7 +177,7 @@ describe('pipeline', () => {
 
   it('daily send cap stops replies', async () => {
     const f = makeFake();
-    f.state.sentToday = 80;
+    f.outbox.extraToday = 80;
     const r = await processLead(baseLead(), await ctx(), f.deps);
     expect(r.internal?.outbound).toBe('skipped:daily_cap');
   });
@@ -191,7 +191,8 @@ describe('pipeline', () => {
 
     const f2 = makeFake();
     await processLead(baseLead({ ...mid, consent_nurture: true }), await ctx(), f2.deps);
-    expect(f2.sent[0]!.text).toContain('https://api.sharjeelhashmat.com/unsubscribe?e=');
+    expect(f2.sent[0]!.text).toMatch(/https:\/\/api\.sharjeelhashmat\.com\/unsubscribe\?t=v2\.leads\.[0-9a-f]{64}\.[0-9a-f]{64}/);
+    expect(f2.sent[0]!.text).not.toContain('amira@example.com');
     expect(f2.sent[0]!.listUnsubscribe).toContain('/unsubscribe');
   });
 

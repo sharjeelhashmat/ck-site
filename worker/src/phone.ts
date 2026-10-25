@@ -8,6 +8,15 @@ export function phonePresent(v: unknown): boolean {
   return v !== undefined && v !== null && !(typeof v === 'string' && v.trim() === '');
 }
 
+export const PHONE_RAW_MAX = 40;
+
+/** A phone value as typed, for the owner only: control characters removed, whitespace collapsed, at most 40 characters. */
+export function rawPhone(v: unknown): string | null {
+  if (typeof v !== 'string' && typeof v !== 'number') return null;
+  const s = String(v).replace(/[\u0000-\u001f\u007f-\u009f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, PHONE_RAW_MAX).trim();
+  return s || null;
+}
+
 /** The number in E.164 (e.g. +971501234567) when it is a valid international number, otherwise null. */
 export function validE164(v: unknown): string | null {
   if (typeof v !== 'string') return null;

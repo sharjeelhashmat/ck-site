@@ -6,8 +6,15 @@ export interface Sender {
   name: string;
 }
 
+export type Channel = 'replies' | 'newsletter' | 'alerts';
+
 export interface Config {
-  outbound: boolean;
+  // One switch per channel (PR 2c item 5, gap G07). "on" opens a channel; the go-live checks below still apply.
+  outboundReplies: boolean;
+  outboundNewsletter: boolean;
+  outboundAlerts: boolean;
+  // The old single OUTBOUND was read because a channel switch is unset (one release only; the Worker logs it).
+  deprecatedOutbound: boolean;
   brn: string;
   affiliation: string;
   bookingUrl: string;
@@ -34,8 +41,16 @@ export function readConfig(env: Record<string, string | undefined>): Config {
   const cap = Number.parseInt(env.DAILY_SEND_CAP ?? '', 10);
   const rawProvider = (env.EMAIL_PROVIDER ?? 'brevo').trim().toLowerCase();
   const emailProvider: EmailProvider = rawProvider === 'resend' ? 'resend' : 'brevo';
+  const on = (v: string) => v.trim().toLowerCase() === 'on';
+  // Fallback for one release: a reply or newsletter switch that is unset follows the old OUTBOUND, when that is set.
+  // Owner alerts were never gated by OUTBOUND, so an unset OUTBOUND_ALERTS stays "on".
+  const legacy = env.OUTBOUND;
+  const channel = (v: string | undefined) => (v !== undefined ? on(v) : legacy !== undefined ? on(legacy) : false);
   return {
-    outbound: (env.OUTBOUND ?? 'off').toLowerCase() === 'on',
+    outboundReplies: channel(env.OUTBOUND_REPLIES),
+    outboundNewsletter: channel(env.OUTBOUND_NEWSLETTER),
+    outboundAlerts: env.OUTBOUND_ALERTS !== undefined ? on(env.OUTBOUND_ALERTS) : true,
+    deprecatedOutbound: legacy !== undefined && (env.OUTBOUND_REPLIES === undefined || env.OUTBOUND_NEWSLETTER === undefined),
     brn: (env.BRN ?? '').trim(),
     affiliation: (env.AFFILIATION ?? '').trim(),
     bookingUrl: (env.BOOKING_URL ?? '').trim(),
@@ -87,10 +102,20 @@ export function isSubdomainSender(email: string, siteUrl: string): boolean {
   return Boolean(root) && host.endsWith(`.${root}`);
 }
 
-// Outbound to leads stays OFF until every item here is satisfied. BRN is the pending item.
-export function outboundBlockers(c: Config): string[] {
+// Why a channel would not send right now. Empty = it may send. Replies and the newsletter stay off until every go-live
+// item here is satisfied (BRN is the pending item); owner alerts need only their switch, their sender, the alert address
+// and the email key.
+export function outboundBlockers(c: Config, channel: Channel): string[] {
   const b: string[] = [];
-  if (!c.outbound) b.push('OUTBOUND is off');
+  if (channel === 'alerts') {
+    if (!c.outboundAlerts) b.push('OUTBOUND_ALERTS is off');
+    if (!c.alertEmail) b.push('ALERT_EMAIL not set');
+    if (!c.senders.alerts.email) b.push('FROM_ALERTS_EMAIL not set');
+    if (!c.hasEmailKey) b.push(c.emailProvider === 'resend' ? 'RESEND_API_KEY not set' : 'BREVO_API_KEY not set');
+    return b;
+  }
+  if (channel === 'replies' && !c.outboundReplies) b.push('OUTBOUND_REPLIES is off');
+  if (channel === 'newsletter' && !c.outboundNewsletter) b.push('OUTBOUND_NEWSLETTER is off');
   if (!c.brn) b.push('BRN not set');
   else if (!/^[A-Za-z0-9-]{3,20}$/.test(c.brn)) b.push('BRN format invalid');
   if (!c.affiliation) b.push('AFFILIATION not set');

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { memOutbox } from './helpers';
 import { AREA_SLUGS, cleanOtherArea, PROFILE_WINDOW_DAYS, saveProfile, validateProfile, type LeadRef, type Profile, type ProfileDeps } from '../src/profile';
 
 const ID = '3f2b8c1e-7d4a-4e6b-9c10-2a5d8e9f0b11';
@@ -13,10 +14,13 @@ function fake(lead: Partial<LeadRef> | null = {}) {
   };
   f.deps = {
     now: () => NOW,
+    uuid: () => `u-${f.saved.length}-${f.mails.length}-${Math.random()}`,
+    outbox: memOutbox(),
+    alertsBlocked: () => false,
     findLead: async () => (lead === null ? null : { created_at: '2026-09-20T08:00:00Z', quarantined: 0, name: 'Amira Khan', email: 'amira@example.com', intent: 'invest', lane: 'QUALIFIED', ...lead }),
     upsertProfile: async (id, p) => { f.saved.push({ id, p }); const was = f.existing; f.existing = true; return was ? 'updated' : 'created'; },
     logEvent: async (t) => { f.events.push(t); },
-    notifyOwner: async (subject, text) => { if (f.failMail) throw new Error('mail down'); f.mails.push({ subject, text }); },
+    notifyOwner: async (subject, text) => { if (f.failMail) throw new Error('mail down'); f.mails.push({ subject, text }); return { provider_id: 'p' }; },
   };
   return f;
 }
@@ -150,5 +154,21 @@ describe('saveProfile', () => {
     const f = fake();
     expect((await saveProfile({ ...good, objective: 'x' }, f.deps)).status).toBe(400);
     expect(f.saved).toHaveLength(0);
+  });
+});
+
+// PR 2c item 1e (G06): the first-save alert is decided by "created" from the single upsert AND the outbox claim.
+describe('saveProfile: first alert exactly once', () => {
+  it('an update never alerts, even with no outbox row for the lead (a profile stored before the outbox)', async () => {
+    const f = fake();
+    f.existing = true;
+    expect((await saveProfile(good, f.deps)).status).toBe(200);
+    expect(f.mails).toHaveLength(0);
+  });
+  it('two saves that both read "created" still alert once (the claim decides)', async () => {
+    const f = fake();
+    f.deps.upsertProfile = async () => 'created';
+    await Promise.all([saveProfile(good, f.deps), saveProfile(good, f.deps)]);
+    expect(f.mails).toHaveLength(1);
   });
 });

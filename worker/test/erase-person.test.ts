@@ -49,6 +49,22 @@ describe('erase-person', () => {
     ]);
   });
 
+  it('also deletes the outbox rows linked to the person: their leads\' rows and the welcome row keyed by their hash (PR 2c item 1)', async () => {
+    const d = db();
+    const h = await sha256Hex('amira@example.com');
+    const o = await sha256Hex('other@example.com');
+    d.prepare("INSERT INTO leads (id, created_at, name, email, email_hash, consent_contact) VALUES ('l1', 'x', 'N', 'amira@example.com', ?, 1)").run(h);
+    d.prepare("INSERT INTO leads (id, created_at, name, email, email_hash, consent_contact) VALUES ('l2', 'x', 'N', 'other@example.com', ?, 1)").run(o);
+    const row = (id: string, key: string, lead: string | null) => d.prepare("INSERT INTO outbox (id, dedupe_key, kind, lead_id, created_at, status) VALUES (?, ?, 'lead_reply', ?, 'x', 'sent')").run(id, key, lead);
+    row('r1', 'lead_reply:l1:ACK-COLD', 'l1');
+    row('a1', 'owner_alert:lead:l1', 'l1');
+    row('w1', `newsletter_welcome:${h}:monthly`, null);
+    row('r2', 'lead_reply:l2:ACK-COLD', 'l2');
+    row('w2', `newsletter_welcome:${o}:monthly`, null);
+    d.exec(eraseSql('amira@example.com'));
+    expect(d.prepare('SELECT id FROM outbox ORDER BY id').all()).toEqual([{ id: 'r2' }, { id: 'w2' }]);
+  });
+
   it('the CLI prints the SQL and exits 0; bad input exits 2 and prints no SQL', () => {
     const script = join(import.meta.dirname, '../scripts/erase-person.mjs');
     expect(execFileSync(process.execPath, [script, 'amira@example.com'], { encoding: 'utf8' })).toMatch(/^-- Erasure for one person.*\nDELETE FROM investor_profiles/);
