@@ -97,6 +97,8 @@ describe('worker on workerd', () => {
     // Exactly {"ok":true}: no config state or outbound field on any public route (audit item 37).
     expect(await health.text()).toBe('{"ok":true}');
     expect(health.headers.get('x-content-type-options')).toBe('nosniff');
+    // The same exact body whatever the configuration (PR 2b item 3): outbound on and every gate set changes nothing.
+    expect(await (await worker.fetch(new Request('https://api.test/health'), baseEnv(LIVE))).text()).toBe('{"ok":true}');
     expect((await worker.fetch(new Request('https://api.test/nope'), baseEnv())).status).toBe(404);
   });
 
@@ -111,7 +113,7 @@ describe('worker on workerd', () => {
   });
 
   it('CORS: EXTRA_ORIGINS admits the staging site, and removing it shuts staging out', async () => {
-    const STAGING = 'https://ck-site-web.sharjeelhashmat.workers.dev';
+    const STAGING = 'https://ck-site-staging.sharjeelhashmat.workers.dev';
     const on = await worker.fetch(new Request('https://api.test/lead', { method: 'OPTIONS', headers: { origin: STAGING } }), baseEnv({ EXTRA_ORIGINS: STAGING }));
     expect(on.headers.get('access-control-allow-origin')).toBe(STAGING);
     const off = await worker.fetch(new Request('https://api.test/lead', { method: 'OPTIONS', headers: { origin: STAGING } }), baseEnv({ EXTRA_ORIGINS: '' }));
@@ -120,7 +122,7 @@ describe('worker on workerd', () => {
   });
 
   describe('STAGING_ORIGIN: quarantined test enquiries', () => {
-    const STAGING = 'https://ck-site-web.sharjeelhashmat.workers.dev';
+    const STAGING = 'https://ck-site-staging.sharjeelhashmat.workers.dev';
     const stagingEnv = (over: Record<string, string> = {}) => baseEnv({ ...LIVE, STAGING_ORIGIN: STAGING, ...over });
 
     it('preflight from the staging origin is allowed; unknown origins are still rejected', async () => {
@@ -132,7 +134,7 @@ describe('worker on workerd', () => {
       expect(bad.headers.get('access-control-allow-origin')).toBeNull();
       expect((await post(lead(), stagingEnv(), 'https://evil.example')).status).toBe(403);
       // exact match only: no prefix, suffix or sibling subdomain
-      for (const o of [STAGING + '.evil.example', 'https://x.ck-site-web.sharjeelhashmat.workers.dev', 'http://ck-site-web.sharjeelhashmat.workers.dev']) {
+      for (const o of [STAGING + '.evil.example', 'https://x.ck-site-staging.sharjeelhashmat.workers.dev', 'http://ck-site-staging.sharjeelhashmat.workers.dev']) {
         expect((await post(lead(), stagingEnv(), o)).status).toBe(403);
       }
     });
@@ -205,7 +207,7 @@ describe('worker on workerd', () => {
       for (const [origin, acao] of [[STAGING, STAGING], [ORIGIN, ORIGIN], ['https://evil.example', null], [null, null]] as const) {
         const res = await get(origin, stagingEnv());
         expect(res.status).toBe(200);
-        expect(await res.json()).toEqual({ ok: true });
+        expect(await res.text()).toBe('{"ok":true}');
         expect(res.headers.get('access-control-allow-origin')).toBe(acao);
       }
       expect((await get(STAGING, stagingEnv({ STAGING_ORIGIN: '' }))).headers.get('access-control-allow-origin')).toBeNull();

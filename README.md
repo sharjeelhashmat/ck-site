@@ -6,7 +6,7 @@ Personal real estate brand site and lead engine for Sharjeel Hashmat, Real Estat
 
 | Part | State |
 |---|---|
-| `site/` static Astro site | Built and tested. Staging live on Cloudflare Workers at `ck-site-web.sharjeelhashmat.workers.dev` (noindex). |
+| `site/` static Astro site | Built and tested. Two Workers serve the same build: `ck-site-web` = production (noindex today; goes public at go-live), `ck-site-staging` = previews (always noindex, behind Cloudflare Access). |
 | `worker/` lead API (`ck-lead-worker`) | Live on Cloudflare (D1 `ck-leads`, KV `ck-kv`, email via Resend). Routes `POST /lead` and `POST /profile`. `OUTBOUND` gate still controls sending. |
 | Public launch | **Blocked by the go-live values.** The public build refuses `PUBLIC_INDEXABLE=true` until `site/src/lib/golive.ts` has indexing, the agency name, its BRN and the advertiser permit. |
 | Old site (Next.js on Vercel) | In maintenance mode until cutover. |
@@ -19,7 +19,16 @@ Tests run in CI on every change (`npm test` in `site/`; `npx vitest run` in `wor
 - `site/` Astro site. `site/src/data/` holds Insights articles and opportunities; `npm run freshness` reports stale records. `site/docs/` holds the migration doc and the approval record.
 - `worker/` Cloudflare Worker: intake, scoring, lanes, D1, acknowledgment templates, investor-profile route.
 - `guardrails/` owner-controlled policy (autonomy boundary, email identity). Claude may not edit `guardrails/` or `.github/`.
-- `.github/workflows/` `ci.yml` (worker checks), `deploy.yml` (worker deploy), `deploy-site.yml` (site build, test, deploy behind the `production` environment approval).
+- `.github/workflows/` `ci.yml` (worker checks; site build, tests, launch-readiness check, accessibility and Lighthouse), `deploy.yml` (worker deploy), `deploy-site.yml` (site build, test, deploy to `ck-site-web` behind the `production` environment approval), `deploy-staging.yml` (the same build, always noindex, to `ck-site-staging`, also behind `production`), `uptime.yml` (every 30 minutes, targets in `.github/uptime-targets.json`).
+
+## Production and staging
+
+| Worker | Config | Deployed by | Role |
+|---|---|---|---|
+| `ck-site-web` | `site/wrangler.jsonc` | deploy-site (`confirm_target` ck-site-web) | Production. Goes public at go-live (custom domains, `public` on); its workers.dev URL is switched off in the go-live PR. |
+| `ck-site-staging` | `site/wrangler.staging.jsonc` | deploy-staging (`confirm_target` ck-site-staging) | Previews. Always built with `PUBLIC_INDEXABLE=false` (workflow-guard R16), workers.dev only, Cloudflare Access for the owner only (ADR-003). |
+
+The Worker's `STAGING_ORIGIN` is `https://ck-site-staging.sharjeelhashmat.workers.dev`: enquiries from staging are stored quarantined as TEST (no alert, no reply). No CI check and no uptime target calls the staging host, so Access breaks nothing.
 
 ## What the lead engine does
 
@@ -74,6 +83,12 @@ The Worker's daily cron (`17 1 * * *`, `worker/src/retention.ts`) applies this i
 | Newsletter subscribers, active | While subscribed |
 | Unsubscribe feedback text (`unsubscribe_reason_detail`) | 180 days after the feedback |
 | Newsletter subscribers, unsubscribed | 24 months; then the address is replaced by its SHA-256 hash (so the opt-out still holds) and the other personal fields are cleared |
+
+Every run also writes one row to `retention_runs` (migration 0006): run time, the rows each rule removed or cleared, ok, and a redacted error on failure. Rows are kept 400 days. No HTTP route exposes the table (owner decision G08); a private GitHub readiness workflow reads it.
+
+## Worker logs
+
+Workers Logs are on (`[observability]` in `worker/wrangler.toml`, free plan 200,000 events a day). Invocation logs (request URL and headers) are off and query strings are redacted, because unsubscribe links carry the address. The Worker's own console lines hold fixed text, counts or an error message with addresses and phone numbers redacted (`worker/src/log.ts`); `worker/test/wrangler-config.test.ts` pins every console call.
 
 Restore and rollback drills (owner runs them): `docs/runbooks/d1-restore-drill.md` and `docs/runbooks/rollback-drill.md`.
 

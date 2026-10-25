@@ -3,7 +3,7 @@ import { env } from 'cloudflare:workers';
 import { beforeEach, describe, expect, it } from 'vitest';
 import worker, { type Env } from '../src/index';
 import { sha256Hex } from '../src/hash';
-import { runRetention } from '../src/retention';
+import { RETENTION_RUNS_DAYS, runAndRecordRetention, runRetention } from '../src/retention';
 
 const cf = env as unknown as Env;
 const NOW = new Date('2026-10-17T01:17:00Z');
@@ -16,7 +16,7 @@ async function lead(id: string, status: string, createdAt: string) {
 }
 
 beforeEach(async () => {
-  for (const t of ['leads', 'investor_profiles', 'events', 'messages', 'newsletter_subscribers']) await cf.DB.exec(`DELETE FROM ${t}`);
+  for (const t of ['leads', 'investor_profiles', 'events', 'messages', 'newsletter_subscribers', 'retention_runs']) await cf.DB.exec(`DELETE FROM ${t}`);
 });
 
 describe('retention (B4)', () => {
@@ -75,5 +75,66 @@ describe('retention (B4)', () => {
     await worker.scheduled!({ scheduledTime: Date.now(), cron: '17 1 * * *', noRetry() {} } as ScheduledController, cf, { waitUntil: (p: Promise<unknown>) => waits.push(p), passThroughOnException() {} } as unknown as ExecutionContext);
     await Promise.all(waits);
     expect(await ids('SELECT id FROM leads')).toEqual([]);
+    expect(await runs()).toMatchObject([{ leads: 1, ok: 1, error: null }]);
+  });
+});
+
+// One row per run in retention_runs (PR 2b item 4b, audit F8). No HTTP route reads it (owner decision G08).
+const runs = async () => (await cf.DB.prepare('SELECT run_at, leads, events, feedback, newsletter, messages, ok, error FROM retention_runs ORDER BY run_at').all()).results;
+
+describe('retention_runs (F8)', () => {
+  it('a successful run records its counts, ok 1, no error', async () => {
+    await lead('spam-old', 'SPAM', daysAgo(31));
+    await lead('valid-old', 'VALID', daysAgo(731));
+    await cf.DB.prepare("INSERT INTO events (id, created_at, type) VALUES ('e-old', ?1, 'lead_received')").bind(daysAgo(366)).run();
+    await cf.DB.prepare(`INSERT INTO newsletter_subscribers (id, email, subscribed_at, source, unsubscribed_at, unsubscribe_reason, unsubscribe_reason_detail, unsubscribe_feedback_at)
+      VALUES ('gone', 'gone@example.com', '2023-01-01T00:00:00Z', 'footer', ?1, 'other', 'words', ?1)`).bind(daysAgo(731)).run();
+    const r = await runAndRecordRetention(cf.DB, NOW);
+    expect(r).toMatchObject({ leads_quarantined: 1, leads_expired: 1, events: 1, feedback_details: 1, subscribers_anonymised: 1, messages: 0 });
+    expect(await runs()).toEqual([{ run_at: NOW.toISOString(), leads: 2, events: 1, feedback: 1, newsletter: 1, messages: 0, ok: 1, error: null }]);
+  });
+
+  it('a failed run records ok 0 with a redacted error, changes nothing else, and still fails', async () => {
+    await lead('spam-old', 'SPAM', daysAgo(31));
+    let first = true;
+    // The retention batch fails once (as a D1 error would); the record that follows uses the real database.
+    const failing = new Proxy(cf.DB, {
+      get(target, prop) {
+        if (prop === 'batch' && first) return () => { first = false; return Promise.reject(new Error('D1_ERROR: boom near gone@example.com, call +971 55 541 4468')); };
+        const v = Reflect.get(target, prop);
+        return typeof v === 'function' ? v.bind(target) : v;
+      },
+    });
+    await expect(runAndRecordRetention(failing, NOW)).rejects.toThrow(/boom/);
+    expect(await runs()).toEqual([{ run_at: NOW.toISOString(), leads: 0, events: 0, feedback: 0, newsletter: 0, messages: 0, ok: 0, error: 'D1_ERROR: boom near [redacted], call [redacted]' }]);
+    expect(await ids('SELECT id FROM leads')).toEqual(['spam-old']);
+  });
+
+  it('a run that cannot record still reports the original error', async () => {
+    const broken = new Proxy(cf.DB, {
+      get(target, prop) {
+        if (prop === 'batch') return () => Promise.reject(new Error('D1_ERROR: original'));
+        const v = Reflect.get(target, prop);
+        return typeof v === 'function' ? v.bind(target) : v;
+      },
+    });
+    await expect(runAndRecordRetention(broken, NOW)).rejects.toThrow('D1_ERROR: original');
+    expect(await runs()).toEqual([]);
+  });
+
+  it(`keeps ${RETENTION_RUNS_DAYS} days of rows`, async () => {
+    for (const at of [daysAgo(RETENTION_RUNS_DAYS, 1), daysAgo(RETENTION_RUNS_DAYS - 1)]) {
+      await cf.DB.prepare('INSERT INTO retention_runs (run_at, ok) VALUES (?1, 1)').bind(at).run();
+    }
+    await runAndRecordRetention(cf.DB, NOW);
+    expect((await runs()).map((r) => r.run_at)).toEqual([daysAgo(RETENTION_RUNS_DAYS - 1), NOW.toISOString()]);
+  });
+
+  it('no HTTP route exposes it', async () => {
+    await runAndRecordRetention(cf.DB, NOW);
+    for (const path of ['/retention', '/retention_runs', '/retention-runs', '/health', '/market/status', '/api/retention']) {
+      const res = await worker.fetch(new Request(`https://api.test${path}`), cf);
+      expect(await res.text()).not.toMatch(/retention|run_at/);
+    }
   });
 });

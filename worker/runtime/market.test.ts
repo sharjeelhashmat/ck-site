@@ -8,7 +8,7 @@ import { buildSql } from '../scripts/market-sync/sql';
 import { fixtureLines } from '../test/market-fixture';
 
 const ORIGIN = 'https://sharjeelhashmat.com';
-const STAGING = 'https://ck-site-web.sharjeelhashmat.workers.dev';
+const STAGING = 'https://ck-site-staging.sharjeelhashmat.workers.dev';
 const cf = env as unknown as Env;
 const e = (over: Record<string, string> = {}) => ({ ...cf, SITE_URL: ORIGIN, STAGING_ORIGIN: '', ...over }) as Env;
 

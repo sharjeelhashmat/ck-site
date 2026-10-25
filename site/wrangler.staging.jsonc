@@ -1,0 +1,14 @@
+{
+  // Staging (previews) Worker, audit M5: the same ./dist as ck-site-web, always built non-indexable (PUBLIC_INDEXABLE=false,
+  // never the go-live indexing). Deployed only by .github/workflows/deploy-staging.yml. workers.dev only: no routes, no
+  // custom domains. Cloudflare Access (owner step, ADR-003) keeps it private to the owner.
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "ck-site-staging",
+  "compatibility_date": "2026-08-01",
+  "workers_dev": true,
+  "assets": {
+    "directory": "./dist",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page"
+  }
+}

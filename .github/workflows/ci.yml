@@ -48,6 +48,86 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
+      # The launch-readiness rules again, directly, so a warning (Privacy retention periods) shows as an annotation.
+      - run: node scripts/readiness.mjs
+  # Accessibility and performance evidence (PR 2b item 5, gap G12): the noindex build served locally, no secrets, no
+  # network calls to the Worker or Turnstile (site/qa/). Reports are kept as run artifacts.
+  a11y:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+        working-directory: site
+    env:
+      PUBLIC_INDEXABLE: 'false'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: |
+            site/package-lock.json
+            site/qa/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm ci
+        working-directory: site/qa
+      - run: npx --no-install playwright install --with-deps chromium
+        working-directory: site/qa
+      - name: axe-core at 375 and 1280 (fails on serious or critical)
+        run: node a11y.mjs ../dist axe-report.json
+        working-directory: site/qa
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: axe-report
+          path: site/qa/axe-report.json
+          retention-days: 30
+  lighthouse:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+        working-directory: site/qa
+    env:
+      PUBLIC_INDEXABLE: 'false'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: |
+            site/package-lock.json
+            site/qa/package-lock.json
+      - run: npm ci
+        working-directory: site
+      - run: npm run build
+        working-directory: site
+      - run: npm ci
+      - name: Chromium for Lighthouse (Playwright's build)
+        run: |
+          npx --no-install playwright install --with-deps chromium
+          echo "CHROME_PATH=$(node -e "import('playwright').then((m) => console.log(m.chromium.executablePath()))")" >> "$GITHUB_ENV"
+      - run: npx --no-install lhci collect --config=./lighthouserc.cjs
+      - run: npx --no-install lhci upload --config=./lighthouserc.cjs
+      - name: Median scores per page
+        run: node lhci-summary.mjs lhci
+      - name: Assertions (fail the build)
+        run: npx --no-install lhci assert --config=./lighthouserc.cjs
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: lighthouse-reports
+          path: site/qa/lhci
+          retention-days: 30
   migrations:
     runs-on: ubuntu-24.04
     timeout-minutes: 15

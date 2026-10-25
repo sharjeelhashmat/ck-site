@@ -109,7 +109,8 @@ test('new launches: no empty card, no WhatsApp link, no images, no banned wordin
   const desc = 'Thinking about a Dubai off-plan launch? The facts every buyer should know, the questions worth asking, and a straight answer within 24 hours.';
   assert.ok(h.includes(`<meta name="description" content="${desc}">`));
   assert.match(h, /<meta name="robots" content="noindex,nofollow">/);
-  assert.match(src('src/pages/new-launches.astro'), /noindex: remove with the site-wide indexing switch at go-live\./);
+  // Audit M2: noindex follows LAUNCH_CARDS_ALLOWED (tests/new-launches-indexing.test.mjs builds both modes).
+  assert.match(src('src/pages/new-launches.astro'), /noindex=\{!LAUNCH_CARDS_ALLOWED\}>/);
   assert.match(src('src/pages/new-launches.astro'), /Compliance: this form and "Send my question" are a service call to action\./);
 });
 

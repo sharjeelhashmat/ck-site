@@ -1,0 +1,14 @@
+{
+  "name": "ck-site-qa",
+  "private": true,
+  "type": "module",
+  "description": "Accessibility (axe-core) and Lighthouse CI checks on the built site, run by ci.yml (PR 2b item 5). Kept apart from site/ so the site build installs none of it.",
+  "engines": {
+    "node": ">=22.18 <23"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@lhci/cli": "0.15.1",
+    "playwright": "1.63.0"
+  }
+}

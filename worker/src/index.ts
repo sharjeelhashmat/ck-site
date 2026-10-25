@@ -8,7 +8,8 @@ import { sendEmail } from './send';
 import templatesJson from '../templates/lead-replies.v1.json';
 import type { Template } from './templates';
 import { verifyNewsletterToken, verifyUnsubToken } from './unsub';
-import { runRetention, SUBSCRIBER_HASH_PREFIX } from './retention';
+import { runAndRecordRetention, SUBSCRIBER_HASH_PREFIX } from './retention';
+import { safeError } from './log';
 
 export interface Env {
   DB: D1Database;
@@ -266,7 +267,7 @@ export default {
     try {
       return await handle(req, env);
     } catch (e) {
-      console.error('worker: unhandled error', e instanceof Error ? e.message : 'unknown');
+      console.error('worker: unhandled error', safeError(e));
       let cors: string | undefined;
       try {
         const c = corsFor(req, readConfig(env as unknown as Record<string, string | undefined>));
@@ -278,7 +279,11 @@ export default {
 
   // Daily data retention (B4, owner decision 2026-10-17): cron "17 1 * * *" in wrangler.toml.
   async scheduled(_event: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    ctx.waitUntil(runRetention(env.DB, new Date()).then((r) => console.log('retention', JSON.stringify(r))));
+    // Counts only in the log; the run is also recorded in retention_runs (audit F8).
+    ctx.waitUntil(runAndRecordRetention(env.DB, new Date()).then(
+      (r) => console.log('retention', JSON.stringify(r)),
+      (e) => { console.error('retention: failed', safeError(e)); throw e; },
+    ));
   },
 };
 

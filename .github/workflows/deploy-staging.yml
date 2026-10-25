@@ -1,0 +1,199 @@
+name: deploy-staging
+# PR 2b item 2 (audit M5). Previews on the separate Worker ck-site-staging (site/wrangler.staging.jsonc), built from the
+# same site/ code and ALWAYS non-indexable: PUBLIC_INDEXABLE is fixed to 'false' here and there is no "public" input
+# (workflow-guard R16). Manual dispatch only, from phase2-site, through the "production" environment (owner approval), the
+# one environment workflow-guard R4 allows for a job that holds the Cloudflare secrets. No HTTP smoke test: the staging host sits behind Cloudflare Access (owner step, ADR-003), so the
+# built output is checked before the deploy and the new version is read back from Cloudflare after it.
+# Inputs reach shell steps only through env, never inside run: text.
+on:
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: 'Why this deploy is happening (recorded in the Worker version message and the run summary).'
+        type: string
+        required: true
+      confirm_target:
+        description: 'Type ck-site-staging to confirm the target Worker.'
+        type: string
+        required: true
+permissions:
+  contents: read
+concurrency:
+  group: staging-ck-site-staging
+  cancel-in-progress: false
+jobs:
+  build:
+    if: github.ref == 'refs/heads/phase2-site'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+        working-directory: site
+    env:
+      PUBLIC_INDEXABLE: 'false'
+    steps:
+      # Fail loudly on a mistyped target. Runs before checkout, so it uses the workspace root (site/ does not exist yet).
+      - name: Confirm target
+        working-directory: .
+        env:
+          CONFIRM_TARGET: ${{ inputs.confirm_target }}
+        run: |
+          if [ "$CONFIRM_TARGET" != "ck-site-staging" ]; then
+            echo "::error title=Wrong confirm_target::confirm_target must be exactly ck-site-staging. Nothing was deployed; re-run the workflow and type ck-site-staging."
+            exit 1
+          fi
+          echo "confirm_target ok: ck-site-staging"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - name: Assert location
+        run: |
+          test "$PWD" = "$GITHUB_WORKSPACE/site"
+          test -f package.json
+          test -f package-lock.json
+          test -f wrangler.staging.jsonc
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build        # astro check + astro build + CSP/_headers generation (noindex)
+      - run: npm test             # includes the launch-readiness check for a non-indexable build
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: site-staging-dist
+          path: site/dist
+          retention-days: 7
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/phase2-site' && inputs.confirm_target == 'ck-site-staging'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: production
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+        working-directory: site
+    env:
+      WRANGLER_SEND_METRICS: 'false'
+      REASON: ${{ inputs.reason }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: site-staging-dist
+          path: site/dist
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - name: Assert location
+        run: |
+          test "$PWD" = "$GITHUB_WORKSPACE/site"
+          test -f package.json
+          test -f package-lock.json
+          test -f wrangler.staging.jsonc
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Assert wrangler 4.152.0
+        run: |
+          v=$(npx --no-install wrangler --version | tr -d '[:space:]')
+          [ "$v" = "4.152.0" ] || { echo "expected wrangler 4.152.0, got: $v"; exit 1; }
+          echo "wrangler $v"
+
+      # Preflight: fail closed, never print secret values. The artifact must be a non-indexable build.
+      - name: Preflight
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          REASON_SAFE=$(printf '%s' "$REASON" | tr -cd '[:alnum:] ._-' | cut -c1-200)
+          [ -n "${REASON_SAFE// /}" ] || { echo "reason is empty after sanitising"; exit 1; }
+          echo "REASON_SAFE=$REASON_SAFE" >> "$GITHUB_ENV"
+          [ -n "$CLOUDFLARE_API_TOKEN" ] || { echo "CLOUDFLARE_API_TOKEN is not set"; exit 1; }
+          [ -n "$CLOUDFLARE_ACCOUNT_ID" ] || { echo "CLOUDFLARE_ACCOUNT_ID is not set"; exit 1; }
+          [ "$CLOUDFLARE_ACCOUNT_ID" = "6ae55501743fe5c0e6dc33be902cbace" ] || { echo "CLOUDFLARE_ACCOUNT_ID is not the reviewed account"; exit 1; }
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/phase2-site || { echo "$GITHUB_SHA is not on origin/phase2-site"; exit 1; }
+          [ "$(grep -cF '"name": "ck-site-staging"' wrangler.staging.jsonc)" = "1" ] || { echo 'wrangler.staging.jsonc must contain "name": "ck-site-staging" exactly once'; exit 1; }
+          [ "$(grep -cF '"workers_dev": true' wrangler.staging.jsonc)" = "1" ] || { echo 'wrangler.staging.jsonc must contain "workers_dev": true'; exit 1; }
+          if grep -nE '"?(routes|route|custom_domain)"?[[:space:]]*:' wrangler.staging.jsonc; then
+            echo "wrangler.staging.jsonc must not declare routes or custom domains"; exit 1
+          fi
+          for f in dist/index.html dist/404.html dist/robots.txt dist/_headers; do
+            [ -f "$f" ] || { echo "missing build output: $f"; exit 1; }
+          done
+          if tr -d '\r' < dist/robots.txt | grep -q '^Sitemap:'; then echo "staging build advertises a sitemap"; exit 1; fi
+          if ls dist | grep -qi sitemap; then echo "staging build contains a sitemap"; exit 1; fi
+          grep -qx '  X-Robots-Tag: noindex' dist/_headers || { echo "staging build does not send X-Robots-Tag: noindex"; exit 1; }
+          echo "preflight ok"
+
+      # Version live before the deploy ("none" on the very first deploy, when the Worker does not exist yet).
+      - name: Record previous version
+        id: previous
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          id=$(npx --no-install wrangler deployments status --config wrangler.staging.jsonc --name ck-site-staging --json 2>/dev/null | jq -r '.versions[0].version_id // empty') || id=""
+          [[ "$id" =~ ^[A-Za-z0-9-]+$ ]] || id=none
+          echo "version_id=$id" >> "$GITHUB_OUTPUT"
+          echo "Previous staging version: \`$id\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Deploy staging
+        id: deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npx --no-install wrangler deploy --config wrangler.staging.jsonc --message "sha=$GITHUB_SHA run=$GITHUB_RUN_ID staging reason=$REASON_SAFE"
+
+      # Read back from Cloudflare (no HTTP request to the staging host, which Access protects).
+      - name: Record new version
+        id: newversion
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          PREVIOUS: ${{ steps.previous.outputs.version_id }}
+        run: |
+          id=""
+          for i in $(seq 1 12); do
+            id=$(npx --no-install wrangler deployments status --config wrangler.staging.jsonc --name ck-site-staging --json | jq -r '.versions[0].version_id // empty') || id=""
+            echo "attempt $i/12: live version '${id:-none}'"
+            [ -n "$id" ] && [ "$id" != "$PREVIOUS" ] && break
+            [ "$i" = 12 ] || sleep 5
+          done
+          [[ "$id" =~ ^[A-Za-z0-9-]+$ ]] || { echo "could not read the new version id"; exit 1; }
+          echo "version_id=$id" >> "$GITHUB_OUTPUT"
+          [ "$id" != "$PREVIOUS" ] || { echo "live version did not change after deploy"; exit 1; }
+
+      - name: Run summary
+        if: always()
+        env:
+          PREVIOUS: ${{ steps.previous.outputs.version_id }}
+          NEW_VERSION: ${{ steps.newversion.outputs.version_id }}
+          DEPLOY_OUTCOME: ${{ steps.deploy.outcome }}
+          JOB_STATUS: ${{ job.status }}
+        run: |
+          REASON_SAFE=$(printf '%s' "$REASON" | tr -cd '[:alnum:] ._-' | cut -c1-200)
+          {
+            echo '## deploy-staging run summary'
+            echo '| field | value |'
+            echo '|---|---|'
+            echo "| target | ck-site-staging (non-indexable) |"
+            echo "| commit | \`$GITHUB_SHA\` |"
+            echo "| run id | $GITHUB_RUN_ID |"
+            echo "| actor | $GITHUB_ACTOR |"
+            echo "| reason | ${REASON_SAFE:-none} |"
+            echo "| previous version | \`${PREVIOUS:-not recorded}\` |"
+            echo "| new version | \`${NEW_VERSION:-not deployed}\` |"
+            echo "| deploy | ${DEPLOY_OUTCOME:-not run} |"
+            echo "| overall verdict | ${JOB_STATUS} |"
+          } >> "$GITHUB_STEP_SUMMARY"
