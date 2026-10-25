@@ -27,6 +27,16 @@
 // wherever it is set and on every job that builds the site, GOLIVE_OVERRIDES never appears, and every wrangler command
 // uses --config wrangler.staging.jsonc and names no Worker other than ck-site-staging.
 //
+// Readiness check (PR 2c item 6, gap G08, Coordinator briefs 2026-10-25 and 2026-10-26): readiness.yml may run on one
+// fixed daily cron (05:23 UTC) plus workflow_dispatch, GitHub-hosted only, with the ref guard like every secret-bearing
+// job (R2, R4, R12). It runs unattended, so it uses the "market-data" environment (no required reviewer) and that
+// environment's D1-only token: R4 and R17 require environment market-data for it, and R17 allows only the secrets
+// CF_D1_TOKEN and CLOUDFLARE_ACCOUNT_ID. market-data stays closed to every other workflow (R4: production for them).
+// R17 also keeps it read-only and quiet: its one job is "check"; a d1 command in a run: step
+// must be exactly one "npx --no-install wrangler d1 execute ck-leads --remote --json --command SELECT ..." with no write
+// keyword (the checks themselves live in .github/scripts/readiness.mjs, whose test asserts every statement is a SELECT);
+// wrangler is otherwise allowed only as --version; no step summary and no artifact upload (public logs).
+//
 // Rules (see RULES below). R0 covers scope (.github/actions/, workflow files outside .github/workflows/) and YAML
 // parsing (any parse error or warning, alias explosion). Rules for deploy/deploy-site/rollback key off the file name
 // stem, case-insensitive, so deploy.yaml and Deploy.yml get the same rules as deploy.yml.
@@ -44,7 +54,7 @@ const REPO = process.env.GUARD_ROOT ? path.resolve(process.env.GUARD_ROOT) : pat
 export const RULES = {
   R0: 'scope + YAML parse',
   R1: 'deploy/rollback triggers = {workflow_dispatch}',
-  R2: 'triggers: per-workflow allow-list; ci.yml, market-data-sync.yml and uptime.yml triggers',
+  R2: 'triggers: per-workflow allow-list; ci.yml, market-data-sync.yml, uptime.yml and readiness.yml triggers',
   R3: 'secret placement',
   R4: 'production environment + ref guard',
   R5: 'permissions',
@@ -59,6 +69,7 @@ export const RULES = {
   R14: 'shell is bash, cmd or pwsh',
   R15: 'no ${{ github.event.* / github.head_ref / inputs.* }} inside run:',
   R16: 'deploy-staging.yml: non-indexable build, ck-site-staging only',
+  R17: 'readiness.yml: read-only SELECTs, no step summary, no artifact',
 };
 
 const SECRET_RE = /\$\{\{[\s\S]*?\bsecrets\b[\s\S]*?\}\}/i;
@@ -77,6 +88,7 @@ const EVENT_ALLOW = {
   'deploy-staging': ['workflow_dispatch'],
   rollback: ['workflow_dispatch'],
   uptime: ['schedule', 'workflow_dispatch'],
+  readiness: ['schedule', 'workflow_dispatch'],
 };
 const DEFAULT_EVENTS = ['pull_request', 'push', 'workflow_dispatch'];
 // GitHub-hosted runner labels. Any other label (a custom label, self-hosted, a larger-runner group name) counts as a
@@ -91,6 +103,13 @@ const MARKET_SYNC_CRONS = ['7 22 * * *', '7 10 * * *'];
 const MARKET_SYNC_ENV = 'market-data';
 const UPTIME = 'uptime';
 const UPTIME_CRONS = ['*/30 * * * *'];
+const READINESS = 'readiness';
+const READINESS_CRONS = ['23 5 * * *'];
+const READINESS_JOB = 'check';
+const READINESS_ENV = MARKET_SYNC_ENV;
+const READINESS_SECRETS = ['CF_D1_TOKEN', 'CLOUDFLARE_ACCOUNT_ID'];
+const READINESS_D1_RE = /^npx --no-install wrangler d1 execute ck-leads --remote --json --command SELECT\s[^;&|]*$/i;
+const WRITE_SQL_RE = /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|REPLACE|ATTACH|PRAGMA|VACUUM)\b/i;
 const STAGING = 'deploy-staging';
 const STAGING_CONFIG = 'wrangler.staging.jsonc';
 const STAGING_WORKER = 'ck-site-staging';
@@ -246,6 +265,18 @@ export function analyse(fileName, src) {
       add('R2', null, 'uptime workflow_dispatch must have no inputs', [trigKey, 'workflow_dispatch']);
     }
   }
+  if (stem === READINESS) {
+    if (!same([...new Set(events)].sort(), ['schedule', 'workflow_dispatch'])) {
+      add('R2', null, `readiness triggers must be exactly {schedule, workflow_dispatch}; found {${events.join(', ')}}`, [trigKey]);
+    }
+    if (!isObj(on) || !same(on.schedule, READINESS_CRONS.map((cron) => ({ cron })))) {
+      add('R2', null, `readiness schedule must be exactly ${READINESS_CRONS.map((c) => `[cron: '${c}']`).join(', ')}`, [trigKey, 'schedule']);
+    }
+    const wd = isObj(on) ? on.workflow_dispatch : undefined;
+    if (!(wd === null || wd === undefined || (isObj(wd) && !Object.keys(wd).length))) {
+      add('R2', null, 'readiness workflow_dispatch must have no inputs', [trigKey, 'workflow_dispatch']);
+    }
+  }
   if (stem === 'ci') {
     if (!same([...new Set(events)].sort(), ['pull_request', 'push'])) {
       add('R2', null, `ci triggers must be exactly {pull_request, push}; found {${events.join(', ')}}`, [trigKey]);
@@ -311,7 +342,7 @@ export function analyse(fileName, src) {
     if (hasSecret || 'environment' in job) {
       const env = job.environment;
       const envName = typeof env === 'string' ? env : isObj(env) && Object.keys(env).every((k) => k === 'name' || k === 'url') ? env.name : undefined;
-      const wantEnv = stem === MARKET_SYNC ? MARKET_SYNC_ENV : 'production';
+      const wantEnv = stem === MARKET_SYNC ? MARKET_SYNC_ENV : stem === READINESS ? READINESS_ENV : 'production';
       if (envName !== wantEnv) {
         add('R4', id, `${hasSecret ? 'job references secrets; ' : ''}environment must be ${wantEnv} (found ${JSON.stringify(env ?? null)})`, J(env === undefined ? '' : 'environment').filter(Boolean));
       }
@@ -338,6 +369,14 @@ export function analyse(fileName, src) {
         }
         if (problems.length) add('R4', id, `${hasSecret ? 'secret-bearing job' : 'environment job'} if: ${problems.join('; ')} (found ${JSON.stringify(job.if ?? null)})`, J('if'));
       }
+    }
+
+    // R17 (job level): the unattended environment and its D1-only token, nothing else.
+    if (stem === READINESS) {
+      if (job.environment !== READINESS_ENV) add('R17', id, `readiness must use environment ${READINESS_ENV} (found ${JSON.stringify(job.environment ?? null)})`, J('environment'));
+      const used = [...JSON.stringify(job).matchAll(/\bsecrets\s*\.\s*([A-Za-z0-9_]+)/g)].map((m) => m[1]);
+      for (const name of new Set(used)) if (!READINESS_SECRETS.includes(name)) add('R17', id, `readiness may read only secrets ${READINESS_SECRETS.join(' and ')} (found ${name})`, J());
+      if (/\bsecrets\s*\[/.test(JSON.stringify(job))) add('R17', id, 'readiness must name its secrets (no secrets[...] lookups)', J());
     }
 
     // R5 (job level)
@@ -404,6 +443,8 @@ export function analyse(fileName, src) {
       }
       // R6
       if ('uses' in step && !ACTION_RE.test(String(step.uses))) add('R6', id, `uses not allowed: ${step.uses}`, S('uses'));
+      // R17
+      if (stem === READINESS && /^actions\/upload-artifact@/.test(String(step.uses ?? ''))) add('R17', id, 'no artifact upload in readiness.yml (public logs)', S('uses'));
       // R10
       const wd = step['working-directory'];
       if (wd !== undefined && (typeof wd !== 'string' || wd.includes('${{'))) {
@@ -433,6 +474,17 @@ export function analyse(fileName, src) {
             add('R7', id, `wrangler may only run as "${MARKET_SYNC_D1}" or "npx --no-install wrangler --version": "${c}"`, R);
           }
         }
+      } else if (stem === READINESS) {
+        // R17: one read-only SELECT per d1 step; wrangler otherwise only for --version.
+        if (/\bd1\s+execute\b/i.test(flat) && (!READINESS_D1_RE.test(flat) || WRITE_SQL_RE.test(flat))) {
+          add('R17', id, `a d1 command must be exactly one "npx --no-install wrangler d1 execute ck-leads --remote --json --command SELECT ..." with no write: "${flat}"`, R);
+        }
+        for (const c of commands) {
+          // echo text that mentions wrangler is not an invocation.
+          if (/^\{?\s*echo\b/.test(c)) continue;
+          if (WRANGLER_CMD_RE.test(c) && !/\bwrangler (--version|-v)$/i.test(c) && !READINESS_D1_RE.test(flat)) add('R17', id, `wrangler may only run as --version or a read-only d1 SELECT: "${c}"`, R);
+        }
+        if (/GITHUB_STEP_SUMMARY/.test(String(step.run))) add('R17', id, 'no step summary in readiness.yml (public logs)', R);
       } else if (/\bd1\s+execute\b/i.test(flat)) add('R7', id, '"wrangler d1 execute" is forbidden', R);
       // R8
       if (typeof step.if === 'string' && /\b(failure|always)\s*\(/i.test(step.if) && /\b(wrangler|npx)\b/i.test(flat)) {
@@ -483,6 +535,11 @@ export function analyse(fileName, src) {
     add('R12', null, `market-data-sync jobs must be exactly ${GATE_JOB}, ${UAE_JOB}, ${APPLY_JOB}; found ${Object.keys(jobs ?? {}).join(', ')}`, ['jobs']);
   }
 
+  // R17 (workflow level)
+  if (stem === READINESS && !same(Object.keys(jobs ?? {}), [READINESS_JOB])) {
+    add('R17', null, `readiness jobs must be exactly ${READINESS_JOB}; found ${Object.keys(jobs ?? {}).join(', ')}`, ['jobs']);
+  }
+
   // R11 (workflow level)
   if (stem === 'rollback') {
     const ids = Object.keys(jobs ?? {}).sort();
@@ -528,7 +585,7 @@ function scope(root) {
 function rowsFor(file, violations) {
   const stem = stemOf(path.basename(file));
   const applicable = Object.keys(RULES).filter((r) =>
-    (r !== 'R1' || DEPLOY_STEMS.has(stem)) && (r !== 'R9' || stem in CONCURRENCY || stem === 'rollback') && (r !== 'R11' || stem === 'rollback') && (r !== 'R16' || stem === STAGING));
+    (r !== 'R1' || DEPLOY_STEMS.has(stem)) && (r !== 'R9' || stem in CONCURRENCY || stem === 'rollback') && (r !== 'R11' || stem === 'rollback') && (r !== 'R16' || stem === STAGING) && (r !== 'R17' || stem === READINESS));
   const rows = [];
   for (const r of applicable) {
     const hits = violations.filter((x) => x.rule === r);

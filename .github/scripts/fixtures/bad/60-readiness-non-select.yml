@@ -1,0 +1,69 @@
+# as: readiness.yml
+# expect: R17
+name: readiness
+# Daily readiness check without a public endpoint (PR 2c item 6, gap G08; owner decision 2026-10-19). Read-only SELECTs
+# against the production D1 through .github/scripts/readiness.mjs: the newest retention run, outbox rows stuck in
+# 'claimed' or failed, the market-data freshness and, once REPLIES_LIVE is 'yes' (repository variable, set at go-live,
+# Runbook step 5.4), the lead replies. Any FAIL fails the job, so GitHub emails the owner.
+# The repository is public and so are its logs: the script prints one line per check, "<check>: PASS" or
+# "<check>: FAIL", and nothing else. No counts, timestamps, ids or values; no step summary; no artifact.
+# It runs unattended in the market-data environment (no required reviewer) with that environment's D1-only token
+# CF_D1_TOKEN, the same one market-data-sync uses; no new secret (Coordinator decision 2026-10-26).
+# workflow-guard R17 keeps this file read-only (no d1 command other than SELECT, no summary, no upload) and pins the
+# environment and the two secrets it may read.
+on:
+  schedule:
+    - cron: '23 5 * * *' # 05:23 UTC daily
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  check:
+    if: github.ref == 'refs/heads/phase2-site'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: market-data
+    permissions:
+      contents: read
+    defaults:
+      run:
+        shell: bash
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Assert wrangler 4.152.0
+        run: |
+          v=$(npx --no-install wrangler --version | tr -d '[:space:]')
+          [ "$v" = "4.152.0" ] || { echo "wrangler version: FAIL"; exit 1; }
+          echo "wrangler version: PASS"
+      # Fail closed, never print a secret value.
+      - name: Preflight
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_D1_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          [ -n "$CLOUDFLARE_API_TOKEN" ] || { echo "preflight: FAIL"; exit 1; }
+          [ "$CLOUDFLARE_ACCOUNT_ID" = "6ae55501743fe5c0e6dc33be902cbace" ] || { echo "preflight: FAIL"; exit 1; }
+          for line in 'database_name = "ck-leads"' 'database_id = "20b1180d-b390-4d59-9334-cb536a378147"'; do
+            [ "$(grep -cFx -- "$line" wrangler.toml)" = "1" ] || { echo "preflight: FAIL"; exit 1; }
+          done
+          echo "preflight: PASS"
+      - name: Readiness checks
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_D1_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          WRANGLER_SEND_METRICS: 'false'
+          REPLIES_LIVE: ${{ vars.REPLIES_LIVE }}
+        run: node ../.github/scripts/readiness.mjs
+      - name: Clean up
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_D1_TOKEN }}
+        run: npx --no-install wrangler d1 execute ck-leads --remote --json --command "DELETE FROM outbox WHERE status = 'failed'"
