@@ -304,6 +304,7 @@ form.card { padding: 1.75rem; }
 .verdict--buy { background: var(--navy); color: var(--ivory); }
 .verdict--pass { border-color: var(--err); color: var(--err); }
 .badge { display: inline-block; border-radius: var(--r-pill); font-size: .7rem; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; padding: .2rem .55rem; border: 1px solid var(--line); color: var(--muted); background: var(--ivory); }
+.badge--cancelled { border-color: var(--err); color: var(--err); }
 .brief h2 { font-size: 1.6rem; margin-top: 2.5rem; padding-top: 1.25rem; border-top: 1px solid var(--line); }
 .brief ul { padding-left: 1.2rem; color: var(--muted); }
 .brief li { margin: .35rem 0; }

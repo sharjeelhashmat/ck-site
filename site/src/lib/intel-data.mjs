@@ -1,9 +1,11 @@
-// Loads opportunity and article records from disk at build time (Node only).
-// Data lives in src/data/{opportunities,insights}/*.json. INTEL_DATA_DIR and INTEL_TODAY exist for tests.
+// Loads opportunity and article records, market events and project trackers from disk at build time (Node only).
+// Data lives in src/data/{opportunities,insights,projects}/*.json and src/data/market-events.json. INTEL_DATA_DIR and
+// INTEL_TODAY exist for tests.
 import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkOpportunity, checkArticle, insightsLive, todayIso } from './intel.mjs';
+import { checkChanges, projectStale } from './changes.mjs';
 
 // Astro bundles this module into a build chunk, so a path relative to import.meta.url points at the wrong place during `astro build`.
 // Builds and tests run from site/, so try the working directory first, then the path relative to this file.
@@ -50,4 +52,30 @@ export function loadPublic() {
   const articles = intel.articles.filter((x) => x.record.status === 'published').map((x) => ({ ...x.record, stale: x.check.stale }));
   const articlesForGate = intel.articles.filter((x) => x.record.status === 'published').map((x) => x.record);
   return { today: intel.today, opportunities, articles, insightsLive: insightsLive(articlesForGate, intel.today) };
+}
+
+// The site's area list: the slugs of the area guide pages. Always read from the shipped data, never from INTEL_DATA_DIR.
+export const areaSlugs = () => JSON.parse(readFileSync(join(defaultDir, 'area-guides.json'), 'utf8')).guides.map((g) => g.slug);
+
+/**
+ * Market events and project trackers ("What's changing here", /projects). Any rule broken fails the build with every
+ * reason listed. A missing market-events.json reads as no events.
+ */
+export function loadChanges() {
+  const t = today();
+  const file = join(dataDir(), 'market-events.json');
+  let events = [];
+  if (existsSync(file)) {
+    try {
+      events = JSON.parse(readFileSync(file, 'utf8'));
+    } catch (e) {
+      throw new Error(`market-events.json: not valid JSON (${e.message})`);
+    }
+  }
+  const projects = readJsonDir('projects').map(({ file: f, record }) => ({ file: f.slice('projects/'.length), record }));
+  const errors = checkChanges({ events, projects }, { today: t, areaSlugs: areaSlugs() });
+  if (errors.length) throw new Error(`Market events and project trackers fail the rules:\n - ${errors.join('\n - ')}`);
+  const list = projects.map((x) => ({ ...x.record, stale: projectStale(x.record, t) })).sort((a, b) => (a.name < b.name ? -1 : 1));
+  // /projects is noindex and out of the sitemap until at least one tracker is current (not past reviewBy).
+  return { today: t, events, projects: list, projectsLive: list.some((p) => !p.stale) };
 }

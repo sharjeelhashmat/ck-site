@@ -1,0 +1,35 @@
+---
+import Base from '../../layouts/Base.astro';
+import { loadChanges } from '../../lib/intel-data.mjs';
+import { projectStatus } from '../../lib/changes.mjs';
+const { projects, projectsLive } = loadChanges();
+// Infrastructure trackers (PR 3). Empty until the Coordinator adds owner-approved register rows; no sample data.
+// noindex and out of the sitemap until at least one tracker is current (astro.config.mjs uses the same rule).
+const noindex = !projectsLive;
+---
+<Base title="Infrastructure tracker" description="Official announcements on UAE metro, rail, road, airport and planning projects, each with its status, timeline and dated source." noindex={noindex}>
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow">Infrastructure tracker</p>
+      <h1>Infrastructure tracker</h1>
+      <p class="lede">This page records official announcements only. It does not predict prices or values.</p>
+      {projects.length === 0 ? (
+        <div class="card empty" style="margin-top:2.5rem">
+          <p>No project is being tracked yet.</p>
+        </div>
+      ) : (
+        <div class="grid grid--2" style="margin-top:2.5rem">
+          {projects.map((p: any) => (
+            <a class="card" href={`/projects/${p.slug}`}>
+              <p class="kicker" style="margin:0">{p.emirate} · {p.category}</p>
+              <h2>{p.name}</h2>
+              <p>{p.summary}</p>
+              <p class="src">{projectStatus(p)} · {p.operator}{p.stale ? ' · under review' : ''}</p>
+            </a>
+          ))}
+        </div>
+      )}
+      <p class="fine" style="margin-top:2rem">General information, not financial, tax or legal advice.</p>
+    </div>
+  </section>
+</Base>

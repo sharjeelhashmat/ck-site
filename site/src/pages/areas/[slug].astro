@@ -7,11 +7,15 @@ import '../../styles/market.css';
 import { ADREC, GUIDES, PERIOD, VIEW_HEADING, type Guide } from '../../lib/area-guides';
 import { EMIRATES, renderGuideCard } from '../../lib/market.mjs';
 import { SITE } from '../../lib/site';
+import { loadChanges } from '../../lib/intel-data.mjs';
+import { eventsForArea, eventNeedsRecheck } from '../../lib/changes.mjs';
 
 export function getStaticPaths() {
-  return GUIDES.map((guide) => ({ params: { slug: guide.slug }, props: { guide } }));
+  const { events, projects, today } = loadChanges();
+  return GUIDES.map((guide) => ({ params: { slug: guide.slug }, props: { guide, changes: eventsForArea(events, guide.slug), projects, today } }));
 }
-const { guide } = Astro.props as { guide: Guide };
+const { guide, changes, projects, today } = Astro.props as { guide: Guide; changes: any[]; projects: any[]; today: string };
+const projectName = (slug: string) => projects.find((p) => p.slug === slug)?.name;
 const emirate = EMIRATES[guide.emirate];
 const ad = guide.emirate === 'abu_dhabi' ? ADREC.areas.find((a) => a.guide === guide.slug) : undefined;
 const adCard = ad
@@ -41,6 +45,24 @@ const adCard = ad
       <h2 class="guide-h2">{VIEW_HEADING}</h2>
       <p>{guide.my_view}</p>
 
+      {/* What's changing here (PR 3): official announcements that name this area, newest first. Absent with no events. */}
+      {changes.length > 0 && (
+        <section class="changes" aria-labelledby="changes-h">
+          <h2 class="guide-h2" id="changes-h">What's changing here</h2>
+          <ul class="changes-list">
+            {changes.map((e) => (
+              <li class="change">
+                <p class="change-head"><span class="change-title">{e.title}</span> <span class={e.status === 'Cancelled' ? 'badge badge--cancelled' : 'badge'}>{e.status}</span></p>
+                {e.officialDate && <p class="src">Official date: {e.officialDate}</p>}
+                <p class="change-summary">{e.summary}</p>
+                <p class="src">Source: <a href={e.source.url} rel="noopener" target="_blank">{e.source.name}</a> · {eventNeedsRecheck(e, today) ? <span class="fine">last checked <span class="date">{e.source.verifiedOn}</span></span> : <>verified <span class="date">{e.source.verifiedOn}</span></>}</p>
+                {e.project && <p class="src"><a href={`/projects/${e.project}`}>Infrastructure tracker: {projectName(e.project)}</a></p>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       <p class="lede guide-close"><a href="/contact">Ask me</a> about {guide.h1}.</p>
     </div>
   </section>
@@ -51,6 +73,12 @@ const adCard = ad
   .guide-h2 { margin-top: 3rem; margin-bottom: 0; }
   .guide-list { margin: 1rem 0 0; padding-left: 1.25rem; display: grid; gap: .5rem; }
   .guide .guide-close { margin-top: 3rem; }
+  .changes-list { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: 1.5rem; }
+  .change p { margin: 0; }
+  .change .change-summary { margin-top: .4rem; }
+  .change-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem .6rem; }
+  .change-title { font-weight: 600; }
+  .change .date { white-space: nowrap; }
 </style>
 
 <script>

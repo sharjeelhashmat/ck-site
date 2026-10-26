@@ -37,3 +37,37 @@ export function validArticle(slug, over = {}) {
   };
 }
 
+
+// Market events and project trackers (PR 3). Fake records for tests and the Chromium check only; never shipped.
+export const officialSource = (over = {}) => ({ name: 'Example Transport Authority', url: 'https://example.com/news', publishedOn: '2026-10-01', verifiedOn: '2026-10-20', tier: 1, ...over });
+
+export function validEvent(id, over = {}) {
+  return {
+    id, title: `Example announcement ${id}`, emirate: 'Dubai', category: 'Metro/tram', status: 'Announced', officialDate: 'Q4 2029',
+    announcedOn: '2026-10-01', areas: ['dubai-marina'], summary: 'The authority announced a new line with stations named in the release.',
+    source: officialSource(), ...over,
+  };
+}
+
+export function validProject(slug = 'example-metro-line', over = {}) {
+  return {
+    slug, name: 'Example Metro Line (test fixture)', emirate: 'Dubai', category: 'Metro/tram', operator: 'Example Transport Authority',
+    summary: 'A fictional metro line used only by the tests.', areas: ['dubai-marina', 'palm-jumeirah'],
+    timeline: [
+      { date: '2026-03-01', status: 'Announced', note: 'Line announced with its route.', source: officialSource({ publishedOn: '2026-03-01' }) },
+      { date: '2026-09-15', status: 'Approved', note: 'Contract awarded.', source: officialSource({ publishedOn: '2026-09-15' }) },
+    ],
+    reviewBy: '2027-01-31', ...over,
+  };
+}
+
+/** The fixture set the Chromium check also uses (tests/changes.test.mjs and tests/e2e/changes.e2e.mjs). */
+export function changesFixture() {
+  const events = [
+    validEvent('line-announced', { title: 'Example metro line announced', project: 'example-metro-line', announcedOn: '2026-10-10', areas: ['dubai-marina', 'palm-jumeirah'] }),
+    validEvent('bridge-cancelled', { title: 'Example bridge plan withdrawn', category: 'Roads/bridges', status: 'Cancelled', officialDate: '', announcedOn: '2026-09-01' }),
+    validEvent('old-fee-rule', { title: 'Example service fee rule', category: 'Regulation/fees', status: 'Approved', officialDate: '1 January 2026', announcedOn: '2025-11-01', source: officialSource({ publishedOn: '2025-11-01', verifiedOn: '2026-03-01' }) }),
+    ...Array.from({ length: 5 }, (_, i) => validEvent(`older-${i}`, { title: `Example older notice ${i}`, announcedOn: `2025-0${i + 1}-15`, status: 'Open', source: officialSource({ publishedOn: `2025-0${i + 1}-15` }) })),
+  ];
+  return { events, projects: [validProject()] };
+}
