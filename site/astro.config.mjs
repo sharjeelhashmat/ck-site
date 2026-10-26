@@ -1,6 +1,6 @@
 import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
-import { loadPublic } from './src/lib/intel-data.mjs';
+import { loadChanges, loadPublic } from './src/lib/intel-data.mjs';
 import { goLiveMissing, LAUNCH_CARDS_ALLOWED } from './src/lib/golive.ts';
 
 // Production-indexable builds are the only ones that may go public (Part B: site/src/lib/golive.ts is the one go-live
@@ -15,10 +15,13 @@ if (indexable && goLiveMissing().length) {
 // /new-launches stays out until LAUNCH_CARDS_ALLOWED (agency, BRN and advertiser permit in golive.ts; audit M2), the same
 // switch its own noindex follows. Insights and Opportunities are gated by data (decision 5, 2026-09-21): they enter
 // the sitemap only when their own rules pass, the same rules the pages use for noindex. The 16 area guides carry
-// owner-approved copy (2026-10-16) and are listed like every other page. The sitemap is only advertised (robots.txt)
-// and pages are only indexable when GOLIVE.indexing is on for a public build (see golive.ts).
+// owner-approved copy (2026-10-16) and are listed like every other page. /projects enters only once a tracker is current,
+// and a tracker past its reviewBy date stays out until it is updated (both noindex in their own markup too). The sitemap
+// is only advertised (robots.txt) and pages are only indexable when GOLIVE.indexing is on for a public build (golive.ts).
 const THIN = [...(LAUNCH_CARDS_ALLOWED ? [] : ['/new-launches']), '/investor-profile'];
 const intel = loadPublic();
+// Loading also validates market events and trackers, so a broken record stops the build before any page is rendered.
+const changes = loadChanges();
 
 export default defineConfig({
   site: 'https://www.sharjeelhashmat.com',
@@ -33,6 +36,8 @@ export default defineConfig({
         if (THIN.includes(path)) return false;
         if (path === '/insights' || path.startsWith('/insights/')) return intel.insightsLive;
         if (path === '/opportunities') return intel.opportunities.length > 0;
+        if (path === '/projects') return changes.projectsLive;
+        if (path.startsWith('/projects/')) return changes.projects.some((p) => path === `/projects/${p.slug}` && !p.stale);
         return true;
       },
     }),

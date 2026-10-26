@@ -1,0 +1,47 @@
+---
+import Base from '../../layouts/Base.astro';
+import { loadChanges } from '../../lib/intel-data.mjs';
+import { projectStatus, timelineOf } from '../../lib/changes.mjs';
+import { GUIDES } from '../../lib/area-guides';
+
+export function getStaticPaths() {
+  return loadChanges().projects.map((p: any) => ({ params: { slug: p.slug }, props: { p } }));
+}
+const { p } = Astro.props as { p: any };
+const status = projectStatus(p);
+const areas = p.areas.map((slug: string) => GUIDES.find((g) => g.slug === slug)!);
+// Same title and description rules as every page (lib/seo.mjs, scripts/readiness.mjs): the name is at most 60 characters.
+const description = `${p.name}: official announcements, status and timeline, each with its dated official source.`;
+---
+<Base title={p.name} description={description} noindex={p.stale}>
+  <section class="section">
+    <div class="narrow brief">
+      <p class="eyebrow">Infrastructure tracker · {p.emirate}</p>
+      <h1>{p.name}</h1>
+      <p class="lede">{p.summary}</p>
+      <div class="meta">
+        <span>Status: <span class={status === 'Cancelled' ? 'badge badge--cancelled' : 'badge'}>{status}</span></span>
+        <span>Operator: {p.operator}</span>
+        <span>{p.category}</span>
+      </div>
+      {p.stale && <p class="stale-banner">This tracker is past its review date and is being re-checked. Treat the timeline as historical until it is updated.</p>}
+      <p class="src">This page records official announcements only. It does not predict prices or values.</p>
+      {areas.length > 0 && (
+        <>
+          <h2>Areas served</h2>
+          <ul>{areas.map((g: any) => <li><a href={`/areas/${g.slug}`}>{g.h1}</a></li>)}</ul>
+        </>
+      )}
+      <h2>Timeline</h2>
+      <div class="table-scroll"><table>
+        <thead><tr><th>Date</th><th>Status</th><th>Note</th><th>Source</th></tr></thead>
+        <tbody>{timelineOf(p).map((t: any) => <tr><td class="date">{t.date}</td><td>{t.status}</td><td>{t.note}</td><td><a href={t.source.url} rel="noopener" target="_blank">{t.source.name}</a>, verified <span class="date">{t.source.verifiedOn}</span></td></tr>)}</tbody>
+      </table></div>
+      <p class="fine" style="margin-top:2rem">General information, not financial, tax or legal advice.</p>
+    </div>
+  </section>
+</Base>
+
+<style>
+  .date { white-space: nowrap; }
+</style>
