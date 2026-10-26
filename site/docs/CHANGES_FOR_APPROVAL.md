@@ -78,3 +78,15 @@ Owner compliance check, 27 September 2026. Privacy date becomes 27 September 202
 | Privacy section 4 (new line) | "If you subscribe to the newsletter, I use your email address only to send you a welcome email and the newsletter itself, until you unsubscribe. Every newsletter email includes an unsubscribe link. When you unsubscribe, I record that and add a coded (hashed) copy of your email address to a suppression list, so that no further newsletter emails are sent to you." | Describes the purpose and the suppression list the worker actually keeps. |
 | Privacy section 5 | "Enquiry data and newsletter subscriber records are stored using Cloudflare ..." and "Emails to you (the acknowledgement described above, and the newsletter if you subscribe) are delivered through Resend ..." | Resend is the only sending service. Brevo is retired (its DNS records were not carried to Cloudflare) and is not named. |
 | Privacy section 5 (analytics, switches with the build) | Token not set: "No separate analytics or advertising cookies are currently in use on this site." Token set: "I use Cloudflare Web Analytics to count visits to this site. It does not use cookies and does not build a profile of you; Cloudflare processes basic technical data (such as the page visited, the referring page and the browser type) as a data processor on my behalf. No advertising cookies are used on this site." | Keeps the policy true before and after CF_ANALYTICS_TOKEN is set. |
+
+## J. ORN and BRN split: PROPOSED 26 October 2026, pending owner approval in the PR (COPY HOLD)
+Owner, 26 October 2026 ("EXECUTE ORN fix"; the owner joined the brokerage Alkira). In Dubai the agency holds the ORN (RERA Office Registration Number) and the broker holds the BRN (the number on the RERA broker card). The line now carries both, and the separate "RERA card" line is removed because the BRN is the card number. Every value still ships empty, so nothing changes on any page or email today; the line appears only once `agencyName`, `agencyOrn` and `brokerBrn` are all set in `src/lib/golive.ts`.
+| Where | Before | After |
+|---|---|---|
+| Footer | "Working with <agency> · BRN <agency number> · RERA card <card> · UAE Media Council advertiser permit <n>" | "Working with <agency> · ORN <orn> · BRN <brn> · UAE Media Council advertiser permit <n>" |
+| About, FAQ, print header, Briefs | "Working with <agency> · BRN <agency number>" (About adds " · RERA card <card>") | "Working with <agency> · ORN <orn> · BRN <brn>" |
+| JSON-LD | RealEstateAgent identifier "BRN" = agency number; Person identifier "RERA card" | RealEstateAgent identifier "ORN" = agency ORN; Person identifier "BRN" = broker BRN |
+| Launch cards (/new-launches) | "<agency> · BRN <n>" | "<agency> · ORN <n>" |
+| Email affiliation line (replies, newsletter welcome) | "<agency> · BRN <n>" | "<agency> · ORN <orn> · BRN <brn>" |
+
+A public build now also requires the broker's BRN (`brokerBrn`), as Dubai advertising shows both numbers. The Privacy sentence in `src/lib/legal.ts` is unchanged (lawyer hold).

@@ -1,4 +1,4 @@
-import { outboundBlockers, type Config } from './config';
+import { affiliationLine, outboundBlockers, type Config } from './config';
 import { escalationReasons } from './escalation';
 import { classify, validateLead } from './firewall';
 import { phonePresent, rawPhone, validE164 } from './phone';
@@ -109,7 +109,7 @@ async function attemptOutbound(lead: Lead, lane: Lane, emailHash: string, leadId
       sla_hours: c.slaHours,
       booking_url: c.bookingUrl,
       resource_url: `${c.siteUrl}/investment-approach`,
-      affiliation_line: `${c.affiliation} · BRN ${c.brn}`,
+      affiliation_line: affiliationLine(c),
       unsubscribe_url: unsubscribeUrl,
     });
   } catch {

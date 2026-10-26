@@ -1,4 +1,4 @@
-import { isSubdomainSender, outboundBlockers, type Config } from './config';
+import { affiliationLine, isSubdomainSender, outboundBlockers, type Config } from './config';
 import { isDisposable, isValidEmail } from './firewall';
 import type { OutboundMessage } from './pipeline';
 import { isApproved, renderTemplate, templateHash, type Template } from './templates';
@@ -49,7 +49,7 @@ export interface NewsletterCtx {
 }
 
 // Why the confirmation would not be sent right now. Empty = send. The newsletter's own switch (OUTBOUND_NEWSLETTER) and the
-// same go-live checks as replies (BRN, sender checks) apply.
+// same go-live checks as replies (BRN, AGENCY_ORN, sender checks) apply.
 export function newsletterBlockers(ctx: NewsletterCtx): string[] {
   const c = ctx.config;
   const b = outboundBlockers(c, 'newsletter');
@@ -72,7 +72,7 @@ async function sendWelcome(email: string, subscriberId: string, ctx: NewsletterC
   const unsubscribeUrl = `${c.workerUrl}/api/newsletter/unsubscribe?token=${await linkToken(emailHash, NEWSLETTER_LIST, ctx.unsubSecret!)}`;
   let rendered: { subject: string; text: string };
   try {
-    rendered = renderTemplate(tpl, { affiliation_line: `${c.affiliation} · BRN ${c.brn}`, unsubscribe_url: unsubscribeUrl });
+    rendered = renderTemplate(tpl, { affiliation_line: affiliationLine(c), unsubscribe_url: unsubscribeUrl });
   } catch {
     return 'skipped:render_failed';
   }

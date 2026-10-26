@@ -13,7 +13,7 @@ export const SITE = {
   title: 'Property Consultant',
   origin: 'https://www.sharjeelhashmat.com',
   // Owner decision 2026-10-10: no agency is named until the owner confirms the new one. Set it in golive.ts (Part B).
-  // The "Working with … · BRN …" line renders only when both the agency and the BRN are set (AFFILIATION_LINE).
+  // The "Working with <agency> · ORN <orn> · BRN <brn>" line renders only when all three are set (AFFILIATION_LINE).
   brokerage: GOLIVE.agencyName,
   phoneDisplay: '+971 55 541 4468',
   phoneE164: '971555414468',
@@ -29,7 +29,9 @@ export const SITE = {
   workerUrl: (env.PUBLIC_WORKER_URL as string | undefined) ?? 'https://ck-lead-worker.sharjeelhashmat.workers.dev',
   // Public by design (Turnstile site keys are embedded in pages).
   turnstileSiteKey: (env.PUBLIC_TURNSTILE_SITE_KEY as string | undefined) ?? '0x4AAAAAAE9Ndhe9on1juQ_h',
-  brn: GOLIVE.agencyBrn,
+  // ORN = the agency's RERA Office Registration Number; BRN = the broker's own Broker Registration Number (card number).
+  orn: GOLIVE.agencyOrn,
+  brn: GOLIVE.brokerBrn,
   // Indexing needs both the go-live setting and the deploy-time public switch (deploy-site input "public").
   indexable: GOLIVE.indexing && env.PUBLIC_INDEXABLE === 'true',
   // Cloudflare Web Analytics (cookieless). Set by the owner as repo variable CF_ANALYTICS_TOKEN; the build receives it as
@@ -37,10 +39,9 @@ export const SITE = {
   cfAnalyticsToken: ((env.PUBLIC_CF_ANALYTICS_TOKEN as string | undefined) ?? '').trim(),
 } as const;
 
-// Rendered wherever the agency + BRN line appears; '' (render nothing) unless both are set.
-export const AFFILIATION_LINE = affiliationLine(SITE.brokerage, SITE.brn);
-// RERA card number, shown only after the agency + BRN line. "Broker" is never shown (Rules 1b).
-export const CARD_LINE = AFFILIATION_LINE && GOLIVE.brokerCardNo ? `RERA card ${GOLIVE.brokerCardNo}` : '';
+// Rendered wherever the agency line appears; '' (render nothing) unless the agency, ORN and BRN are all set. The BRN is
+// the RERA broker card number, so there is no separate card line. "Broker" is never shown as a title (Rules 1b).
+export const AFFILIATION_LINE = affiliationLine(SITE.brokerage, SITE.orn, SITE.brn);
 // UAE Media Council advertiser permit (Rules 8c.2: in the website footer once issued).
 export const PERMIT_LINE = GOLIVE.advertiserPermitNo ? `UAE Media Council advertiser permit ${GOLIVE.advertiserPermitNo}` : '';
 

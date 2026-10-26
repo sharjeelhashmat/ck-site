@@ -40,7 +40,7 @@ export const baseEnv = (over: Record<string, unknown> = {}): Env =>
   }) as Env;
 
 // Every channel on and every gate set.
-export const LIVE = { OUTBOUND_REPLIES: 'on', OUTBOUND_NEWSLETTER: 'on', OUTBOUND_ALERTS: 'on', BRN: '12345' };
+export const LIVE = { OUTBOUND_REPLIES: 'on', OUTBOUND_NEWSLETTER: 'on', OUTBOUND_ALERTS: 'on', BRN: '12345', AGENCY_ORN: '67890' };
 
 export function lead(over: Record<string, unknown> = {}) {
   return {

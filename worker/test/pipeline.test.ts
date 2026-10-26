@@ -20,7 +20,8 @@ describe('pipeline', () => {
     expect(r.body).toEqual({ ok: true, id: 'id-1' });
     expect(r.internal).toMatchObject({ lane: 'PRIORITY', outbound: 'sent' });
     expect(f.sent).toHaveLength(1);
-    expect(f.sent[0]!.text).toContain('BRN 12345');
+    // The affiliation line (owner 2026-10-26): the agency, its ORN, then the broker's own BRN.
+    expect(f.sent[0]!.text).toContain('\nExample Brokerage · ORN 67890 · BRN 12345\n');
     expect(f.sent[0]!.text).toContain('within 24 hours');
     expect(f.alerts[0]!.alert_level).toBe('instant');
     expect(f.rows[0]!.lead.attribution.source_type).toBe('linkedin');

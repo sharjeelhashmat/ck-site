@@ -10,10 +10,10 @@ import { GOLIVE, LAUNCH_CARDS_ALLOWED } from '../lib/golive';
 import { checkLaunchReviews } from '../lib/market.mjs';
 import { SITE } from '../lib/site';
 
-// "Launches I'm watching" (Part A.9): built now, hidden until the agency, BRN and advertiser permit exist (golive.ts).
-// The data file ships empty. Every item must carry its permit number and QR and the agency name and BRN; Abu Dhabi
-// items are refused until GOLIVE.abuDhabiLicensed. At most five are shown.
-interface Review { emirate: 'dubai' | 'abu_dhabi'; project: string; area: string; note: string; permit_number: string; permit_qr: string; agency_name: string; agency_brn: string }
+// "Launches I'm watching" (Part A.9): built now, hidden until the agency, its ORN, the broker's BRN and the advertiser
+// permit exist (golive.ts). The data file ships empty. Every item must carry its permit number and QR and the agency name
+// and ORN; Abu Dhabi items are refused until GOLIVE.abuDhabiLicensed. At most five are shown.
+interface Review { emirate: 'dubai' | 'abu_dhabi'; project: string; area: string; note: string; permit_number: string; permit_qr: string; agency_name: string; agency_orn: string }
 const reviewProblems = checkLaunchReviews(reviews, GOLIVE);
 if (reviewProblems.length) throw new Error(`launch-reviews.json:\n- ${reviewProblems.join('\n- ')}`);
 const watching = LAUNCH_CARDS_ALLOWED ? (reviews as Review[]).slice(0, 5) : [];
@@ -41,7 +41,7 @@ const QUESTIONS = [
   'What happens if handover is late, or the project is cancelled?',
 ];
 ---
-{/* Indexing (audit M2): noindex until LAUNCH_CARDS_ALLOWED (agency, BRN and advertiser permit in golive.ts); from then on
+{/* Indexing (audit M2): noindex until LAUNCH_CARDS_ALLOWED (agency, ORN, BRN and advertiser permit in golive.ts); from then on
     the page follows the site-wide switch and enters the sitemap (astro.config.mjs). */}
 <Base title="New Launches: Ask Before You Commit" description="Thinking about a Dubai off-plan launch? The facts every buyer should know, the questions worth asking, and a straight answer within 24 hours." noindex={!LAUNCH_CARDS_ALLOWED}>
   <section class="section">
@@ -67,7 +67,7 @@ const QUESTIONS = [
                 <h3>{r.project}</h3>
                 <p class="small">{r.area}</p>
                 <p>{r.note}</p>
-                <div class="lw-permit"><img src={r.permit_qr} alt={`Permit ${r.permit_number} QR code`} width="72" height="72" /><span>Permit {r.permit_number}<br />{r.agency_name} · BRN {r.agency_brn}</span></div>
+                <div class="lw-permit"><img src={r.permit_qr} alt={`Permit ${r.permit_number} QR code`} width="72" height="72" /><span>Permit {r.permit_number}<br />{r.agency_name} · ORN {r.agency_orn}</span></div>
               </article>
             ))}
           </div>
@@ -91,7 +91,7 @@ const QUESTIONS = [
       <h2 class="nl-h2" id="ask">Ask me about a launch</h2>
       <p>Tell me what you want to know. I'll answer within 24 hours.</p>
       {/* Compliance: this form and "Send my question" are a service call to action. They are acceptable only because the
-          site cannot go public before the agency, BRN and Advertiser Permit are in place. */}
+          site cannot go public before the agency, ORN, BRN and Advertiser Permit are in place. */}
       <div class="launch-form"><LeadForm mode="launch" defaultIntent="invest" submitLabel="Send my question" /></div>
 
       <div class="nl-sources">

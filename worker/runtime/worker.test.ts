@@ -32,7 +32,7 @@ const baseEnv = (over: Record<string, string> = {}): Env =>
     ...over,
   }) as Env;
 
-const LIVE = { OUTBOUND_REPLIES: 'on', OUTBOUND_NEWSLETTER: 'on', BRN: '12345' };
+const LIVE = { OUTBOUND_REPLIES: 'on', OUTBOUND_NEWSLETTER: 'on', BRN: '12345', AGENCY_ORN: '67890' };
 
 interface Call { url: string; body: Record<string, unknown> | null }
 let calls: Call[] = [];
@@ -263,7 +263,7 @@ describe('worker on workerd', () => {
     expect(ack.to[0]!.email).toBe('amira@example.com');
     expect(ack.sender.email).toBe('hello@mail.sharjeelhashmat.com');
     expect(ack.replyTo.email).toBe('hello@sharjeelhashmat.com');
-    expect(ack.textContent).toContain('Example Brokerage · BRN 12345');
+    expect(ack.textContent).toContain('Example Brokerage · ORN 67890 · BRN 12345');
     expect(ack.textContent).toContain('within 24 hours');
     const alert = sent[1]!.body as { subject: string; to: { email: string }[]; sender: { email: string } };
     expect(alert.to[0]!.email).toBe('owner@example.com');
@@ -284,6 +284,14 @@ describe('worker on workerd', () => {
 
   it('BRN pending: nothing is sent even with outbound on and every template approved', async () => {
     const e = baseEnv({ OUTBOUND_REPLIES: 'on' });
+    await approveAllInKv(e);
+    await post(lead(), e);
+    expect(await rows('SELECT id FROM messages')).toHaveLength(0);
+    expect((await rows("SELECT detail FROM events WHERE type = 'outbound'"))[0]!.detail).toBe('skipped:blocked');
+  });
+
+  it('AGENCY_ORN pending: nothing is sent even with the BRN set, outbound on and every template approved', async () => {
+    const e = baseEnv({ ...LIVE, AGENCY_ORN: '' });
     await approveAllInKv(e);
     await post(lead(), e);
     expect(await rows('SELECT id FROM messages')).toHaveLength(0);
@@ -402,7 +410,7 @@ describe('worker on workerd', () => {
     expect(ack.from).toBe('Sharjeel Hashmat <hello@mail.sharjeelhashmat.com>');
     expect(ack.to).toEqual(['amira@example.com']);
     expect(ack.reply_to).toBe('hello@sharjeelhashmat.com');
-    expect(ack.text).toContain('Example Brokerage · BRN 12345');
+    expect(ack.text).toContain('Example Brokerage · ORN 67890 · BRN 12345');
     const alert = sent[1]!.body as { from: string; to: string[]; subject: string };
     expect(alert.from).toBe('Lead desk <alerts@mail.sharjeelhashmat.com>');
     expect(alert.to).toEqual(['owner@example.com']);

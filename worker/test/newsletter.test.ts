@@ -61,7 +61,7 @@ describe('newsletter: subscribe', () => {
     const m = f.sent[0]!;
     expect(m.stream).toBe('news');
     expect(m.to).toBe('amira@example.com');
-    expect(m.text).toContain('Example Brokerage · BRN 12345');
+    expect(m.text).toContain('Example Brokerage · ORN 67890 · BRN 12345');
     expect(m.text).toContain(m.listUnsubscribe!);
     const token = new URL(m.listUnsubscribe!).searchParams.get('token')!;
     expect(m.listUnsubscribe!.startsWith('https://api.sharjeelhashmat.com/api/newsletter/unsubscribe?token=')).toBe(true);
@@ -132,7 +132,7 @@ describe('newsletter: subscribe', () => {
       '',
       'Sharjeel Hashmat',
       'Property Consultant · UAE',
-      'Example Brokerage · BRN 12345',
+      'Example Brokerage · ORN 67890 · BRN 12345',
       '',
       'Automated message. You receive it because you subscribed on sharjeelhashmat.com.',
     ].join('\n'));
@@ -151,6 +151,7 @@ describe('newsletter: blockers', () => {
     expect(newsletterBlockers(await nctx({ ...newsEnv, FROM_NEWS_EMAIL: '' }))).toContain('FROM_NEWS_EMAIL not set');
     expect(newsletterBlockers(await nctx({ ...newsEnv, FROM_NEWS_EMAIL: 'brief@sharjeelhashmat.com' }))).toContain('FROM_NEWS_EMAIL must be on a subdomain, not the root domain');
     expect(newsletterBlockers(await nctx({ ...newsEnv, BRN: '' }))).toContain('BRN not set');
+    expect(newsletterBlockers(await nctx({ ...newsEnv, AGENCY_ORN: '' }))).toContain('AGENCY_ORN not set');
     expect(newsletterBlockers(await nctx({ ...newsEnv, OUTBOUND_NEWSLETTER: 'off' }))).toContain('OUTBOUND_NEWSLETTER is off');
   });
 });

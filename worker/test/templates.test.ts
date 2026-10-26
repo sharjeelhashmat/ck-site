@@ -5,7 +5,7 @@ import { TEMPLATES } from './helpers';
 const t = (id: string) => TEMPLATES.find((x) => x.id === id)!;
 const slots = {
   first_name: 'Amira', sla_hours: '24', booking_url: 'https://cal.example.com/x', resource_url: 'https://sharjeelhashmat.com/investment-approach',
-  affiliation_line: 'Example Brokerage · BRN 12345', unsubscribe_url: 'https://api.example.com/unsubscribe?e=a&t=b',
+  affiliation_line: 'Example Brokerage · ORN 67890 · BRN 12345', unsubscribe_url: 'https://api.example.com/unsubscribe?e=a&t=b',
 };
 
 describe('templates', () => {
@@ -13,7 +13,7 @@ describe('templates', () => {
     for (const tpl of TEMPLATES) {
       const r = renderTemplate(tpl, slots);
       expect(r.text).not.toMatch(/\{\{|\}\}/);
-      expect(r.text).toContain('BRN 12345');
+      expect(r.text).toContain('ORN 67890 · BRN 12345');
     }
   });
   it('refuses to render when a slot is empty or missing', () => {

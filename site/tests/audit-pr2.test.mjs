@@ -85,16 +85,24 @@ test('16: noindex build and public build without an agency address: one Person n
     assert.equal(ld.jobTitle, 'Property Consultant · UAE');
     assert.deepEqual(ld.knowsLanguage, ['English', 'Urdu']);
     assert.ok(Array.isArray(ld.sameAs) && ld.sameAs.length === 2);
-    assert.doesNotMatch(JSON.stringify(ld), /RealEstateAgent|"BRN"/);
+    // No agency node, so no ORN (the agency's number). The broker's own BRN sits on the Person once the agency line
+    // shows (owner 2026-10-26): never on the noindex build with empty values, always on the public test build.
+    assert.doesNotMatch(JSON.stringify(ld), /RealEstateAgent|"ORN"/);
+    const ids = (ld.identifier ?? []).map((i) => [i.name, i.value]);
+    if (out === dist) assert.deepEqual(ids, []);
+    else assert.deepEqual(ids, [['BRN', 'TEST-BRN'], ['UAE Media Council advertiser permit', 'TEST-PERMIT']]);
   }
 });
 
 test('16: jsonLd: the agency node appears only with an agency, and links to the person', () => {
   const site = { name: 'N', title: 'Property Consultant', origin: 'https://x.example', phoneE164: '1', email: 'e@x.example', areasServed: 'UAE', languages: ['English'], instagram: 'i', linkedin: 'l' };
-  assert.equal(jsonLd({ site, agency: null, cardNo: '', permitNo: '', article: null })['@type'], 'Person');
-  const g = jsonLd({ site, agency: { name: 'A', brn: '9', address: 'Addr' }, cardNo: '', permitNo: '', article: null })['@graph'];
+  assert.equal(jsonLd({ site, agency: null, brn: '', permitNo: '', article: null })['@type'], 'Person');
+  const g = jsonLd({ site, agency: { name: 'A', orn: '9', address: 'Addr' }, brn: '7', permitNo: '', article: null })['@graph'];
   assert.deepEqual(g.map((n) => n['@type']), ['Person', 'RealEstateAgent']);
   assert.deepEqual(g[0].worksFor, { '@id': 'https://x.example/#agency' });
+  // ORN = the agency, BRN = the broker (owner 2026-10-26).
+  assert.deepEqual(g[0].identifier, [{ '@type': 'PropertyValue', name: 'BRN', value: '7' }]);
+  assert.deepEqual(g[1].identifier, [{ '@type': 'PropertyValue', name: 'ORN', value: '9' }]);
 });
 
 // ---------- 21. Titles, descriptions, article metadata, share-image alt ----------

@@ -15,7 +15,10 @@ export interface Config {
   outboundAlerts: boolean;
   // The old single OUTBOUND was read because a channel switch is unset (one release only; the Worker logs it).
   deprecatedOutbound: boolean;
+  // BRN = the broker's own Broker Registration Number (RERA broker card); AGENCY_ORN = the agency's Office Registration
+  // Number. Both appear in the email affiliation line (affiliationLine).
   brn: string;
+  agencyOrn: string;
   affiliation: string;
   bookingUrl: string;
   siteUrl: string;
@@ -52,6 +55,7 @@ export function readConfig(env: Record<string, string | undefined>): Config {
     outboundAlerts: env.OUTBOUND_ALERTS !== undefined ? on(env.OUTBOUND_ALERTS) : true,
     deprecatedOutbound: legacy !== undefined && (env.OUTBOUND_REPLIES === undefined || env.OUTBOUND_NEWSLETTER === undefined),
     brn: (env.BRN ?? '').trim(),
+    agencyOrn: (env.AGENCY_ORN ?? '').trim(),
     affiliation: (env.AFFILIATION ?? '').trim(),
     bookingUrl: (env.BOOKING_URL ?? '').trim(),
     siteUrl: (env.SITE_URL ?? '').trim().replace(/\/$/, ''),
@@ -76,6 +80,12 @@ export function readConfig(env: Record<string, string | undefined>): Config {
     // Package B: when "true", a lead must carry a valid phone. Stays "false" until the domain cutover.
     leadStrict: (env.LEAD_STRICT ?? 'false').trim().toLowerCase() === 'true',
   };
+}
+
+// The {{affiliation_line}} slot in replies and the newsletter welcome: "<agency> · ORN <agency ORN> · BRN <broker BRN>".
+// Only rendered once outboundBlockers is empty, so all three values are set.
+export function affiliationLine(c: Config): string {
+  return `${c.affiliation} · ORN ${c.agencyOrn} · BRN ${c.brn}`;
 }
 
 // Extra browser origins allowed to POST to the Worker (e.g. the staging site before cutover).
@@ -103,8 +113,8 @@ export function isSubdomainSender(email: string, siteUrl: string): boolean {
 }
 
 // Why a channel would not send right now. Empty = it may send. Replies and the newsletter stay off until every go-live
-// item here is satisfied (BRN is the pending item); owner alerts need only their switch, their sender, the alert address
-// and the email key.
+// item here is satisfied (BRN and AGENCY_ORN are the pending items); owner alerts need only their switch, their sender,
+// the alert address and the email key.
 export function outboundBlockers(c: Config, channel: Channel): string[] {
   const b: string[] = [];
   if (channel === 'alerts') {
@@ -118,6 +128,8 @@ export function outboundBlockers(c: Config, channel: Channel): string[] {
   if (channel === 'newsletter' && !c.outboundNewsletter) b.push('OUTBOUND_NEWSLETTER is off');
   if (!c.brn) b.push('BRN not set');
   else if (!/^[A-Za-z0-9-]{3,20}$/.test(c.brn)) b.push('BRN format invalid');
+  if (!c.agencyOrn) b.push('AGENCY_ORN not set');
+  else if (!/^[A-Za-z0-9-]{3,20}$/.test(c.agencyOrn)) b.push('AGENCY_ORN format invalid');
   if (!c.affiliation) b.push('AFFILIATION not set');
   if (!/^https:\/\//.test(c.bookingUrl)) b.push('BOOKING_URL must be https');
   if (!/^https:\/\//.test(c.siteUrl)) b.push('SITE_URL must be https');

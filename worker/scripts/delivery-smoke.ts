@@ -55,6 +55,7 @@ export function smokeVars(unsubSecret: string): Record<string, string> {
     ALLOW_TEST_TURNSTILE: 'yes',
     UNSUB_SECRET: unsubSecret,
     BRN: 'SMOKE-TEST',
+    AGENCY_ORN: 'SMOKE-TEST',
     AFFILIATION: 'Delivery smoke test',
     BOOKING_URL: 'https://sharjeelhashmat.com/contact',
     ALERT_EMAIL: 'delivered+alert@resend.dev',

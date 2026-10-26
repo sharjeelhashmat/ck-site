@@ -1,6 +1,6 @@
 // PR 2c item 5 (gap G07): one switch per channel instead of the single OUTBOUND. OUTBOUND_REPLIES and OUTBOUND_NEWSLETTER
 // are "off" in wrangler.toml, OUTBOUND_ALERTS "on" (owner alerts were never gated by OUTBOUND). The go-live checks (BRN,
-// affiliation, booking, senders) apply to replies and the newsletter, not to owner alerts. The old OUTBOUND is read for
+// AGENCY_ORN, affiliation, booking, senders) apply to replies and the newsletter, not to owner alerts. The old OUTBOUND is read for
 // one release, only for a channel whose own switch is unset, and the Worker then logs a deprecation line.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -44,6 +44,7 @@ describe('switches: blockers per channel', () => {
     expect(outboundBlockers(readConfig(channels('on', 'off', 'off')), 'replies')).toEqual([]);
     expect(outboundBlockers(readConfig(channels('off', 'on', 'on')), 'replies')).toEqual(['OUTBOUND_REPLIES is off']);
     expect(outboundBlockers(readConfig({ ...channels('on', 'on', 'on'), BRN: '' }), 'replies')).toEqual(['BRN not set']);
+    expect(outboundBlockers(readConfig({ ...channels('on', 'on', 'on'), AGENCY_ORN: '' }), 'replies')).toEqual(['AGENCY_ORN not set']);
   });
 
   it('newsletter: only the newsletter switch and the go-live checks', () => {
@@ -54,9 +55,9 @@ describe('switches: blockers per channel', () => {
     expect(newsletterBlockers(nctx({ ...channels('off', 'on', 'off'), AFFILIATION: '' }))).toEqual(['AFFILIATION not set']);
   });
 
-  it('alerts: the alerts switch and what an alert needs to send; no BRN, affiliation or booking check', () => {
+  it('alerts: the alerts switch and what an alert needs to send; no BRN, ORN, affiliation or booking check', () => {
     expect(outboundBlockers(readConfig(channels('off', 'off', 'on')), 'alerts')).toEqual([]);
-    expect(outboundBlockers(readConfig({ ...channels('off', 'off', 'on'), BRN: '', AFFILIATION: '', BOOKING_URL: '' }), 'alerts')).toEqual([]);
+    expect(outboundBlockers(readConfig({ ...channels('off', 'off', 'on'), BRN: '', AGENCY_ORN: '', AFFILIATION: '', BOOKING_URL: '' }), 'alerts')).toEqual([]);
     expect(outboundBlockers(readConfig(channels('on', 'on', 'off')), 'alerts')).toEqual(['OUTBOUND_ALERTS is off']);
     expect(outboundBlockers(readConfig({ ...channels('off', 'off', 'on'), ALERT_EMAIL: '' }), 'alerts')).toEqual(['ALERT_EMAIL not set']);
   });

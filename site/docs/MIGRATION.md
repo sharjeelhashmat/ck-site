@@ -24,7 +24,7 @@ Canonical host is `www` (v1 decision). Worker CORS already allows both apex and 
 2. Claude: staging build to `ck-site-web.sharjeelhashmat.workers.dev` (noindex). Form posts are rejected by CORS there by design; test lead submission only after step 4.
 3. Owner: Turnstile widget hostnames must include `sharjeelhashmat.com` and `www.sharjeelhashmat.com` (add the workers.dev host only if he wants to test forms on staging, and then also add it to the Worker's SITE_URL allow-list, which is owner-controlled code).
 4. Owner approves copy in `CHANGES_FOR_APPROVAL.md` (Notion card "Approved").
-5. Owner: BRN available, then run `deploy-site` with `public = true`.
+5. Owner: the agency's ORN and the broker's own BRN available (both in `src/lib/golive.ts`), then run `deploy-site` with `public = true`.
 6. Owner (DNS): in Cloudflare add the domain, or keep Namecheap DNS and point `www` CNAME to the Worker custom domain; add the apex-to-www redirect. Exact records are given at that moment. Keep the Vercel project untouched until the new site is verified, then it is a one-record rollback.
 7. Claude: verify all 19 URLs return 200/301 as mapped, sitemap, robots, headers, one real test lead.
 8. Search Console: owner verifies the property (account action); Claude submits the sitemap after that.

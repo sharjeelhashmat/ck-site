@@ -93,7 +93,7 @@
 .mk-list .mk-label { display: inline; margin-left: .35rem; }
 .mk-line { margin: .6rem 0 0; font-size: 1rem; color: var(--ink); }
 
-/* Launches I'm watching (hidden until the agency, BRN and permits exist) */
+/* Launches I'm watching (hidden until the agency, ORN, BRN and permits exist) */
 .lw-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr)); margin-top: 1.25rem; }
 .lw-card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-card); padding: 1.25rem; }
 .lw-card h3 { font-size: 1.4rem; }

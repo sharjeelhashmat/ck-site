@@ -58,14 +58,15 @@ id = "1201e75e1ed84ddeaeb756756cf86898"
 
 [vars]
 # One switch per channel (PR 2c item 5). Replies and the newsletter stay off until the go-live checklist is complete;
-# owner alerts are on (they were never gated). The go-live checks (BRN, affiliation, booking, senders) gate replies and
+# owner alerts are on (they were never gated). The go-live checks (BRN, AGENCY_ORN, affiliation, booking, senders) gate replies and
 # the newsletter only. The old single OUTBOUND is no longer set; the Worker reads it for one release only when a
 # channel switch is missing, and logs a deprecation line.
 OUTBOUND_REPLIES = "off"              # replies to leads (approved templates only)
 OUTBOUND_NEWSLETTER = "off"           # the newsletter welcome
 OUTBOUND_ALERTS = "on"                # owner alerts (lead, investor profile)
 EMAIL_PROVIDER = "resend"             # "resend" (default choice) or "brevo"; secrets: RESEND_API_KEY / BREVO_API_KEY
-BRN = ""                              # pending: owner to supply before go-live
+BRN = ""                              # pending: the broker's own BRN (RERA broker card number), owner to supply before go-live
+AGENCY_ORN = ""                       # pending: the agency's ORN (RERA Office Registration Number), owner to supply before go-live
 AFFILIATION = ""
 LEAD_STRICT = "false"                 # Package B: "true" makes a valid phone required on /lead. Keep "false" until the domain cutover.
 SITE_URL = "https://sharjeelhashmat.com"

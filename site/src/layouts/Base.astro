@@ -23,17 +23,18 @@ const DEFAULT_DESC =
 const { title, description = DEFAULT_DESC, noindex = false, article } = Astro.props;
 // At most 60 characters (lib/seo.mjs): "<title> · Sharjeel Hashmat", or the title alone when that would be longer.
 const fullTitle = pageTitle(title, SITE.name, SITE.title);
-// Only a production-indexable build (which requires a BRN) may be indexed, and only for pages with real content.
+// Only a production-indexable build (which requires the ORN and BRN) may be indexed, and only for pages with real content.
 const indexed = SITE.indexable && !noindex;
 const robots = indexed ? 'index,follow,max-image-preview:large' : 'noindex,nofollow';
 // Canonical and og:url only on indexed pages (never with noindex, never on the 404), in the sitemap's form: no ".html",
 // no "/index", home is origin + "/" (lib/seo.mjs).
 const canonical = indexed ? canonicalUrl(SITE.origin, Astro.url.pathname) : null;
-// Person always; the RealEstateAgent (agency, BRN, address) only once golive.ts has them (audit item 16, lib/jsonld.mjs).
+// Person always (with the broker's BRN once the agency line shows); the RealEstateAgent (agency, ORN, address) only once
+// golive.ts has them (audit item 16, lib/jsonld.mjs).
 const ld = jsonLd({
   site: SITE,
-  agency: AFFILIATION_LINE && GOLIVE.agencyAddress ? { name: SITE.brokerage, brn: SITE.brn, address: GOLIVE.agencyAddress } : null,
-  cardNo: AFFILIATION_LINE ? GOLIVE.brokerCardNo : '',
+  agency: AFFILIATION_LINE && GOLIVE.agencyAddress ? { name: SITE.brokerage, orn: SITE.orn, address: GOLIVE.agencyAddress } : null,
+  brn: AFFILIATION_LINE ? SITE.brn : '',
   permitNo: GOLIVE.advertiserPermitNo,
   article: article ? { ...article, url: canonicalUrl(SITE.origin, Astro.url.pathname) } : null,
 });

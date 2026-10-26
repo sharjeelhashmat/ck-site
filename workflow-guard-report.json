@@ -1,0 +1,954 @@
+{
+  "mode": "enforce",
+  "generatedAt": "2026-10-26T13:30:04.201Z",
+  "workflows": [
+    ".github/workflows/ci.yml",
+    ".github/workflows/deploy-site.yml",
+    ".github/workflows/deploy-staging.yml",
+    ".github/workflows/deploy.yml",
+    ".github/workflows/market-data-sync.yml",
+    ".github/workflows/readiness.yml",
+    ".github/workflows/rollback.yml",
+    ".github/workflows/uptime.yml"
+  ],
+  "violationCount": 0,
+  "violations": [],
+  "rows": [
+    {
+      "workflow": ".github",
+      "job": "-",
+      "rule": "R0",
+      "result": "PASS",
+      "line": "",
+      "message": "scope"
+    },
+    {
+      "workflow": ".github/workflows/ci.yml",
+      "job": "-",
+      "rule": "R0",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/ci.yml",
+      "job": "-",
+      "rule": "R2",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/ci.yml",
+      "job": "-",
+      "rule": "R3",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/ci.yml",
+      "job": "-",
+      "rule": "R4",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/ci.yml",
+      "job": "-",
+      "rule": "R5",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/ci.yml",
+      "job": "-",
+      "rule": "R6",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/ci.yml",
+      "job": "-",
+      "rule": "R7",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/ci.yml",
+      "job": "-",
+      "rule": "R8",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/ci.yml",
+      "job": "-",
+      "rule": "R10",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/ci.yml",
+      "job": "-",
+      "rule": "R12",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/ci.yml",
+      "job": "-",
+      "rule": "R13",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/ci.yml",
+      "job": "-",
+      "rule": "R14",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/ci.yml",
+      "job": "-",
+      "rule": "R15",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-site.yml",
+      "job": "-",
+      "rule": "R0",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-site.yml",
+      "job": "-",
+      "rule": "R1",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-site.yml",
+      "job": "-",
+      "rule": "R2",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-site.yml",
+      "job": "-",
+      "rule": "R3",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-site.yml",
+      "job": "-",
+      "rule": "R4",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-site.yml",
+      "job": "-",
+      "rule": "R5",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-site.yml",
+      "job": "-",
+      "rule": "R6",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-site.yml",
+      "job": "-",
+      "rule": "R7",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-site.yml",
+      "job": "-",
+      "rule": "R8",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-site.yml",
+      "job": "-",
+      "rule": "R9",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-site.yml",
+      "job": "-",
+      "rule": "R10",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-site.yml",
+      "job": "-",
+      "rule": "R12",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-site.yml",
+      "job": "-",
+      "rule": "R13",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-site.yml",
+      "job": "-",
+      "rule": "R14",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-site.yml",
+      "job": "-",
+      "rule": "R15",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-staging.yml",
+      "job": "-",
+      "rule": "R0",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-staging.yml",
+      "job": "-",
+      "rule": "R1",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-staging.yml",
+      "job": "-",
+      "rule": "R2",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-staging.yml",
+      "job": "-",
+      "rule": "R3",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-staging.yml",
+      "job": "-",
+      "rule": "R4",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-staging.yml",
+      "job": "-",
+      "rule": "R5",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-staging.yml",
+      "job": "-",
+      "rule": "R6",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-staging.yml",
+      "job": "-",
+      "rule": "R7",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-staging.yml",
+      "job": "-",
+      "rule": "R8",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-staging.yml",
+      "job": "-",
+      "rule": "R9",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-staging.yml",
+      "job": "-",
+      "rule": "R10",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-staging.yml",
+      "job": "-",
+      "rule": "R12",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-staging.yml",
+      "job": "-",
+      "rule": "R13",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-staging.yml",
+      "job": "-",
+      "rule": "R14",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-staging.yml",
+      "job": "-",
+      "rule": "R15",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy-staging.yml",
+      "job": "-",
+      "rule": "R16",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy.yml",
+      "job": "-",
+      "rule": "R0",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy.yml",
+      "job": "-",
+      "rule": "R1",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy.yml",
+      "job": "-",
+      "rule": "R2",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy.yml",
+      "job": "-",
+      "rule": "R3",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy.yml",
+      "job": "-",
+      "rule": "R4",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy.yml",
+      "job": "-",
+      "rule": "R5",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy.yml",
+      "job": "-",
+      "rule": "R6",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy.yml",
+      "job": "-",
+      "rule": "R7",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy.yml",
+      "job": "-",
+      "rule": "R8",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy.yml",
+      "job": "-",
+      "rule": "R9",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy.yml",
+      "job": "-",
+      "rule": "R10",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy.yml",
+      "job": "-",
+      "rule": "R12",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy.yml",
+      "job": "-",
+      "rule": "R13",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy.yml",
+      "job": "-",
+      "rule": "R14",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/deploy.yml",
+      "job": "-",
+      "rule": "R15",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/market-data-sync.yml",
+      "job": "-",
+      "rule": "R0",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/market-data-sync.yml",
+      "job": "-",
+      "rule": "R2",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/market-data-sync.yml",
+      "job": "-",
+      "rule": "R3",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/market-data-sync.yml",
+      "job": "-",
+      "rule": "R4",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/market-data-sync.yml",
+      "job": "-",
+      "rule": "R5",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/market-data-sync.yml",
+      "job": "-",
+      "rule": "R6",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/market-data-sync.yml",
+      "job": "-",
+      "rule": "R7",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/market-data-sync.yml",
+      "job": "-",
+      "rule": "R8",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/market-data-sync.yml",
+      "job": "-",
+      "rule": "R9",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/market-data-sync.yml",
+      "job": "-",
+      "rule": "R10",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/market-data-sync.yml",
+      "job": "-",
+      "rule": "R12",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/market-data-sync.yml",
+      "job": "-",
+      "rule": "R13",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/market-data-sync.yml",
+      "job": "-",
+      "rule": "R14",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/market-data-sync.yml",
+      "job": "-",
+      "rule": "R15",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/readiness.yml",
+      "job": "-",
+      "rule": "R0",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/readiness.yml",
+      "job": "-",
+      "rule": "R2",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/readiness.yml",
+      "job": "-",
+      "rule": "R3",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/readiness.yml",
+      "job": "-",
+      "rule": "R4",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/readiness.yml",
+      "job": "-",
+      "rule": "R5",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/readiness.yml",
+      "job": "-",
+      "rule": "R6",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/readiness.yml",
+      "job": "-",
+      "rule": "R7",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/readiness.yml",
+      "job": "-",
+      "rule": "R8",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/readiness.yml",
+      "job": "-",
+      "rule": "R10",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/readiness.yml",
+      "job": "-",
+      "rule": "R12",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/readiness.yml",
+      "job": "-",
+      "rule": "R13",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/readiness.yml",
+      "job": "-",
+      "rule": "R14",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/readiness.yml",
+      "job": "-",
+      "rule": "R15",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/readiness.yml",
+      "job": "-",
+      "rule": "R17",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/rollback.yml",
+      "job": "-",
+      "rule": "R0",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/rollback.yml",
+      "job": "-",
+      "rule": "R1",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/rollback.yml",
+      "job": "-",
+      "rule": "R2",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/rollback.yml",
+      "job": "-",
+      "rule": "R3",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/rollback.yml",
+      "job": "-",
+      "rule": "R4",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/rollback.yml",
+      "job": "-",
+      "rule": "R5",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/rollback.yml",
+      "job": "-",
+      "rule": "R6",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/rollback.yml",
+      "job": "-",
+      "rule": "R7",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/rollback.yml",
+      "job": "-",
+      "rule": "R8",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/rollback.yml",
+      "job": "-",
+      "rule": "R9",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/rollback.yml",
+      "job": "-",
+      "rule": "R10",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/rollback.yml",
+      "job": "-",
+      "rule": "R11",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/rollback.yml",
+      "job": "-",
+      "rule": "R12",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/rollback.yml",
+      "job": "-",
+      "rule": "R13",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/rollback.yml",
+      "job": "-",
+      "rule": "R14",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/rollback.yml",
+      "job": "-",
+      "rule": "R15",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/uptime.yml",
+      "job": "-",
+      "rule": "R0",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/uptime.yml",
+      "job": "-",
+      "rule": "R2",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/uptime.yml",
+      "job": "-",
+      "rule": "R3",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/uptime.yml",
+      "job": "-",
+      "rule": "R4",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/uptime.yml",
+      "job": "-",
+      "rule": "R5",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/uptime.yml",
+      "job": "-",
+      "rule": "R6",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/uptime.yml",
+      "job": "-",
+      "rule": "R7",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/uptime.yml",
+      "job": "-",
+      "rule": "R8",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/uptime.yml",
+      "job": "-",
+      "rule": "R10",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/uptime.yml",
+      "job": "-",
+      "rule": "R12",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/uptime.yml",
+      "job": "-",
+      "rule": "R13",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/uptime.yml",
+      "job": "-",
+      "rule": "R14",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    },
+    {
+      "workflow": ".github/workflows/uptime.yml",
+      "job": "-",
+      "rule": "R15",
+      "result": "PASS",
+      "line": "",
+      "message": ""
+    }
+  ]
+}

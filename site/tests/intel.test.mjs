@@ -179,8 +179,9 @@ test('build: a published opportunity renders the 12-section Brief with sources, 
   for (const id of IDS) assert.match(brief, new RegExp(`<h2 id="${id}"`), `section ${id}`);
   assert.match(brief, /Sample Tower/);
   assert.match(brief, /Permit TEST-PERMIT-1/);
-  // A public build has the agency and BRN set (golive.ts), so the line follows the permit (owner decision 2026-10-10).
-  assert.match(brief, /Permit TEST-PERMIT-1 · Working with Example Agency · BRN TEST-BRN<\/p>/);
+  // A public build has the agency, ORN and BRN set (golive.ts), so the line follows the permit (owner decisions 2026-10-10
+  // and 2026-10-26).
+  assert.match(brief, /Permit TEST-PERMIT-1 · Working with Example Agency · ORN TEST-ORN · BRN TEST-BRN<\/p>/);
   assert.doesNotMatch(brief, /BRN pending/);
   assert.match(brief, /Why it could work/); assert.match(brief, /Why it could fail/);
   assert.match(brief, /https:\/\/example\.com\/source/);

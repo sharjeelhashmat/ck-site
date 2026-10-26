@@ -29,7 +29,10 @@ export interface Env {
   OUTBOUND_ALERTS?: string;
   /** Deprecated (PR 2c item 5): read for one release only, for a reply or newsletter switch that is unset. */
   OUTBOUND?: string;
+  /** The broker's own BRN (RERA broker card number). */
   BRN?: string;
+  /** The agency's ORN (RERA Office Registration Number). */
+  AGENCY_ORN?: string;
   AFFILIATION?: string;
   LEAD_STRICT?: string;
   BOOKING_URL?: string;
