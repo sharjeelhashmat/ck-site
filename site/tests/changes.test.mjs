@@ -205,7 +205,24 @@ test('build: with no data, /projects is noindex and out of the sitemap, and no a
   const site = readFileSync(join(r.out, 'sitemap-0.xml'), 'utf8');
   assert.doesNotMatch(site, /\/projects/);
   for (const f of readdirSync(join(r.out, 'areas'))) assert.doesNotMatch(html(r.out, `areas/${f}`), /changing here|class="changes"/, f);
-  assert.match(html(r.out, 'insights.html'), /<a href="\/projects"[^>]*>Infrastructure tracker<\/a>/);
+});
+
+test('build: /insights links to /projects only while a tracker is current (same rule as the sitemap)', () => {
+  const LINK = /href="\/projects"/;
+  const cases = [
+    ['no data', {}, false],
+    ['one current tracker', { projects: [validProject()] }, true],
+    ['only tracker past reviewBy', { projects: [validProject('example-metro-line', { reviewBy: '2026-10-25' })] }, false],
+  ];
+  for (const [name, set, linked] of cases) {
+    const data = mkdtempSync(join(tmpdir(), 'ck-changes-data-'));
+    writeData(data, set);
+    const r = build(data);
+    assert.equal(r.status, 0, r.log);
+    const page = html(r.out, 'insights.html');
+    if (linked) assert.match(page, /<a href="\/projects"[^>]*>Infrastructure tracker<\/a>/, name);
+    else assert.doesNotMatch(page, LINK, name);
+  }
 });
 
 test('build: a tracker past reviewBy shows the stale banner and is noindex and out of the sitemap', () => {

@@ -1,8 +1,10 @@
 ---
 import Base from '../layouts/Base.astro';
 import { waLink } from '../lib/site';
-import { loadPublic } from '../lib/intel-data.mjs';
+import { loadChanges, loadPublic } from '../lib/intel-data.mjs';
 const { articles, insightsLive } = loadPublic();
+// The tracker link shows only while a tracker is current: the same rule astro.config.mjs uses for the /projects sitemap entry.
+const { projectsLive } = loadChanges();
 const list = [...articles].sort((a: any, b: any) => (a.publishedOn < b.publishedOn ? 1 : -1));
 // Decision 5 (2026-09-21): noindex and out of the sitemap until 3 non-stale articles are published.
 const noindex = !insightsLive;
@@ -30,7 +32,7 @@ const noindex = !insightsLive;
           ))}
         </div>
       )}
-      <p class="src" style="margin-top:2.5rem"><a href="/projects">Infrastructure tracker</a></p>
+      {projectsLive && <p class="src" style="margin-top:2.5rem"><a href="/projects">Infrastructure tracker</a></p>}
     </div>
   </section>
 </Base>

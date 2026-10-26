@@ -49,7 +49,7 @@ Any broken rule fails the build and every reason is printed.
 
 ### What the pages do
 - Area page: events that name the area, newest `announcedOn` first, at most 6, each with its status, official date (when given), summary, source and verified date, and a link to the project tracker when it has one. An event verified more than 180 days ago shows "last checked <date>" instead. No events: no section.
-- `/projects`: noindex and out of the sitemap until at least one tracker is current. Linked from the bottom of `/insights` only; no header link.
+- `/projects`: noindex and out of the sitemap until at least one tracker is current. Linked from the bottom of `/insights` only while a tracker is current (the same rule as its sitemap entry); no header link.
 - `/projects/<slug>`: status (the latest timeline entry), operator, emirate, areas served, timeline oldest first with sources, the fixed line "This page records official announcements only. It does not predict prices or values." and the standard advice line. Past `reviewBy`: the stale banner, noindex, out of the sitemap, until it is updated.
 
 ### Publishing
