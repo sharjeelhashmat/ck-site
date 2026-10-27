@@ -8,7 +8,7 @@ Personal real estate brand site and lead engine for Sharjeel Hashmat, Real Estat
 |---|---|
 | `site/` static Astro site | Built and tested. Two Workers serve the same build: `ck-site-web` = production (noindex today; goes public at go-live), `ck-site-staging` = previews (always noindex, behind Cloudflare Access). |
 | `worker/` lead API (`ck-lead-worker`) | Live on Cloudflare (D1 `ck-leads`, KV `ck-kv`, email via Resend). Routes `POST /lead` and `POST /profile`. Three channel switches (`OUTBOUND_REPLIES`, `OUTBOUND_NEWSLETTER`, `OUTBOUND_ALERTS`) control sending; replies and the newsletter are off. |
-| Public launch | **Blocked by the go-live values.** The public build refuses `PUBLIC_INDEXABLE=true` until `site/src/lib/golive.ts` has indexing, the agency name, its BRN and the advertiser permit. |
+| Public launch | **Blocked by the go-live values.** The public build refuses `PUBLIC_INDEXABLE=true` until `site/src/lib/golive.ts` has indexing, the agency name, the agency's ORN, the broker's own BRN and the advertiser permit. |
 | Old site (Next.js on Vercel) | In maintenance mode until cutover. |
 | Real end-to-end enquiry test | Not done. Turnstile and the Worker CORS only allow the real domains, so it happens right after cutover. |
 
@@ -48,11 +48,11 @@ The Worker's `STAGING_ORIGIN` is `https://ck-site-staging.sharjeelhashmat.worker
 
 ## Gates (enforced in code and tests)
 
-1. `OUTBOUND_REPLIES` and `OUTBOUND_NEWSLETTER` are off by default (`OUTBOUND_ALERTS` is on). 2. Replies and the newsletter stay blocked until BRN, affiliation, URLs, sender addresses, Reply-To, alert address, email key, unsubscribe secret and `MAILBOX_CONFIRMED=yes` are set (owner alerts need only their switch, sender, address and key). Automated senders use a subdomain, never the root domain. Newsletter-stream templates can never go out through the lead pipeline. 3. A template sends only if its hash is in the approved list; one edited word voids approval. 4. Unsubscribes honoured; daily cap 45 replies, counted in the outbox claim (Resend free allows 100 a day); failures contained and never resent automatically. 5. Lead free text never reaches a model or a reply.
+1. `OUTBOUND_REPLIES` and `OUTBOUND_NEWSLETTER` are off by default (`OUTBOUND_ALERTS` is on). 2. Replies and the newsletter stay blocked until BRN, AGENCY_ORN, affiliation, URLs, sender addresses, Reply-To, alert address, email key, unsubscribe secret and `MAILBOX_CONFIRMED=yes` are set (owner alerts need only their switch, sender, address and key). Automated senders use a subdomain, never the root domain. Newsletter-stream templates can never go out through the lead pipeline. 3. A template sends only if its hash is in the approved list; one edited word voids approval. 4. Unsubscribes honoured; daily cap 45 replies, counted in the outbox claim (Resend free allows 100 a day); failures contained and never resent automatically. 5. Lead free text never reaches a model or a reply.
 
 ## Site rules enforced by tests
 
-Title "Real Estate Consultant" only. Public email hello@sharjeelhashmat.com only. The agency is named beside the BRN (`SITE.brokerage`) only when both are set; the agency is to be confirmed by the owner, so today no agency or BRN line is shown. Seven-factor methodology wording. No trademark symbol. Figure-source rule: every figure in an article carries a numbered source and at least one tier 1 or tier 2 source. Insights is indexable only after 3 non-stale published articles.
+Title "Real Estate Consultant" only. Public email hello@sharjeelhashmat.com only. ORN = the agency (RERA Office Registration Number), BRN = the broker (the number on the RERA broker card). The line "Working with <agency> · ORN <orn> · BRN <brn>" shows only when `agencyName`, `agencyOrn` and `brokerBrn` are all set in `site/src/lib/golive.ts`; today all are empty, so no agency, ORN or BRN line is shown. The Worker's email affiliation line is "<AFFILIATION> · ORN <AGENCY_ORN> · BRN <BRN>". Seven-factor methodology wording. No trademark symbol. Figure-source rule: every figure in an article carries a numbered source and at least one tier 1 or tier 2 source. Insights is indexable only after 3 non-stale published articles.
 
 ## Free-plan facts (Cloudflare docs, checked 2026-09-19)
 
@@ -115,7 +115,7 @@ Every lead except SPAM and staging TEST leaves a `lead_reply` row: `sent`, or `s
 
 | Variable | wrangler.toml | Opens | Also needs |
 |---|---|---|---|
-| `OUTBOUND_REPLIES` | `off` | Replies to leads | Every go-live check (BRN, affiliation, booking, senders, Reply-To, mailbox, key, unsubscribe secret) |
+| `OUTBOUND_REPLIES` | `off` | Replies to leads | Every go-live check (BRN, AGENCY_ORN, affiliation, booking, senders, Reply-To, mailbox, key, unsubscribe secret) |
 | `OUTBOUND_NEWSLETTER` | `off` | The newsletter welcome | The same checks plus `FROM_NEWS_EMAIL` |
 | `OUTBOUND_ALERTS` | `on` | Owner alerts (lead, investor profile) | Alert sender, `ALERT_EMAIL`, email key |
 

@@ -311,7 +311,7 @@ export function checkAdrecAreas(f, guideSlugs) {
 
 /**
  * site/src/data/launch-reviews.json ("Launches I'm watching"). Ships empty. Every item needs its permit number and QR
- * and the agency name and BRN; Abu Dhabi items are refused until GOLIVE.abuDhabiLicensed.
+ * and the agency name and ORN; Abu Dhabi items are refused until GOLIVE.abuDhabiLicensed.
  * @param {any} items @param {{abuDhabiLicensed: boolean}} golive
  */
 export const PERMIT_QR_RE = /^\/permits\/[a-z0-9][a-z0-9_-]{0,80}\.(png|svg)$/;
@@ -320,7 +320,7 @@ export function checkLaunchReviews(items, golive) {
   if (!Array.isArray(items)) return ['launch-reviews.json must be a list'];
   const e = [];
   items.forEach((it, i) => {
-    for (const k of ['permit_number', 'permit_qr', 'agency_name', 'agency_brn']) if (typeof it?.[k] !== 'string' || !it[k].trim()) e.push(`item ${i + 1}: ${k} is required`);
+    for (const k of ['permit_number', 'permit_qr', 'agency_name', 'agency_orn']) if (typeof it?.[k] !== 'string' || !it[k].trim()) e.push(`item ${i + 1}: ${k} is required`);
     // The permit QR is a file in site/public/permits/ (audit item 19): never a remote image another host could change.
     if (typeof it?.permit_qr === 'string' && it.permit_qr.trim() && !PERMIT_QR_RE.test(it.permit_qr)) {
       e.push(`item ${i + 1}: permit_qr must be a self-hosted /permits/<name>.png or .svg path`);

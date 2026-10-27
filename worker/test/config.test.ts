@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { outboundBlockers, parseExtraOrigins, readConfig } from '../src/config';
+import { affiliationLine, outboundBlockers, parseExtraOrigins, readConfig } from '../src/config';
 import { goodEnv } from './helpers';
 
 describe('outbound gate', () => {
@@ -8,6 +8,14 @@ describe('outbound gate', () => {
   it('BRN pending keeps outbound blocked', () => {
     const b = outboundBlockers(readConfig({ ...goodEnv, BRN: '' }), 'replies');
     expect(b).toEqual(['BRN not set']);
+  });
+  it('AGENCY_ORN pending keeps outbound blocked, and a malformed one is refused like the BRN', () => {
+    expect(outboundBlockers(readConfig({ ...goodEnv, AGENCY_ORN: '' }), 'replies')).toEqual(['AGENCY_ORN not set']);
+    expect(outboundBlockers(readConfig({ ...goodEnv, AGENCY_ORN: 'ORN 1' }), 'replies')).toEqual(['AGENCY_ORN format invalid']);
+    expect(outboundBlockers(readConfig({ ...goodEnv, AGENCY_ORN: '', BRN: '' }), 'newsletter')).toEqual(['BRN not set', 'AGENCY_ORN not set']);
+  });
+  it('affiliation line: agency, then the agency ORN, then the broker BRN', () => {
+    expect(affiliationLine(readConfig(goodEnv))).toBe('Example Brokerage · ORN 67890 · BRN 12345');
   });
   it('rejects non-https URLs', () => expect(outboundBlockers(readConfig({ ...goodEnv, BOOKING_URL: 'http://x.com' }), 'replies'), 'replies').toContain('BOOKING_URL must be https'));
   it('blocks when the Reply-To mailbox is not confirmed', () => {

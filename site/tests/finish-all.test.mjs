@@ -30,14 +30,14 @@ const ADREC = JSON.parse(src('src/data/adrec-areas.json'));
 // ---------- B. Go-live settings ----------
 test('B: golive.ts ships with every value empty or false', () => {
   const g = src('src/lib/golive.ts').match(/const COMMITTED: GoLive = \{([\s\S]*?)\};/)[1];
-  for (const k of ['agencyName', 'agencyBrn', 'brokerCardNo', 'advertiserPermitNo']) assert.match(g, new RegExp(`\\b${k}: '',`), k);
+  for (const k of ['agencyName', 'agencyOrn', 'agencyAddress', 'brokerBrn', 'advertiserPermitNo']) assert.match(g, new RegExp(`\\b${k}: '',`), k);
   for (const k of ['abuDhabiLicensed', 'indexing']) assert.match(g, new RegExp(`\\b${k}: false,`), k);
 });
 
-test('B: with GOLIVE empty, no page shows an agency, BRN, card or permit line, and every page is noindex', () => {
+test('B: with GOLIVE empty, no page shows an agency, ORN, BRN, card or permit line, and every page is noindex', () => {
   for (const f of htmlFiles) {
     const h = read(f.slice(dist.length + 1));
-    assert.doesNotMatch(h, /Working with|RERA card|advertiser permit|<p class="disclosure">/, f);
+    assert.doesNotMatch(h, /Working with|RERA card|\bORN\b|\bBRN\b|advertiser permit|<p class="disclosure">/, f);
     assert.doesNotMatch(h, /"identifier"|"worksFor"/, `${f}: JSON-LD`);
     assert.match(h, /<meta name="robots" content="noindex,nofollow">/, f);
   }
@@ -45,23 +45,31 @@ test('B: with GOLIVE empty, no page shows an agency, BRN, card or permit line, a
 });
 
 test('B: a full GOLIVE public build shows each value where it belongs; GOLIVE without the deploy switch stays noindex', () => {
-  const env = (indexable) => ({ ...process.env, PUBLIC_INDEXABLE: indexable, GOLIVE_OVERRIDES: JSON.stringify({ ...JSON.parse(GOLIVE_TEST), brokerCardNo: 'TEST-CARD', agencyAddress: 'Office 1, Example Tower, Dubai' }) });
+  const env = (indexable) => ({ ...process.env, PUBLIC_INDEXABLE: indexable, GOLIVE_OVERRIDES: JSON.stringify({ ...JSON.parse(GOLIVE_TEST), agencyAddress: 'Office 1, Example Tower, Dubai' }) });
   const out = mkdtempSync(join(tmpdir(), 'ck-golive-'));
   const r = spawnSync('npx', ['astro', 'build', '--outDir', out], { cwd: root, env: env('true'), encoding: 'utf8' });
   assert.equal(r.status, 0, r.stdout + r.stderr);
   const page = (p) => readFileSync(join(out, p), 'utf8');
   const footer = page('index.html').match(/<footer[\s\S]*<\/footer>/)[0];
-  assert.match(footer, /<p class="disclosure">Working with Example Agency · BRN TEST-BRN · RERA card TEST-CARD · UAE Media Council advertiser permit TEST-PERMIT<\/p>/);
-  assert.match(page('about.html'), /Working with Example Agency · BRN TEST-BRN · RERA card TEST-CARD<\/p>/);
-  // Audit item 16: Person and the agency in an @graph, linked by @id; the BRN on the agency, card and permit on the person.
+  // Owner 2026-10-26: ORN = the agency, BRN = the broker (the RERA card number), so there is no separate card line.
+  assert.match(footer, /<p class="disclosure">Working with Example Agency · ORN TEST-ORN · BRN TEST-BRN · UAE Media Council advertiser permit TEST-PERMIT<\/p>/);
+  assert.match(page('about.html'), /<p class="fine"[^>]*>Working with Example Agency · ORN TEST-ORN · BRN TEST-BRN<\/p>/);
+  assert.match(page('faq.html'), /Working with Example Agency · ORN TEST-ORN · BRN TEST-BRN<\/p>/);
+  assert.match(page('index.html'), /<p>Working with Example Agency · ORN TEST-ORN · BRN TEST-BRN<\/p>/, 'print header');
+  for (const f of walk(out).filter((p) => p.endsWith('.html'))) {
+    const h = readFileSync(f, 'utf8');
+    assert.doesNotMatch(h, /RERA card/, `${f}: no RERA card line`);
+    assert.doesNotMatch(h, /BRN TEST-ORN|ORN TEST-BRN/, `${f}: ORN and BRN never swapped`);
+  }
+  // Audit item 16: Person and the agency in an @graph, linked by @id; the ORN on the agency, the BRN and permit on the person.
   const ld = JSON.parse(page('index.html').match(/<script type="application\/ld\+json">(.*?)<\/script>/s)[1]);
   const [person, agency] = ld['@graph'];
   assert.equal(person['@type'], 'Person');
   assert.deepEqual(person.worksFor, { '@id': 'https://www.sharjeelhashmat.com/#agency' });
-  assert.deepEqual(person.identifier.map((i) => [i.name, i.value]), [['RERA card', 'TEST-CARD'], ['UAE Media Council advertiser permit', 'TEST-PERMIT']]);
+  assert.deepEqual(person.identifier.map((i) => [i.name, i.value]), [['BRN', 'TEST-BRN'], ['UAE Media Council advertiser permit', 'TEST-PERMIT']]);
   assert.deepEqual(agency, {
     '@type': 'RealEstateAgent', '@id': 'https://www.sharjeelhashmat.com/#agency', name: 'Example Agency',
-    identifier: [{ '@type': 'PropertyValue', name: 'BRN', value: 'TEST-BRN' }],
+    identifier: [{ '@type': 'PropertyValue', name: 'ORN', value: 'TEST-ORN' }],
     address: { '@type': 'PostalAddress', streetAddress: 'Office 1, Example Tower, Dubai', addressCountry: 'AE' },
     areaServed: 'United Arab Emirates',
   });
@@ -76,11 +84,11 @@ test('B: a full GOLIVE public build shows each value where it belongs; GOLIVE wi
   assert.equal(readFileSync(join(staging, 'robots.txt'), 'utf8'), 'User-agent: *\nAllow: /\n');
 });
 
-test('A.9/B: launch cards need permit number, QR, agency and BRN; Abu Dhabi refused unless licensed; hidden until GOLIVE allows', () => {
-  const ok = { emirate: 'dubai', project: 'P', area: 'A', note: 'N', permit_number: '1', permit_qr: '/permits/qr-1.png', agency_name: 'X', agency_brn: '2' };
+test('A.9/B: launch cards need permit number, QR, agency and ORN; Abu Dhabi refused unless licensed; hidden until GOLIVE allows', () => {
+  const ok = { emirate: 'dubai', project: 'P', area: 'A', note: 'N', permit_number: '1', permit_qr: '/permits/qr-1.png', agency_name: 'X', agency_orn: '2' };
   assert.deepEqual(checkLaunchReviews([], { abuDhabiLicensed: false }), []);
   assert.deepEqual(checkLaunchReviews([ok], { abuDhabiLicensed: false }), []);
-  for (const k of ['permit_number', 'permit_qr', 'agency_name', 'agency_brn']) {
+  for (const k of ['permit_number', 'permit_qr', 'agency_name', 'agency_orn']) {
     assert.match(checkLaunchReviews([{ ...ok, [k]: '' }], { abuDhabiLicensed: false }).join(), new RegExp(`${k} is required`), k);
   }
   assert.match(checkLaunchReviews([{ ...ok, emirate: 'abu_dhabi' }], { abuDhabiLicensed: false }).join(), /refused while GOLIVE\.abuDhabiLicensed is false/);
@@ -94,7 +102,10 @@ test('A.9/B: launch cards need permit number, QR, agency and BRN; Abu Dhabi refu
   const page = src('src/pages/new-launches.astro');
   assert.match(page, /if \(reviewProblems\.length\) throw new Error/, 'a bad item fails the build');
   assert.match(page, /LAUNCH_CARDS_ALLOWED \? \(reviews as Review\[\]\)\.slice\(0, 5\) : \[\]/, 'at most five, only when GOLIVE allows');
-  assert.match(src('src/lib/golive.ts'), /LAUNCH_CARDS_ALLOWED = Boolean\(GOLIVE\.agencyName && GOLIVE\.agencyBrn && GOLIVE\.advertiserPermitNo\)/);
+  assert.match(checkLaunchReviews([{ ...ok, agency_orn: undefined, agency_brn: '2' }], { abuDhabiLicensed: false }).join(), /agency_orn is required/, 'the old agency_brn field is not accepted');
+  assert.match(page, /\{r\.agency_name\} · ORN \{r\.agency_orn\}/, 'each card reads "<agency> · ORN <n>"');
+  assert.doesNotMatch(page, /agency_brn|· BRN \{/);
+  assert.match(src('src/lib/golive.ts'), /LAUNCH_CARDS_ALLOWED = Boolean\(GOLIVE\.agencyName && GOLIVE\.agencyOrn && GOLIVE\.brokerBrn && GOLIVE\.advertiserPermitNo\)/);
   assert.doesNotMatch(main('new-launches.html'), /Launches I'm watching|Launches I&#39;m watching/);
 });
 

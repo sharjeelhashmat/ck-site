@@ -8,7 +8,7 @@ import type { ClaimGuard, Outbox, OutboxRow } from '../src/outbox';
 export const TEMPLATES = (JSON.parse(readFileSync(new URL('../templates/lead-replies.v1.json', import.meta.url), 'utf8')) as { templates: Template[] }).templates;
 
 export const goodEnv: Record<string, string> = {
-  OUTBOUND_REPLIES: 'on', OUTBOUND_NEWSLETTER: 'on', OUTBOUND_ALERTS: 'on', BRN: '12345', AFFILIATION: 'Example Brokerage',
+  OUTBOUND_REPLIES: 'on', OUTBOUND_NEWSLETTER: 'on', OUTBOUND_ALERTS: 'on', BRN: '12345', AGENCY_ORN: '67890', AFFILIATION: 'Example Brokerage',
   BOOKING_URL: 'https://cal.example.com/sh', SITE_URL: 'https://sharjeelhashmat.com', WORKER_URL: 'https://api.sharjeelhashmat.com',
   SLA_HOURS: '24', ALERT_EMAIL: 'hello@sharjeelhashmat.com', BREVO_API_KEY: 'k', UNSUB_SECRET: 's',
   FROM_LEADS_EMAIL: 'hello@mail.sharjeelhashmat.com', FROM_ALERTS_EMAIL: 'alerts@mail.sharjeelhashmat.com',

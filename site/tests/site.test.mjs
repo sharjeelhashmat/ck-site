@@ -139,14 +139,26 @@ test('analytics: the beacon ships only on a public build with a token, and the C
   for (const f of walk(staging).filter((p) => p.endsWith('.html'))) assert.doesNotMatch(readFileSync(f, 'utf8'), /cloudflareinsights/, f);
 });
 
-test('a production-indexable build refuses to run until golive.ts has indexing, the agency, its BRN and the permit', () => {
+test('a production-indexable build refuses to run until golive.ts has indexing, the agency, its ORN, the BRN and the permit', () => {
   const run = (overrides) => spawnSync('npx', ['astro', 'build', '--outDir', '/tmp/ck-site-brn-test'], { cwd: root, env: { ...process.env, PUBLIC_INDEXABLE: 'true', GOLIVE_OVERRIDES: overrides }, encoding: 'utf8' });
   const none = run('');
   assert.notEqual(none.status, 0);
-  assert.match(none.stdout + none.stderr, /requires golive\.ts: indexing, agencyName, agencyBrn, advertiserPermitNo/);
-  const noBrn = run(JSON.stringify({ ...JSON.parse(GOLIVE_TEST), agencyBrn: '' }));
+  assert.match(none.stdout + none.stderr, /requires golive\.ts: indexing, agencyName, agencyOrn, brokerBrn, advertiserPermitNo/);
+  const noOrn = run(JSON.stringify({ ...JSON.parse(GOLIVE_TEST), agencyOrn: '' }));
+  assert.notEqual(noOrn.status, 0);
+  assert.match(noOrn.stdout + noOrn.stderr, /requires golive\.ts: agencyOrn\./);
+  // Dubai advertising shows both numbers, so the broker's own BRN is required too (owner 2026-10-26).
+  const noBrn = run(JSON.stringify({ ...JSON.parse(GOLIVE_TEST), brokerBrn: '' }));
   assert.notEqual(noBrn.status, 0);
-  assert.match(noBrn.stdout + noBrn.stderr, /requires golive\.ts: agencyBrn\./);
+  assert.match(noBrn.stdout + noBrn.stderr, /requires golive\.ts: brokerBrn\./);
+});
+
+test('GOLIVE_OVERRIDES refuses the old key names agencyBrn and brokerCardNo, so a stale value fails loudly', () => {
+  for (const k of ['agencyBrn', 'brokerCardNo']) {
+    const r = spawnSync('npx', ['astro', 'build', '--outDir', '/tmp/ck-site-oldkey-test'], { cwd: root, env: { ...process.env, PUBLIC_INDEXABLE: 'false', GOLIVE_OVERRIDES: JSON.stringify({ [k]: 'X-1' }) }, encoding: 'utf8' });
+    assert.notEqual(r.status, 0, k);
+    assert.match(r.stdout + r.stderr, new RegExp(`GOLIVE_OVERRIDES: unknown key ${k}`), k);
+  }
 });
 
 

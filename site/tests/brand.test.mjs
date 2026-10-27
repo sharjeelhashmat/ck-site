@@ -36,7 +36,7 @@ test('JSON-LD: a Person with jobTitle "Property Consultant · UAE" on every page
     assert.equal(person.url, 'https://www.sharjeelhashmat.com/', f);
     assert.deepEqual(person.sameAs, ['https://www.instagram.com/sharjeelhashmat', 'https://www.linkedin.com/in/sharjeel-hashmat-16944322'], f);
     // Go-live values empty: no agency node anywhere.
-    assert.doesNotMatch(m[1], /RealEstateAgent|"BRN"/, f);
+    assert.doesNotMatch(m[1], /RealEstateAgent|"ORN"|"BRN"/, f);
   }
 });
 

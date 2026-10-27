@@ -1,4 +1,4 @@
-// /new-launches indexing (audit M2, PR 2b item 1): noindex unless LAUNCH_CARDS_ALLOWED (agency, BRN and advertiser
+// /new-launches indexing (audit M2, PR 2b item 1): noindex unless LAUNCH_CARDS_ALLOWED (agency, ORN, BRN and advertiser
 // permit in golive.ts); with them it follows the site-wide switch and enters the sitemap. Builds its own copies.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -24,7 +24,7 @@ function build(env) {
 }
 const page = (out) => readFileSync(join(out, 'new-launches.html'), 'utf8');
 
-test('public build with the agency, BRN and permit: /new-launches is index,follow, canonical, in the sitemap; readiness passes', () => {
+test('public build with the agency, ORN, BRN and permit: /new-launches is index,follow, canonical, in the sitemap; readiness passes', () => {
   const { out, status, log } = build({ PUBLIC_INDEXABLE: 'true', GOLIVE_OVERRIDES: GOLIVE_TEST });
   assert.equal(status, 0, log);
   const h = page(out);
@@ -35,8 +35,8 @@ test('public build with the agency, BRN and permit: /new-launches is index,follo
   assert.deepEqual(checkReadiness(out, { indexable: true }).filter((x) => x.level === 'FAIL'), []);
 });
 
-test('public build without the three values is refused, so /new-launches can never be public without them', () => {
-  for (const o of [{ indexing: true }, { indexing: true, agencyName: 'Example Agency', agencyBrn: 'TEST-BRN' }]) {
+test('public build without the go-live values is refused, so /new-launches can never be public without them', () => {
+  for (const o of [{ indexing: true }, { indexing: true, agencyName: 'Example Agency', agencyOrn: 'TEST-ORN', brokerBrn: 'TEST-BRN' }]) {
     const { out, status, log } = build({ PUBLIC_INDEXABLE: 'true', GOLIVE_OVERRIDES: JSON.stringify(o) });
     assert.notEqual(status, 0, JSON.stringify(o));
     assert.match(log, /PUBLIC_INDEXABLE=true requires golive\.ts: .*advertiserPermitNo/);
