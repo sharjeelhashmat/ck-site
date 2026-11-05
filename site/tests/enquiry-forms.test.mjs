@@ -187,11 +187,11 @@ test('preferred contact: three required pill radios, none checked, next to the m
   assert.deepEqual(validateLead('general', { ...ok, choice: '' }, () => '+971501234567').problems, [['preferred_contact', 'Please choose how I should contact you.']]);
 });
 
-test('preferred contact: button-like options (button radius, 44px, Ink border, Ink fill when selected, visible focus, radios kept)', () => {
+test('preferred contact: button-like options (button radius, 44px, Night border, Night fill when selected, visible focus, radios kept)', () => {
   const css = src('src/components/LeadForm.astro');
   assert.match(css, /\.pref \.pills \{ display: flex; flex-wrap: wrap;/, 'pills wrap on narrow screens');
-  assert.match(css, /\.pref \.pill span \{[^}]*min-height: 44px;[^}]*border: 1px solid var\(--ink\); border-radius: var\(--radius-md\); background: var\(--paper\); color: var\(--ink\);/);
-  assert.match(css, /\.pref \.pill input:checked \+ span \{ background: var\(--ink\); color: var\(--ivory\); \}/);
+  assert.match(css, /\.pref \.pill span \{[^}]*min-height: 44px;[^}]*border: 1px solid var\(--night\); border-radius: var\(--radius-md\); background: var\(--paper\); color: var\(--night\);/);
+  assert.match(css, /\.pref \.pill input:checked \+ span \{ background: var\(--night\); color: var\(--mist\); \}/);
   assert.match(css, /\.pref \.pill input:focus-visible \+ span \{ outline: 3px solid/);
   const rule = css.match(/\.pref \.pill input \{([^}]*)\}/)[1];
   assert.match(rule, /opacity: 0/);

@@ -1,6 +1,6 @@
 // Market figures on /areas, the area guides and /new-launches. Plain ESM + JSDoc so the Astro build, the browser and
 // node:test share one implementation. Every renderer returns '' when it has nothing to show: production never shows an
-// empty box, a zero, a spinner or a placeholder. Text colours come from Rules 1c tokens only (rises Ink, falls Brass Deep).
+// empty box, a zero, a spinner or a placeholder. Text colours come from Rules 1c tokens only (rises Night, falls Deep Navy).
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const SPANS = { H1: [1, 6], H2: [7, 12], Q1: [1, 3], Q2: [4, 6], Q3: [7, 9], Q4: [10, 12] };

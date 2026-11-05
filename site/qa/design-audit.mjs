@@ -3,6 +3,8 @@
 //   - Inter sizes are scale steps (12, 14, 16, 48 px); Cormorant is a scale step (22 italic, 28, 44, 64) or between two
 //     (the fluid h1 and h2), never below 22 px;
 //   - every corner radius is 0 or a --radius-* token (8, 12, 16, 24, 9999 px);
+//   - Sky (#5B9BD5, Rules 1c v6.0) is text only on Night: any visible text drawn in Sky must stand on a background it
+//     reaches 4.5:1 against (the nearest painted background: a colour, or the first colour of a gradient);
 //   - no horizontal scroll.
 // The static check is tests/design-rules.test.mjs; this one sees what the browser applies (inherited styles and the
 // browser's own defaults, such as bold <strong> or <th>).
@@ -75,10 +77,31 @@ function inPage(width) {
       if (!INTER.includes(Math.round(size * 100) / 100)) bad.push(`${label}: Inter at ${size}px, off the scale`);
     } else bad.push(`${label}: font ${fam}`);
   };
+  // Sky as text: only where its background is dark enough (Night). Ivory is 2.6:1, white 2.9:1.
+  const SKY = 'rgb(91, 155, 213)';
+  const rgbOf = (s) => (s.match(/rgba?\(([^)]+)\)/)?.[1] ?? '').split(',').map((x) => parseFloat(x));
+  const lum = ([r, g, b]) => [r, g, b].map((v) => v / 255).map((x) => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4)).reduce((t, x, i) => t + x * [0.2126, 0.7152, 0.0722][i], 0);
+  const backdrop = (el) => {
+    for (let e = el; e; e = e.parentElement) {
+      const c = getComputedStyle(e);
+      const bg = rgbOf(c.backgroundColor);
+      if (bg.length >= 3 && (bg[3] ?? 1) > 0.5) return bg;
+      if (c.backgroundImage && c.backgroundImage !== 'none') { const g = rgbOf(c.backgroundImage); if (g.length >= 3) return g; }
+    }
+    return [255, 255, 255];
+  };
+  const skyText = (el, label) => {
+    const bg = backdrop(el);
+    const [a, b] = [lum([91, 155, 213]), lum(bg)].sort((x, y) => y - x);
+    if ((a + 0.05) / (b + 0.05) < 4.5) bad.push(`${label}: Sky text on a light background (rgb ${bg.slice(0, 3).join(', ')})`);
+  };
   for (const el of document.querySelectorAll('body *')) {
     if (!visible(el)) continue;
     const cs = getComputedStyle(el);
-    if ([...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) text(cs, name(el));
+    if ([...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim())) {
+      text(cs, name(el));
+      if (cs.color === SKY) skyText(el, name(el));
+    }
     for (const ps of ['::before', '::after']) {
       const c = getComputedStyle(el, ps).content;
       if (c && c !== 'none' && c !== 'normal' && c !== '""') text(getComputedStyle(el, ps), name(el) + ps);

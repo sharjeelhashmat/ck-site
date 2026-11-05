@@ -26,16 +26,16 @@ const id = `nl-${variant}`;
 
 <style>
   .nl { max-width: 34rem; }
-  .nl--article { max-width: none; margin-top: var(--space-12); padding: var(--space-8); border-radius: var(--radius-lg); background: var(--paper); border: 1px solid var(--line); border-top: 2px solid var(--gold); }
+  .nl--article { max-width: none; margin-top: var(--space-12); padding: var(--space-8); border-radius: var(--radius-lg); background: var(--paper); border: 1px solid var(--line); border-top: 2px solid var(--sky); }
   .nl--footer { padding-bottom: var(--space-6); margin-bottom: var(--space-6); border-bottom: 1px solid var(--line); }
   .nl .kicker { margin: 0; }
-  .nl-lede { margin-top: var(--space-2); font-size: var(--fs-body); line-height: var(--lh-body); letter-spacing: var(--ls-body); color: var(--muted); }
+  .nl-lede { margin-top: var(--space-2); font-size: var(--fs-body); line-height: var(--lh-body); letter-spacing: var(--ls-body); color: var(--night); }
   .nl-form { margin-top: var(--space-4); }
   .nl-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .nl-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
   .nl-row input {
-    flex: 1 1 14rem; min-width: 0; font-family: var(--sans); font-weight: 400; font-size: var(--fs-body); line-height: var(--lh-body); letter-spacing: var(--ls-body); color: var(--ink); background: var(--paper);
-    border: 1px solid var(--sky); border-radius: var(--radius-sm); padding: var(--space-3) var(--space-3);
+    flex: 1 1 14rem; min-width: 0; font-family: var(--sans); font-weight: 400; font-size: var(--fs-body); line-height: var(--lh-body); letter-spacing: var(--ls-body); color: var(--night); background: var(--paper);
+    border: 1px solid var(--slate); border-radius: var(--radius-sm); padding: var(--space-3) var(--space-3);
   }
   .nl-row input:focus { border-color: var(--navy); outline: 3px solid color-mix(in srgb, var(--navy) 25%, transparent); outline-offset: 0; }
   .nl-row .btn { flex: none; }
@@ -43,11 +43,11 @@ const id = `nl-${variant}`;
   .nl-form .status:empty { display: none; }
   .nl-form .fine { margin-top: var(--space-2); }
   .nl-done { margin-top: var(--space-4); font-size: var(--fs-body); line-height: var(--lh-body); letter-spacing: var(--ls-body); }
-  /* Footer variant sits on Ink (Brand v3.1): Slate Light text, white input with a Brass border, Brass focus ring. */
-  .nl--footer { border-bottom-color: color-mix(in srgb, var(--slate-light) 35%, transparent); }
-  .nl--footer .nl-lede { color: var(--slate-light); }
-  .nl--footer .nl-row input { border-color: var(--gold); }
-  .nl--footer .nl-row input:focus { border-color: var(--gold); outline: 2px solid var(--gold); outline-offset: 2px; }
+  /* Footer variant sits on Night: Sky text, white input with a Sky border, Sky focus ring. */
+  .nl--footer { border-bottom-color: color-mix(in srgb, var(--sky) 35%, transparent); }
+  .nl--footer .nl-lede { color: var(--sky); }
+  .nl--footer .nl-row input { border-color: var(--sky); }
+  .nl--footer .nl-row input:focus { border-color: var(--sky); outline: 2px solid var(--sky); outline-offset: 2px; }
 </style>
 
 <script>
