@@ -131,6 +131,24 @@ test('llms.txt lists every published article, no drafts, and every link resolves
 });
 
 test('analytics: a default build has no beacon and the CSP does not allow Cloudflare Insights', () => {
+  if (BUILD.analyticsToken) {
+    // The deploy-site public build with PUBLIC_CF_ANALYTICS_TOKEN set: exactly one beacon on every page, and the CSP allows
+    // exactly its two origins after the data-worker origins (script-src and connect-src), nowhere else.
+    const beacon = `<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon="{&#34;token&#34;:&#34;${BUILD.analyticsToken}&#34;}"></script>`;
+    for (const f of htmlFiles) {
+      const h = readFileSync(f, 'utf8');
+      assert.equal(h.split(beacon).length - 1, 1, `${f}: exactly one beacon`);
+      assert.equal((h.match(/cloudflareinsights/g) ?? []).length, 1, `${f}: no other Cloudflare Insights reference`);
+    }
+    const csp = read('_headers').match(/Content-Security-Policy: (.*)/)[1];
+    const origins = new Set();
+    for (const f of htmlFiles) for (const m of readFileSync(f, 'utf8').matchAll(/\bdata-worker="([^"]*)"/g)) origins.add(new URL(m[1]).origin);
+    const turnstile = BUILD.leadCapture ? ' https://challenges.cloudflare.com' : '';
+    assert.equal(csp.match(/connect-src ([^;]+);/)[1], `'self' ${[...origins].sort().join(' ')}${turnstile} https://cloudflareinsights.com`);
+    assert.match(csp.match(/script-src ([^;]+);/)[1], new RegExp(`^'self'( 'sha256-[A-Za-z0-9+/=]+')+${turnstile.replace(/[./]/g, '\\$&')} https://static\\.cloudflareinsights\\.com$`));
+    assert.equal((csp.match(/cloudflareinsights/g) ?? []).length, 2, 'the two beacon origins and nothing else');
+    return;
+  }
   for (const f of htmlFiles) assert.doesNotMatch(readFileSync(f, 'utf8'), /cloudflareinsights/, f);
   assert.doesNotMatch(read('_headers'), /cloudflareinsights/);
 });
