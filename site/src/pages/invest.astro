@@ -2,6 +2,7 @@
 import Base from '../layouts/Base.astro';
 import { asSentence, FIVE_CHECKS } from '../lib/checks';
 import ROICalc from '../components/ROICalc.astro';
+import { LEAD_CAPTURE } from '../lib/golive';
 ---
 <Base title="Invest in UAE Real Estate" description="Evaluate UAE property investments through five checks: price, returns, risk, exit, and my view. Not brochure promises.">
   <section class="section">
@@ -21,7 +22,7 @@ import ROICalc from '../components/ROICalc.astro';
         <p style="max-width:36rem">Transaction activity, pricing trends, rental market movement and new launch supply: tracked and interpreted, not just reported. Full market updates land with the Insights section.</p>
       </div>
 
-      <div class="actions"><a class="btn" href="/contact?intent=invest">Get my investment shortlist</a></div>
+      {LEAD_CAPTURE && <div class="actions"><a class="btn" href="/contact?intent=invest">Get my investment shortlist</a></div>}
     </div>
   </section>
 </Base>

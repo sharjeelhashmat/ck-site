@@ -9,7 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GOLIVE_TEST } from './helpers/golive.mjs';
-import { BUILD, PERSON_IDS } from './helpers/build-mode.mjs';
+import { BUILD, PERSON_IDS, leadCaptureDist } from './helpers/build-mode.mjs';
 import {
   checkAdrecAreas, checkLaunchReviews, dubaiRows, formatChange, fmtDate, fmtMonth, isHalfYear, periodLabel, priorPeriodId, rankByChange,
   renderChange, renderGuideCard, renderLaunchPanel, renderTop, renderYtd,
@@ -23,16 +23,24 @@ const src = (p) => readFileSync(join(root, p), 'utf8');
 const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]));
 const htmlFiles = walk(dist).filter((f) => f.endsWith('.html'));
 const main = (p) => read(p).match(/<main id="main">([\s\S]*?)<\/main>/)[1];
+// The newsletter, the FAQ form answers and the "Ask me" lines exist only with lead capture (golive.ts LEAD_CAPTURE): their
+// checks read a lead-capture build (site/dist when it has it); soft launch (site/dist otherwise) is checked for their absence.
+const LEAD = leadCaptureDist().dir;
+const readL = (p) => readFileSync(join(LEAD, p), 'utf8');
+const mainL = (p) => readL(p).match(/<main id="main">([\s\S]*?)<\/main>/)[1];
+const leadHtmlFiles = walk(LEAD).filter((f) => f.endsWith('.html'));
 const text = (h) => h.replace(/<script[\s\S]*?<\/script>/g, '').replace(/<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ')
   .replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').replace(/ ([,.;:)])/g, '$1');
 const GUIDES = JSON.parse(src('src/data/area-guides.json')).guides;
 const ADREC = JSON.parse(src('src/data/adrec-areas.json'));
 
 // ---------- B. Go-live settings ----------
-test('B: golive.ts ships with every value empty or false', () => {
+test('B: golive.ts ships with every agency value empty, Abu Dhabi off, and soft launch on with indexing (Rules v5.9 section 8d)', () => {
   const g = src('src/lib/golive.ts').match(/const COMMITTED: GoLive = \{([\s\S]*?)\};/)[1];
   for (const k of ['agencyName', 'agencyOrn', 'agencyAddress', 'brokerBrn', 'advertiserPermitNo']) assert.match(g, new RegExp(`\\b${k}: '',`), k);
-  for (const k of ['abuDhabiLicensed', 'indexing']) assert.match(g, new RegExp(`\\b${k}: false,`), k);
+  for (const k of ['abuDhabiLicensed']) assert.match(g, new RegExp(`\\b${k}: false,`), k);
+  // Soft launch (owner 2026-11-05): public and indexable with no agency, ORN, BRN or permit, and no lead capture.
+  for (const k of ['indexing', 'softLaunch']) assert.match(g, new RegExp(`\\b${k}: true,`), k);
 });
 
 test('B: the build under test shows its go-live values and nothing else: none with GOLIVE empty (and every page noindex)', () => {
@@ -123,8 +131,10 @@ test('A.9/B: launch cards need permit number, QR, agency and ORN; Abu Dhabi refu
 
 // ---------- C. Newsletter security check ----------
 test('C: only newsletter forms are bound (data-newsletter); no other element shares the nl-form class, with or without a lead form', () => {
+  // Soft launch: no newsletter sign-up on any page.
+  if (!BUILD.leadCapture) for (const f of htmlFiles) assert.doesNotMatch(readFileSync(f, 'utf8'), /nl-form|data-newsletter/, `${f}: soft launch, no newsletter`);
   let withLead = 0;
-  for (const f of htmlFiles) {
+  for (const f of leadHtmlFiles) {
     const h = readFileSync(f, 'utf8');
     if (h.includes('id="lead-form"')) withLead++;
     const nl = [...h.matchAll(/class="nl-form"/g)].length;
@@ -144,7 +154,7 @@ test('C: only newsletter forms are bound (data-newsletter); no other element sha
 
 // ---------- D. FAQ link ----------
 test('D: "website\'s forms" links to /contact in the visible FAQ; the JSON-LD keeps the identical plain words', () => {
-  const h = read('faq.html');
+  const h = readL('faq.html');
   assert.match(h, /Enquiries sent through the <a href="\/contact">website&#39;s forms<\/a> are answered within 24 hours/);
   const ld = JSON.parse(h.match(/<script type="application\/ld\+json">(\{"@context":"https:\/\/schema.org","@type":"FAQPage"[\s\S]*?)<\/script>/)[1]);
   const q = ld.mainEntity.find((x) => x.name === 'How quickly do you respond to enquiries?');
@@ -264,13 +274,16 @@ test('E: /areas title, meta, eyebrow, H1, lede, closing line and switch markup a
   assert.match(m, /<p class="eyebrow"[^>]*>Areas<\/p>/);
   assert.match(m, /Where to buy <em[^>]*>matters as much as what\.<\/em>/);
   assert.match(text(m), /Where the money is going, and how each area is moving against last year\. Dubai and Abu Dhabi measured the same way, from official records\. What it means for a specific unit comes from me\./);
-  assert.match(m, /Want to know what these numbers mean for a specific unit\? <a href="\/contact"[^>]*>Ask me\.<\/a>/);
+  if (BUILD.leadCapture) assert.match(m, /Want to know what these numbers mean for a specific unit\? <a href="\/contact"[^>]*>Ask me\.<\/a>/);
+  else assert.doesNotMatch(m, /mk-ask|Want to know what these numbers mean|href="\/contact"/, 'soft launch: no closing "Ask me" line');
+  assert.match(mainL('areas.html'), /Want to know what these numbers mean for a specific unit\? <a href="\/contact"[^>]*>Ask me\.<\/a>/);
+  assert.match(mainL('areas.html'), /id="mk-ask"[^>]*hidden|hidden[^>]*id="mk-ask"/, 'lead capture: mk-ask starts hidden');
   assert.match(m, /<span class="mk-switch-label" id="mk-switch-label"[^>]*>Show figures for<\/span>/);
   assert.match(m, /role="radiogroup" aria-labelledby="mk-switch-label"/);
   assert.equal([...m.matchAll(/role="radio"/g)].length, 2);
   // The switch and the closing line start hidden; the browser shows what has data. The build-time Abu Dhabi figures are
   // visible in the markup (audit H11, tests/audit-fixes.test.mjs).
-  for (const id of ['mk-switch', 'mk-ask']) assert.match(m, new RegExp(`id="${id}"[^>]*hidden|hidden[^>]*id="${id}"`), id);
+  for (const id of BUILD.leadCapture ? ['mk-switch', 'mk-ask'] : ['mk-switch']) assert.match(m, new RegExp(`id="${id}"[^>]*hidden|hidden[^>]*id="${id}"`), id);
   // Area guides: 8 per emirate, in Part F order, each the guide H1 + one-liner.
   for (const e of ['dubai', 'abu_dhabi']) {
     const sec = m.match(new RegExp(`<section class="mk-guides" data-emirate="${e}"[\\s\\S]*?</section>`))[0];
@@ -299,8 +312,9 @@ test('E: adrec-areas.json holds exactly the figures confirmed in ADREC\'s own H1
   assert.deepEqual(checkAdrecAreas(ADREC, GUIDES.filter((g) => g.emirate === 'abu_dhabi').map((g) => g.slug)), []);
   assert.match(checkAdrecAreas({ ...ADREC, areas: [{ ...ADREC.areas[0], share_pct: 25 }, ADREC.areas[1]] }, ['hudayriyat-island', 'saadiyat-island']).join(), /share_pct 25 does not match/);
   // Rendered at build time on /areas (Abu Dhabi panel): 8 cards, the change table, the n/p note and the report line.
+  // Lead capture ends the panel at the "Ask me" line; soft launch has none, so the panel runs to the guide lists.
   const m = main('areas.html');
-  const panel = m.match(/<div class="mk-panel" data-emirate="abu_dhabi"[\s\S]*?<p class="mk-ask"/)[0];
+  const panel = m.match(/<div class="mk-panel" data-emirate="abu_dhabi"[\s\S]*?(<p class="mk-ask"|<section class="mk-guides")/)[0];
   assert.equal([...panel.matchAll(/<article class="mk-card">/g)].length, 8);
   const t = text(panel);
   assert.match(t, /#1 Hudayriyat Island AED 19\.0bn 27\.0% of total ≈8×/);
@@ -344,8 +358,12 @@ test('F: 16 guides in the approved order; every copy field has no digit except t
 
 test('F: every guide page renders the exact approved copy in the template order, title and meta from the copy', () => {
   for (const g of GUIDES) {
-    const h = read(`areas/${g.slug}.html`);
-    const m = main(`areas/${g.slug}.html`);
+    for (const lead of [...new Set([true, BUILD.leadCapture])]) checkGuide(g, lead);
+  }
+  function checkGuide(g, lead) {
+    // Lead capture: the guide ends with "Ask me about <guide>." (a lead-capture build); soft launch: that line is not rendered.
+    const h = lead ? readL(`areas/${g.slug}.html`) : read(`areas/${g.slug}.html`);
+    const m = lead ? mainL(`areas/${g.slug}.html`) : main(`areas/${g.slug}.html`);
     const t = text(m);
     assert.match(h, new RegExp(`<title>${g.h1.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} · Sharjeel Hashmat</title>`), g.slug);
     // The meta description is the one-liner, or its shorter meta_description when the one-liner is over 160 characters.
@@ -355,7 +373,7 @@ test('F: every guide page renders the exact approved copy in the template order,
     const expected = [
       `Area guide · ${emirate}`, g.h1, g.one_liner,
       'What it is', g.what_it_is, 'Who buys here', g.who_buys, 'Things to consider', ...g.things_to_consider,
-      'My view, October 2026', g.my_view, `Ask me about ${g.h1}.`,
+      'My view, October 2026', g.my_view, ...(lead ? [`Ask me about ${g.h1}.`] : []),
     ];
     let at = 0;
     for (const piece of expected) {
@@ -363,7 +381,8 @@ test('F: every guide page renders the exact approved copy in the template order,
       assert.ok(i >= 0, `${g.slug}: missing or out of order: ${piece.slice(0, 60)}`);
       at = i + piece.length;
     }
-    assert.match(m, new RegExp(`<p class="lede guide-close"[^>]*><a href="/contact"[^>]*>Ask me</a> about ${g.h1.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\.</p>`), g.slug);
+    if (lead) assert.match(m, new RegExp(`<p class="lede guide-close"[^>]*><a href="/contact"[^>]*>Ask me</a> about ${g.h1.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\.</p>`), g.slug);
+    else assert.doesNotMatch(m, /guide-close|Ask me about|href="\/contact"/, `${g.slug}: soft launch, no "Ask me" line`);
     assert.match(m, new RegExp(`<p class="lede"[^>]*>`), g.slug);
     assert.equal([...m.matchAll(/<h2[ >]/g)].length, 4, `${g.slug}: four H2s`);
     assert.equal([...m.matchAll(/<li[ >]/g)].length, g.things_to_consider.length, `${g.slug}: bullets`);
@@ -400,13 +419,23 @@ test('F: the old placeholder sections and the old "Ask Sharjeel about" line are 
 
 // ---------- A. /new-launches panel ----------
 test('A.8: Launch activity panel: under the hero, hidden by default, both cards / one full-width card / hidden; exact wording', () => {
-  const m = main('new-launches.html');
-  assert.ok(m.indexOf('id="launch-activity"') > m.indexOf('Ask me about a launch →') && m.indexOf('id="launch-activity"') < m.indexOf('Why a launch needs a different check'));
-  assert.match(m, /<section class="launch-activity"[^>]*id="launch-activity" hidden/);
+  // Lead capture (a lead-capture build): the panel sits between the hero button and the first content H2, and ends with
+  // "Ask me" linking to the question form.
+  const ml = mainL('new-launches.html');
+  assert.ok(ml.indexOf('id="launch-activity"') > ml.indexOf('Ask me about a launch →') && ml.indexOf('id="launch-activity"') < ml.indexOf('Why a launch needs a different check'));
+  assert.match(ml, /<section class="launch-activity"[^>]*id="launch-activity" hidden/);
   // Owner decision 2026-10-17: the figures update weekly, and the page says so (the as-of dates stay in the source lines).
-  assert.match(text(m), /Updated weekly\. Want to know what they mean for a specific launch\? Ask me\./);
-  for (const f of htmlFiles) assert.doesNotMatch(readFileSync(f, 'utf8'), /update automatically|updated daily/i, f);
-  assert.match(m, /<a href="#ask"[^>]*>Ask me<\/a>\./);
+  assert.match(text(ml), /Updated weekly\. Want to know what they mean for a specific launch\? Ask me\./);
+  assert.match(ml, /<a href="#ask"[^>]*>Ask me<\/a>\./);
+  // This build: soft launch keeps the panel under the hero (there is no hero button) and only "Updated weekly."
+  const m = main('new-launches.html');
+  assert.ok(m.indexOf('id="launch-activity"') > m.indexOf('New launches, checked.') && m.indexOf('id="launch-activity"') < m.indexOf('Why a launch needs a different check'));
+  assert.match(m, /<section class="launch-activity"[^>]*id="launch-activity" hidden/);
+  if (!BUILD.leadCapture) {
+    assert.match(text(m), /Updated weekly\./);
+    assert.doesNotMatch(m, /href="#ask"|Want to know what they mean/, 'soft launch: no "Ask me"');
+  }
+  for (const f of [...htmlFiles, ...leadHtmlFiles]) assert.doesNotMatch(readFileSync(f, 'utf8'), /update automatically|updated daily/i, f);
   const dubai = { new_projects_90d: 12, top_areas_90d: [{ area_en: 'Palm Deira', label: 'Dubai Islands', count: 4 }, { area_en: 'Business Bay', label: null, count: 3 }], active_projects: 1, pipeline_units: 52000, as_of: '2026-10-16', source_url: 'https://data.dubai/en/l/467654' };
   const ad = { transaction_value_bn: 117.04, sales_value_bn: 86.1, mortgage_value_bn: 25.5, year: 2026, as_of: '2026-10-16', source_url: 'https://adrec.gov.ae/en' };
   const both = renderLaunchPanel({ dubai, abu_dhabi: ad }, '2026-10-17');

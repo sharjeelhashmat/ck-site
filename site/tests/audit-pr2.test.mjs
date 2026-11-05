@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GOLIVE_TEST } from './helpers/golive.mjs';
-import { BUILD, PERSON_IDS, SITEMAP_LINE } from './helpers/build-mode.mjs';
+import { BUILD, PERSON_IDS, SITEMAP_LINE, leadCaptureDist } from './helpers/build-mode.mjs';
 import { checkArticle } from '../src/lib/intel.mjs';
 import { pageTitle } from '../src/lib/seo.mjs';
 import { jsonLd } from '../src/lib/jsonld.mjs';
@@ -16,6 +16,11 @@ import { jsonLd } from '../src/lib/jsonld.mjs';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const dist = join(root, 'dist');
 const read = (p) => readFileSync(join(dist, p), 'utf8');
+// Lead capture (golive.ts LEAD_CAPTURE) builds the forms, Turnstile and the Privacy, Terms and Investor Profile pages; soft
+// launch builds none of them. The lead-capture expectations run on a lead-capture build (site/dist when it has it).
+const LEAD = leadCaptureDist().dir;
+const readLead = (p) => readFileSync(join(LEAD, p), 'utf8');
+const GATED = ['privacy.html', 'terms.html', 'investor-profile.html'];
 const src = (p) => readFileSync(join(root, p), 'utf8');
 const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]));
 const htmlIn = (d) => walk(d).filter((f) => f.endsWith('.html'));
@@ -72,13 +77,19 @@ test('18: connect-src is exactly the data-worker origins found in the built page
   const origins = new Set();
   for (const f of htmlIn(dist)) for (const m of readFileSync(f, 'utf8').matchAll(/\bdata-worker="([^"]*)"/g)) origins.add(new URL(m[1]).origin);
   assert.deepEqual([...origins], ['https://ck-lead-worker.sharjeelhashmat.workers.dev']);
+  // Turnstile (challenges.cloudflare.com) only with lead capture: soft launch has no Turnstile widget on any page.
+  const ts = (lead) => (lead ? ' https:\\/\\/challenges\\.cloudflare\\.com' : '');
   const csp = read('_headers').match(/Content-Security-Policy: (.*)/)[1];
-  assert.match(csp, /connect-src 'self' https:\/\/ck-lead-worker\.sharjeelhashmat\.workers\.dev https:\/\/challenges\.cloudflare\.com;/);
+  assert.match(csp, new RegExp(`connect-src 'self' https:\\/\\/ck-lead-worker\\.sharjeelhashmat\\.workers\\.dev${ts(BUILD.leadCapture)};`));
+  if (!BUILD.leadCapture) assert.doesNotMatch(csp, /challenges\.cloudflare\.com/, 'soft launch: no Turnstile origin anywhere in the CSP');
+  const leadCsp = readLead('_headers').match(/Content-Security-Policy: (.*)/)[1];
+  assert.match(leadCsp, /connect-src 'self' https:\/\/ck-lead-worker\.sharjeelhashmat\.workers\.dev https:\/\/challenges\.cloudflare\.com;/);
+  assert.match(leadCsp, /frame-src https:\/\/challenges\.cloudflare\.com;/);
   assert.doesNotMatch(src('scripts/postbuild.mjs'), /ck-lead-worker/, 'no second hard-coded Worker URL');
   // Another Worker URL at build time moves the CSP with it.
   const out = build({ PUBLIC_WORKER_URL: 'https://other-worker.example.workers.dev' });
   const other = readFileSync(join(out, '_headers'), 'utf8').match(/Content-Security-Policy: (.*)/)[1];
-  assert.match(other, /connect-src 'self' https:\/\/other-worker\.example\.workers\.dev https:\/\/challenges\.cloudflare\.com;/);
+  assert.match(other, new RegExp(`connect-src 'self' https:\\/\\/other-worker\\.example\\.workers\\.dev${ts(BUILD.leadCapture)};`));
   assert.doesNotMatch(other, /ck-lead-worker/);
 });
 
@@ -133,8 +144,11 @@ test('21: every page title is at most 60 characters and every description 70 to 
   assert.equal(pageTitle(long, 'Sharjeel Hashmat', 'Property Consultant'), long);
 });
 
-test('21: the pages the deploy smoke test reads keep "Sharjeel Hashmat" in their titles', () => {
-  for (const p of ['index.html', 'investment-approach.html', 'contact.html', 'privacy.html', 'terms.html', 'investor-profile.html', 'insights.html']) {
+test('21: the pages the deploy smoke test reads keep "Sharjeel Hashmat" in their titles; in soft launch the gated ones are not built', () => {
+  const SMOKE = ['index.html', 'investment-approach.html', 'contact.html', 'privacy.html', 'terms.html', 'investor-profile.html', 'insights.html'];
+  for (const p of SMOKE) assert.match(readLead(p).match(/<title>([^<]*)<\/title>/)[1], /Sharjeel Hashmat/, `lead capture: ${p}`);
+  for (const p of SMOKE) {
+    if (!BUILD.leadCapture && GATED.includes(p)) { assert.equal(existsSync(join(dist, p)), false, `soft launch: ${p} is not built (404)`); continue; }
     assert.match(read(p).match(/<title>([^<]*)<\/title>/)[1], /Sharjeel Hashmat/, p);
   }
 });
@@ -174,7 +188,8 @@ test('35: checkArticle accepts archived with no other validation; archived is ne
 
 // ---------- 36. No link leaks out of the alert templates ----------
 test('36: no unclosed <a> on any page, and no link wraps #lead-next', () => {
-  for (const f of htmlIn(dist)) {
+  // The lead-capture build too: the alert templates this rule is about exist only there.
+  for (const f of [...new Set([...htmlIn(dist), ...htmlIn(LEAD)])]) {
     const h = readFileSync(f, 'utf8').replace(/<script[\s\S]*?<\/script>/g, '');
     let depth = 0;
     for (const m of h.matchAll(/<(\/?)a\b[^>]*>/g)) {
@@ -193,12 +208,19 @@ test('36: no unclosed <a> on any page, and no link wraps #lead-next', () => {
 // ---------- 38. FAQ ----------
 test('38: FAQ "How do I start working with you?" has the owner-approved answer, visibly and in FAQPage JSON-LD', () => {
   const answer = 'Fill out the contact form or message me on WhatsApp. Investors can then add a short Investor Profile for a more tailored match.';
-  const h = read('faq.html');
-  const faq = [...h.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/gs)].map((m) => JSON.parse(m[1])).find((x) => x['@type'] === 'FAQPage');
-  const q = faq.mainEntity.find((e) => e.name === 'How do I start working with you?');
-  assert.equal(q.acceptedAnswer.text, answer);
-  assert.ok(decode(h.replace(/<[^>]+>/g, '')).includes(answer));
-  for (const f of htmlIn(dist)) assert.doesNotMatch(readFileSync(f, 'utf8'), /book a call/i, f);
+  const faqOf = (h) => [...h.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/gs)].map((m) => JSON.parse(m[1])).find((x) => x['@type'] === 'FAQPage');
+  for (const [h, lead] of [[readLead('faq.html'), true], [read('faq.html'), BUILD.leadCapture]]) {
+    const q = faqOf(h).mainEntity.find((e) => e.name === 'How do I start working with you?');
+    if (!lead) {
+      // Soft launch: the answer describes the enquiry form, so the question is hidden, visibly and in the JSON-LD.
+      assert.equal(q, undefined);
+      assert.ok(!decode(h.replace(/<[^>]+>/g, '')).includes(answer));
+      continue;
+    }
+    assert.equal(q.acceptedAnswer.text, answer);
+    assert.ok(decode(h.replace(/<[^>]+>/g, '')).includes(answer));
+  }
+  for (const f of [...htmlIn(dist), ...htmlIn(LEAD)]) assert.doesNotMatch(readFileSync(f, 'utf8'), /book a call/i, f);
 });
 
 // ---------- 20, 23, 24, 25. Assets, newsletter timeout, ROI calculator, tap targets ----------

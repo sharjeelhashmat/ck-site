@@ -7,7 +7,7 @@ import FloatingActions from '../components/FloatingActions.astro';
 import PrintFrame from '../components/PrintFrame.astro';
 import Footer from '../components/Footer.astro';
 import { AFFILIATION_LINE, ANALYTICS_TOKEN, SITE } from '../lib/site';
-import { GOLIVE } from '../lib/golive';
+import { GOLIVE, LEAD_CAPTURE } from '../lib/golive';
 import { canonicalUrl, pageTitle } from '../lib/seo.mjs';
 import { jsonLd } from '../lib/jsonld.mjs';
 
@@ -70,7 +70,8 @@ const OG_IMAGE_ALT = `${SITE.name}, ${SITE.title} · UAE`;
     <meta name="twitter:image" content={`${SITE.origin}/og.png`} />
     <meta name="twitter:image:alt" content={OG_IMAGE_ALT} />
     <script type="application/ld+json" set:html={JSON.stringify(ld)} />
-    <script is:inline>
+    {/* Soft launch (LEAD_CAPTURE false): no form, so no attribution script either. */}
+    {LEAD_CAPTURE && <script is:inline>
       // First-touch attribution for the lead form. Wrapped: storage can be unavailable.
       try {
         if (!sessionStorage.getItem('ck_attr')) {
@@ -80,7 +81,7 @@ const OG_IMAGE_ALT = `${SITE.name}, ${SITE.title} · UAE`;
           sessionStorage.setItem('ck_attr', JSON.stringify(a));
         }
       } catch (e) {}
-    </script>
+    </script>}
   </head>
   <body>
     <a class="skip" href="#main">Skip to content</a>

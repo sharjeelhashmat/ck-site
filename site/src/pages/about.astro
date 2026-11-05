@@ -1,9 +1,11 @@
 ---
 // About (owner-approved copy and layout, 2026-10-10). No cards on this page: every section is plain text under an H2 at
 // the page H2 size. The five checks are copied word for word from /investment-approach; tests/about.test.mjs compares them.
+// Soft launch (LEAD_CAPTURE false): the closing line ("Let's talk") and its button are not rendered.
 import Base from '../layouts/Base.astro';
 import { FIVE_CHECKS } from '../lib/checks';
 import { SITE, AFFILIATION_LINE } from '../lib/site';
+import { LEAD_CAPTURE } from '../lib/golive';
 ---
 <Base title="About" description="Sharjeel Hashmat, Property Consultant in the UAE since 2018. Numbers first, straight answers, and the five checks behind every recommendation.">
   <section class="section">
@@ -33,8 +35,8 @@ import { SITE, AFFILIATION_LINE } from '../lib/site';
       <p>You deal with me directly, from the first conversation to handover. Straight answers, including the ones you'd rather not hear. No inflated promises. No wasted time.</p>
 
       {AFFILIATION_LINE && <p class="fine" style="margin-top:var(--space-12)">{AFFILIATION_LINE}</p>}
-      <p class="lede about-close">Serious about UAE property? Let's talk. Still deciding? I'll tell you exactly where you stand.</p>
-      <div class="actions"><a class="btn" href="/contact">Get in touch</a></div>
+      {LEAD_CAPTURE && <p class="lede about-close">Serious about UAE property? Let's talk. Still deciding? I'll tell you exactly where you stand.</p>}
+      {LEAD_CAPTURE && <div class="actions"><a class="btn" href="/contact">Get in touch</a></div>}
     </div>
   </section>
 </Base>

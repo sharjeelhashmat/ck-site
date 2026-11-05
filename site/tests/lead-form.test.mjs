@@ -9,14 +9,23 @@ import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
 import { toE164, dialCodes } from '../src/lib/phone.mjs';
 import { attributionFields } from '../src/lib/attribution.mjs';
+import { BUILD, leadCaptureDist } from './helpers/build-mode.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const dist = join(root, 'dist');
+const siteDist = join(root, 'dist');
+// The enquiry form and its attribution script exist only with lead capture (golive.ts LEAD_CAPTURE): these checks read a
+// lead-capture build (site/dist when it has it). _headers is checked on site/dist itself.
+const dist = leadCaptureDist().dir;
 const read = (p) => readFileSync(join(dist, p), 'utf8');
+const readSite = (p) => readFileSync(join(siteDist, p), 'utf8');
 const formPages = readdirSync(dist).filter((f) => f.endsWith('.html') && read(f).includes('id="lead-form"'));
 
-test('the enquiry form exists on /contact, /sell and /new-launches', () => {
+test('the enquiry form exists on /contact, /sell and /new-launches (soft launch: on no page)', () => {
   assert.deepEqual(formPages.sort(), ['contact.html', 'new-launches.html', 'sell.html']);
+  if (!BUILD.leadCapture) {
+    const siteForms = readdirSync(siteDist).filter((f) => f.endsWith('.html') && /id="lead-form"|<form\b/.test(readSite(f)));
+    assert.deepEqual(siteForms, [], 'soft launch: no form on any top-level page');
+  }
 });
 
 test('form: mobile number is required, with an all-countries code select defaulting to United Arab Emirates +971', () => {
@@ -81,20 +90,22 @@ test('Turnstile: the widget container is present on every form page with the sit
 
 test('_headers: llms.txt and robots.txt are served as UTF-8 plain text, merged ahead of the generated CSP once', () => {
   assert.ok(existsSync(join(root, 'public/_headers')), 'site/public/_headers');
-  const h = read('_headers');
+  const h = readSite('_headers');
   for (const p of ['/llms.txt', '/robots.txt']) {
     assert.match(h, new RegExp(`^${p.replace('.', '\\.')}\\n  Content-Type: text/plain; charset=utf-8$`, 'm'), p);
     assert.equal(h.split(`${p}\n  Content-Type:`).length - 1, 1, `${p} listed once`);
   }
   assert.match(h, /^\/\*\n  Content-Security-Policy: /m, 'generated CSP block still present');
   assert.equal(spawnSync('node', ['scripts/postbuild.mjs'], { cwd: root, encoding: 'utf8' }).status, 0);
-  assert.equal(read('_headers'), h, 're-running postbuild does not duplicate the static rules');
+  assert.equal(readSite('_headers'), h, 're-running postbuild does not duplicate the static rules');
 });
 
 test('attribution: first-touch UTMs from the landing URL survive navigation to /contact and reach the payload', () => {
   const html = read('index.html');
   const capture = [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)].map((m) => m[1]).find((s) => s.includes('ck_attr'));
   assert.ok(capture, 'first-touch capture script is on every page');
+  // Soft launch: no form, so no capture script on any page.
+  if (!BUILD.leadCapture) for (const f of ['index.html', 'contact.html', 'about.html']) assert.doesNotMatch(readSite(f), /ck_attr/, `${f}: soft launch`);
   for (const f of ['contact.html', 'about.html']) assert.ok(read(f).includes(capture), `${f}: same capture script`);
 
   const store = new Map();

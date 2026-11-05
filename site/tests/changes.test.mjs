@@ -188,8 +188,9 @@ test('build: a tracker page shows its fields, timeline and fixed lines; /project
   assert.match(index, /Approved · Example Transport Authority/);
   const site = readFileSync(join(r.out, 'sitemap-0.xml'), 'utf8');
   assert.match(site, /\/projects</); assert.match(site, /\/projects\/example-metro-line</);
-  // The launch-readiness rules (titles, descriptions, links, wording) pass on the built trackers and area pages.
-  const ready = spawnSync('node', ['scripts/readiness.mjs', r.out], { cwd: root, encoding: 'utf8', env: { ...process.env, PUBLIC_INDEXABLE: 'true' } });
+  // The launch-readiness rules (titles, descriptions, links, wording) pass on the built trackers and area pages, read in the
+  // build's own mode (the same GOLIVE_OVERRIDES, so lead capture and the Privacy rule match the build).
+  const ready = spawnSync('node', ['scripts/readiness.mjs', r.out], { cwd: root, encoding: 'utf8', env: { ...process.env, PUBLIC_INDEXABLE: 'true', GOLIVE_OVERRIDES: GOLIVE_TEST } });
   assert.equal(ready.status, 0, ready.stdout + ready.stderr);
 });
 

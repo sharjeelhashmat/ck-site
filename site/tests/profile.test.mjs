@@ -7,6 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GOLIVE_TEST } from './helpers/golive.mjs';
+import { BUILD, leadCaptureDist } from './helpers/build-mode.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const read = (p) => readFileSync(join(root, p), 'utf8');
@@ -58,7 +59,7 @@ test('the profile page renders every option and every area name (no blank labels
 });
 
 test('the profile page asks the five fields, posts only to the Worker, and keeps the lead id out of storage', () => {
-  const page = read('src/pages/investor-profile.astro');
+  const page = read('src/gated-pages/investor-profile.astro');
   for (const n of ['objective', 'property_type', 'risk_tolerance', 'holding_period', 'areas']) assert.match(page, new RegExp(`name="${n}"`), n);
   assert.match(page, /\/profile`/);
   assert.doesNotMatch(page, /localStorage|sessionStorage|document\.cookie/);
@@ -81,7 +82,14 @@ test('site options match the Worker proposal exactly (values, order and area slu
 // Investor profile form (owner-approved 2026-10-10): Elsewhere in the UAE, advice, privacy note, actions, feedback.
 // Reads the main build (dist/), like the other page tests.
 import { MESSAGES, outcomeFor, otherAreaState, sendProfile, TIMEOUT_MS } from '../src/lib/profile-submit.mjs';
-const page = () => readFileSync(join(root, 'dist/investor-profile.html'), 'utf8');
+// The page exists only with lead capture (golive.ts LEAD_CAPTURE), so it is read from a lead-capture build (site/dist when
+// it has lead capture). In soft launch site/dist has no profile page at all.
+const page = () => readFileSync(join(leadCaptureDist().dir, 'investor-profile.html'), 'utf8');
+
+test('soft launch: the profile page is not built (404) and nothing links to it', () => {
+  if (BUILD.leadCapture) return;
+  assert.equal(existsSync(join(root, 'dist/investor-profile.html')), false);
+});
 
 test('profile form: the eight areas, then "Elsewhere in the UAE" (other) and "Not sure yet" (advice), in that order', () => {
   const h = page();

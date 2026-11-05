@@ -230,7 +230,17 @@ jobs:
           for i in 1 2 3 4 5 6; do
             : > "$out"
             all=0
-            for p in / /investment-approach /contact /privacy /terms /investor-profile /insights; do page "$p" || all=1; done
+            # A route the build has (dist/) must answer 200 with the title; a route it does not have (soft launch: /privacy,
+            # /terms, /investor-profile) must answer 404.
+            for p in / /investment-approach /contact /privacy /terms /investor-profile /insights; do
+              f="dist$p.html"; [ "$p" = / ] && f=dist/index.html
+              if [ -f "$f" ]; then
+                page "$p" || all=1
+              else
+                fetch "$p"; ok=PASS; [ "$code" = 404 ] || { ok=FAIL; all=1; }
+                printf '%s\t%s\t%s\t%s\n' "GET $p" "$code" "not built: expects 404" "$ok" >> "$out"
+              fi
+            done
             robots || all=1
             if [ "$all" = 0 ]; then echo "smoke passed on attempt $i"; break; fi
             echo "smoke attempt $i failed"; cat "$out"

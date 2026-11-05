@@ -7,23 +7,32 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { GOLIVE_TEST } from './helpers/golive.mjs';
-import { BUILD, SITEMAP_LINE } from './helpers/build-mode.mjs';
+import { BUILD, SITEMAP_LINE, leadCaptureDist } from './helpers/build-mode.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const dist = join(root, 'dist');
 const read = (p) => readFileSync(join(dist, p), 'utf8');
 const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]));
 const htmlFiles = walk(dist).filter((f) => f.endsWith('.html'));
+// Lead capture (golive.ts LEAD_CAPTURE) builds the forms, the WhatsApp buttons and the Privacy and Terms pages; their checks
+// read a lead-capture build (site/dist when it has it). Soft launch (site/dist otherwise) is checked for their absence.
+const LEAD = leadCaptureDist().dir;
+const readLead = (p) => readFileSync(join(LEAD, p), 'utf8');
+const leadHtmlFiles = walk(LEAD).filter((f) => f.endsWith('.html'));
+// Not built in soft launch (404): they exist only with lead capture.
+const GATED = ['/privacy', '/terms', '/investor-profile'];
 
 // Every path in the live sitemap on 2026-09-20 (see MIGRATION.md).
 const LEGACY = ['/', '/buy', '/invest', '/sell', '/areas', '/new-launches', '/insights', '/about', '/contact', '/privacy', '/terms',
   '/areas/downtown-dubai', '/areas/dubai-marina', '/areas/dubai-hills', '/areas/dubai-creek-harbour', '/areas/dubai-islands',
   '/areas/palm-jumeirah', '/areas/palm-jebel-ali', '/areas/dubai-maritime-city'];
 
-test('every legacy URL still resolves to a built page (301 map is identity)', () => {
+test('every legacy URL still resolves to a built page (301 map is identity); soft launch: Privacy and Terms are not built', () => {
   for (const p of LEGACY) {
     const f = p === '/' ? 'index.html' : p.slice(1) + '.html';
-    assert.ok(existsSync(join(dist, f)), `missing ${f}`);
+    assert.ok(existsSync(join(LEAD, f)), `lead capture: missing ${f}`);
+    if (!BUILD.leadCapture && GATED.includes(p)) assert.ok(!existsSync(join(dist, f)), `soft launch: ${f} must not be built`);
+    else assert.ok(existsSync(join(dist, f)), `missing ${f}`);
   }
 });
 
@@ -74,7 +83,7 @@ test('form field values are a subset of what the Worker accepts', () => {
   const enumOf = (name) => [...types.match(new RegExp(`${name} = \\[([^\\]]+)\\]`))[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
   const allowed = { intent: enumOf('INTENTS'), budget_band: enumOf('BUDGETS'), timeline: enumOf('TIMELINES'), funding: enumOf('FUNDINGS') };
   for (const page of ['contact.html', 'sell.html']) {
-    const h = read(page);
+    const h = readLead(page);
     for (const [name, set] of Object.entries(allowed)) {
       const sel = h.match(new RegExp(`<select[^>]*name="${name}"[^>]*>([\\s\\S]*?)</select>`));
       const hidden = h.match(new RegExp(`<input type="hidden" name="${name}" value="([^"]+)"`));
@@ -147,7 +156,8 @@ test('analytics: the beacon ships only on a public build with a token, and the C
 
 test('a production-indexable build refuses to run until golive.ts has indexing, the agency, its ORN, the BRN and the permit', () => {
   const run = (overrides) => spawnSync('npx', ['astro', 'build', '--outDir', '/tmp/ck-site-brn-test'], { cwd: root, env: { ...process.env, PUBLIC_INDEXABLE: 'true', GOLIVE_OVERRIDES: overrides }, encoding: 'utf8' });
-  const none = run('');
+  // Outside soft launch: every value is required.
+  const none = run(JSON.stringify({ softLaunch: false, indexing: false }));
   assert.notEqual(none.status, 0);
   assert.match(none.stdout + none.stderr, /requires golive\.ts: indexing, agencyName, agencyOrn, brokerBrn, advertiserPermitNo/);
   const noOrn = run(JSON.stringify({ ...JSON.parse(GOLIVE_TEST), agencyOrn: '' }));
@@ -157,6 +167,16 @@ test('a production-indexable build refuses to run until golive.ts has indexing, 
   const noBrn = run(JSON.stringify({ ...JSON.parse(GOLIVE_TEST), brokerBrn: '' }));
   assert.notEqual(noBrn.status, 0);
   assert.match(noBrn.stdout + noBrn.stderr, /requires golive\.ts: brokerBrn\./);
+});
+
+test('soft launch: a production-indexable build needs only indexing (goLiveMissing() is empty for the committed golive.ts)', () => {
+  const run = (overrides) => spawnSync('npx', ['astro', 'build', '--outDir', '/tmp/ck-site-soft-test'], { cwd: root, env: { ...process.env, PUBLIC_INDEXABLE: 'true', GOLIVE_OVERRIDES: overrides }, encoding: 'utf8' });
+  const noIndexing = run(JSON.stringify({ softLaunch: true, indexing: false }));
+  assert.notEqual(noIndexing.status, 0);
+  assert.match(noIndexing.stdout + noIndexing.stderr, /requires golive\.ts: indexing\./);
+  const committed = run('');
+  assert.equal(committed.status, 0, committed.stdout + committed.stderr);
+  assert.match(readFileSync('/tmp/ck-site-soft-test/index.html', 'utf8'), /<meta name="robots" content="index,follow,max-image-preview:large">/);
 });
 
 test('GOLIVE_OVERRIDES refuses the old key names agencyBrn and brokerCardNo, so a stale value fails loudly', () => {
@@ -179,26 +199,33 @@ test('no wildcard redirect shadows a built page (Cloudflare applies _redirects b
 });
 
 test('FAQ: six approved questions, FAQPage data matches the visible copy, and the held-back figure questions are absent', () => {
-  const h = read('faq.html');
-  const summaries = [...h.matchAll(/<summary>([\s\S]*?)<\/summary>/g)].map((m) => m[1]);
-  assert.equal(summaries.length, 6);
-  const ld = JSON.parse(h.match(/<script type="application\/ld\+json">(\{"@context":"https:\/\/schema.org","@type":"FAQPage"[\s\S]*?)<\/script>/)[1]);
-  assert.equal(ld.mainEntity.length, 6);
-  const text = h.replace(/<[^>]+>/g, '').replace(/&#39;/g, "'");
-  for (const q of ld.mainEntity) {
-    assert.ok(text.includes(q.name), `visible question: ${q.name}`);
-    assert.ok(text.includes(q.acceptedAnswer.text), `visible answer: ${q.name}`);
+  // Lead capture: six questions. Soft launch: the two whose answers describe the enquiry form are hidden, page and JSON-LD.
+  const FORM_QUESTIONS = ['How do I start working with you?', 'How quickly do you respond to enquiries?'];
+  for (const [h, lead] of [...new Map([[readLead('faq.html'), true], [read('faq.html'), BUILD.leadCapture]])]) checkFaq(h, lead);
+  function checkFaq(h, lead) {
+    const summaries = [...h.matchAll(/<summary>([\s\S]*?)<\/summary>/g)].map((m) => m[1]);
+    assert.equal(summaries.length, lead ? 6 : 4);
+    for (const q of FORM_QUESTIONS) assert.equal(summaries.includes(q), lead, q);
+    const ld = JSON.parse(h.match(/<script type="application\/ld\+json">(\{"@context":"https:\/\/schema.org","@type":"FAQPage"[\s\S]*?)<\/script>/)[1]);
+    assert.equal(ld.mainEntity.length, lead ? 6 : 4);
+    const text = h.replace(/<[^>]+>/g, '').replace(/&#39;/g, "'");
+    for (const q of ld.mainEntity) {
+      assert.ok(text.includes(q.name), `visible question: ${q.name}`);
+      assert.ok(text.includes(q.acceptedAnswer.text), `visible answer: ${q.name}`);
+    }
+    assert.doesNotMatch(text, /golden visa|transfer fee|\bDLD\b/i, 'fee and Golden Visa answers need a cited figure first');
+    // The Investor Profile works only from the link shown after an enquiry, so the FAQ must never link to it.
+    assert.doesNotMatch(h, /href="\/investor-profile/, 'FAQ must not link to /investor-profile');
   }
-  assert.doesNotMatch(text, /golden visa|transfer fee|\bDLD\b/i, 'fee and Golden Visa answers need a cited figure first');
-  // The Investor Profile works only from the link shown after an enquiry, so the FAQ must never link to it.
-  assert.doesNotMatch(h, /href="\/investor-profile/, 'FAQ must not link to /investor-profile');
   assert.match(read('index.html'), /<a href="\/faq">FAQ<\/a>/, 'footer links to the FAQ');
 });
 
 test('floating actions on every page: WhatsApp link uses the site number, scroll-to-top starts hidden; progress bar only on articles', () => {
-  for (const f of htmlFiles) {
+  for (const f of [...new Set([...htmlFiles, ...leadHtmlFiles])]) {
     const h = readFileSync(f, 'utf8');
-    assert.match(h, /class="fab-stack noprint"[\s\S]*?href="https:\/\/wa\.me\/971555414468\?text=/, `${f}: WhatsApp button`);
+    const lead = f.startsWith(LEAD + '/') || BUILD.leadCapture;
+    if (lead) assert.match(h, /class="fab-stack noprint"[\s\S]*?href="https:\/\/wa\.me\/971555414468\?text=/, `${f}: WhatsApp button`);
+    else assert.doesNotMatch(h, /fab--wa|wa\.me/, `${f}: soft launch, no WhatsApp button`);
     assert.match(h, /<button class="fab fab--top" type="button" id="to-top" aria-label="Back to top" hidden>/, `${f}: scroll-to-top`);
     const article = /[\\/]insights[\\/][^\\/]+\.html$/.test(f);
     assert.equal(h.includes('class="read-progress noprint"'), article, `${f}: progress bar only on article pages`);

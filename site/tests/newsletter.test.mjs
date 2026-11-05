@@ -4,9 +4,13 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { BUILD, leadCaptureDist } from './helpers/build-mode.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const dist = join(root, 'dist');
+// The newsletter sign-up exists only with lead capture (golive.ts LEAD_CAPTURE): these checks read a lead-capture build
+// (site/dist when it has it); soft launch (site/dist otherwise) has no sign-up on any page.
+const dist = leadCaptureDist().dir;
+const siteDist = join(root, 'dist');
 const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]));
 const htmlFiles = walk(dist).filter((f) => f.endsWith('.html'));
 const forms = (h) => [...h.matchAll(/<form class="nl-form"[^>]*>/g)].map((m) => ({
@@ -42,5 +46,14 @@ test('newsletter: no Turnstile script is added to pages without the enquiry form
     const h = readFileSync(f, 'utf8');
     if (h.includes('id="lead-form"')) continue;
     assert.doesNotMatch(h, /<script[^>]+src="https:\/\/challenges\.cloudflare\.com/, f);
+  }
+});
+
+test('newsletter, soft launch: no sign-up, no Turnstile widget and no Turnstile script on any page', () => {
+  if (BUILD.leadCapture) return;
+  for (const f of walk(siteDist).filter((x) => x.endsWith('.html'))) {
+    const h = readFileSync(f, 'utf8');
+    assert.equal(forms(h).length, 0, `${f}: no newsletter form`);
+    assert.doesNotMatch(h, /data-newsletter|nl-turnstile|data-sitekey=|challenges\.cloudflare\.com/, f);
   }
 });

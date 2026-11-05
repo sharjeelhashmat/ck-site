@@ -7,6 +7,7 @@ import '../../styles/market.css';
 import { ADREC, GUIDES, PERIOD, VIEW_HEADING, type Guide } from '../../lib/area-guides';
 import { EMIRATES, renderGuideCard } from '../../lib/market.mjs';
 import { SITE } from '../../lib/site';
+import { LEAD_CAPTURE } from '../../lib/golive';
 import { loadChanges } from '../../lib/intel-data.mjs';
 import { eventsForArea, eventNeedsRecheck } from '../../lib/changes.mjs';
 
@@ -63,7 +64,8 @@ const adCard = ad
         </section>
       )}
 
-      <p class="lede guide-close"><a href="/contact">Ask me</a> about {guide.h1}.</p>
+      {/* Soft launch (LEAD_CAPTURE false): no "Ask me" line. */}
+      {LEAD_CAPTURE && <p class="lede guide-close"><a href="/contact">Ask me</a> about {guide.h1}.</p>}
     </div>
   </section>
 </Base>

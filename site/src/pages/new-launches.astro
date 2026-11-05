@@ -6,7 +6,7 @@ import Base from '../layouts/Base.astro';
 import LeadForm from '../components/LeadForm.astro';
 import '../styles/market.css';
 import reviews from '../data/launch-reviews.json';
-import { GOLIVE, LAUNCH_CARDS_ALLOWED } from '../lib/golive';
+import { GOLIVE, LAUNCH_CARDS_ALLOWED, LEAD_CAPTURE } from '../lib/golive';
 import { checkLaunchReviews } from '../lib/market.mjs';
 import { SITE } from '../lib/site';
 
@@ -30,6 +30,8 @@ const FACTS = [
   { lead: 'Paying late has a cost.', text: 'If a buyer defaults, the developer can keep some or all of what was paid. How much depends on how far construction has progressed.' },
   { lead: 'The service charge is not final.', text: 'It is set later through a budget that RERA must approve after an audit firm signs it off.' },
 ];
+// Soft launch (LEAD_CAPTURE false): no question form, so the hero button, the "Ask me" sentence under Launch activity and the
+// whole "Ask me about a launch" block (heading, line and form) are not rendered.
 const QUESTIONS = [
   'Is the launch price fair against what comparable units nearby actually sold for?',
   'Has this developer delivered on time before?',
@@ -49,13 +51,13 @@ const QUESTIONS = [
       <p class="eyebrow">New Launches</p>
       <h1>New launches, checked.</h1>
       <p class="lede">Every launch comes with a brochure. Few come with straight answers. Ask me anything about a launch.</p>
-      <div class="actions"><a class="btn" href="#ask">Ask me about a launch →</a></div>
+      {LEAD_CAPTURE && <div class="actions"><a class="btn" href="#ask">Ask me about a launch →</a></div>}
 
       {/* Launch activity (Part A): aggregated public figures only, loaded from the Worker. Hidden when neither emirate has data. */}
       <section class="launch-activity" id="launch-activity" hidden data-worker={SITE.workerUrl} aria-labelledby="launch-activity-h">
         <h2 class="nl-h2" id="launch-activity-h">Launch activity</h2>
         <div data-slot="cards"></div>
-        <p class="launch-close">Updated weekly. Want to know what they mean for a specific launch? <a href="#ask">Ask me</a>.</p>
+        <p class="launch-close">Updated weekly.{LEAD_CAPTURE && <> Want to know what they mean for a specific launch? <a href="#ask">Ask me</a>.</>}</p>
       </section>
 
       {watching.length > 0 && (
@@ -88,11 +90,15 @@ const QUESTIONS = [
       </ol>
       <p><strong>Not sure of the answer for the launch you're looking at? Ask me.</strong></p>
 
-      <h2 class="nl-h2" id="ask">Ask me about a launch</h2>
-      <p>Tell me what you want to know. I'll answer within 24 hours.</p>
-      {/* Compliance: this form and "Send my question" are a service call to action. They are acceptable only because the
-          site cannot go public before the agency, ORN, BRN and Advertiser Permit are in place. */}
-      <div class="launch-form"><LeadForm mode="launch" defaultIntent="invest" submitLabel="Send my question" /></div>
+      {/* Compliance: this form and "Send my question" are a service call to action. They are rendered only with
+          LEAD_CAPTURE, never in soft launch (Rules v5.9 section 8d). */}
+      {LEAD_CAPTURE && (
+        <>
+          <h2 class="nl-h2" id="ask">Ask me about a launch</h2>
+          <p>Tell me what you want to know. I'll answer within 24 hours.</p>
+          <div class="launch-form"><LeadForm mode="launch" defaultIntent="invest" submitLabel="Send my question" /></div>
+        </>
+      )}
 
       <div class="nl-sources">
         <h2 class="nl-sources-title">Sources</h2>

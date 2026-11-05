@@ -11,10 +11,14 @@ const hashes = new Set();
 // them, so it can never drift from the URL the build used (audit item 18).
 const workerOrigins = new Set();
 let analytics = false;
+// Turnstile (challenges.cloudflare.com) is allowed only when a page carries a Turnstile widget (data-sitekey: the enquiry
+// form or the newsletter sign-up). A soft-launch build (golive.ts softLaunch) has neither, so its CSP leaves it out.
+let turnstile = false;
 const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]));
 for (const f of walk(dist).filter((p) => p.endsWith('.html'))) {
   const html = readFileSync(f, 'utf8');
   if (html.includes('https://static.cloudflareinsights.com/beacon.min.js')) analytics = true;
+  if (/\bdata-sitekey="/.test(html)) turnstile = true;
   for (const m of html.matchAll(/\bdata-worker="([^"]*)"/g)) {
     let u;
     try { u = new URL(m[1].replace(/&amp;/g, '&')); } catch { throw new Error(`postbuild: unparseable data-worker URL in ${f}`); }
@@ -33,14 +37,15 @@ const indexable = (() => { try { return /^Sitemap: /m.test(readFileSync(join(dis
 // Cloudflare Web Analytics origins are allowed only when the beacon is actually in the built pages.
 const cfScript = analytics ? ' https://static.cloudflareinsights.com' : '';
 const cfConnect = analytics ? ' https://cloudflareinsights.com' : '';
+const ts = turnstile ? ' https://challenges.cloudflare.com' : '';
 const csp = [
   "default-src 'self'",
-  `script-src 'self' ${[...hashes].join(' ')} https://challenges.cloudflare.com${cfScript}`,
+  `script-src 'self' ${[...hashes].join(' ')}${ts}${cfScript}`,
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data:",
   "font-src 'self'",
-  `connect-src 'self' ${[...workerOrigins].sort().join(' ')} https://challenges.cloudflare.com${cfConnect}`,
-  'frame-src https://challenges.cloudflare.com',
+  `connect-src 'self' ${[...workerOrigins].sort().join(' ')}${ts}${cfConnect}`,
+  turnstile ? 'frame-src https://challenges.cloudflare.com' : "frame-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
   "frame-ancestors 'none'",
@@ -63,4 +68,4 @@ const staticRules = (() => {
   try { return readFileSync(fileURLToPath(new URL('../public/_headers', import.meta.url)), 'utf8').trimEnd() + '\n'; } catch { return ''; }
 })();
 writeFileSync(join(dist, '_headers'), staticRules + headers);
-console.log(`postbuild: wrote _headers with ${hashes.size} inline-script hash(es), connect-src ${[...workerOrigins].join(' ')}${analytics ? ', analytics allowed' : ''}${indexable ? '' : ', X-Robots-Tag noindex'}`);
+console.log(`postbuild: wrote _headers with ${hashes.size} inline-script hash(es), connect-src ${[...workerOrigins].join(' ')}${turnstile ? ', Turnstile allowed' : ', no Turnstile'}${analytics ? ', analytics allowed' : ''}${indexable ? '' : ', X-Robots-Tag noindex'}`);

@@ -7,17 +7,22 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkReadiness, PRIVACY_RETENTION_REQUIRED, RULES, unpublishedInsights } from '../scripts/readiness.mjs';
+import { BUILD, leadCaptureDist } from './helpers/build-mode.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const dist = join(root, 'dist');
 const indexable = process.env.PUBLIC_INDEXABLE === 'true';
 const fails = (r) => [...new Set(r.filter((x) => x.level === 'FAIL').map((x) => x.rule))];
+// The enquiry form (#lead-next, the WhatsApp fallback) and the Privacy page exist only with lead capture (golive.ts
+// LEAD_CAPTURE): those rules are seeded on a lead-capture build (site/dist when it has it), checked in its own mode.
+const { dir: LEAD, mode: LEAD_MODE } = leadCaptureDist();
+const LEAD_OPTS = { indexable: LEAD_MODE.indexable, leadCapture: true };
 
-/** A copy of the real build with one change; returns the rules that FAIL on it. */
-function seeded(edit, opts = {}) {
+/** A copy of the real build (or `base`) with one change; returns the rules that FAIL on it. */
+function seeded(edit, opts = {}, base = dist) {
   const d = mkdtempSync(join(tmpdir(), 'ck-ready-'));
   try {
-    cpSync(dist, d, { recursive: true });
+    cpSync(base, d, { recursive: true });
     const file = (f) => join(d, f);
     edit({ dir: d, read: (f) => readFileSync(file(f), 'utf8'), write: (f, s) => writeFileSync(file(f), s), file });
     return fails(checkReadiness(d, { indexable, ...opts }));
@@ -34,6 +39,7 @@ const replaceIn = (f, from, to) => ({ read, write }) => {
 test('the real build passes every rule (Privacy retention is a warning until PRIVACY_RETENTION_REQUIRED)', () => {
   const r = checkReadiness(dist, { indexable });
   assert.deepEqual(r.filter((x) => x.level === 'FAIL'), []);
+  assert.deepEqual(checkReadiness(LEAD, LEAD_OPTS).filter((x) => x.level === 'FAIL'), [], 'the lead-capture build passes too');
   for (const w of r.filter((x) => x.level === 'WARN')) console.log(`WARNING (launch readiness, ${w.rule}): ${w.message}`);
   assert.equal(PRIVACY_RETENTION_REQUIRED, false, 'flipped to true only by the lawyer-approved Privacy PR');
   assert.deepEqual(RULES, ['links', 'insights', 'meta', 'privacy', 'noindex', 'wording', 'whatsapp']);
@@ -41,7 +47,7 @@ test('the real build passes every rule (Privacy retention is a warning until PRI
 
 test('links: an <a> wrapping #lead-next fails', () => {
   const from = '<p class="fine" id="lead-next" hidden style="margin-top:var(--space-4)"></p>';
-  assert.deepEqual(seeded(replaceIn('contact.html', from, `<a href="#x">${from}</a>`)), ['links']);
+  assert.deepEqual(seeded(replaceIn('contact.html', from, `<a href="#x">${from}</a>`), LEAD_OPTS, LEAD), ['links']);
 });
 
 test('links: an unclosed <a> fails, and a nested <a> fails', () => {
@@ -75,13 +81,21 @@ test('meta: a title over 60 characters, or a description under 70 or over 160, f
 });
 
 test('privacy: missing retention periods warn now, fail once PRIVACY_RETENTION_REQUIRED is true, pass when present', () => {
-  const r = checkReadiness(dist, { indexable, privacyRequired: false }).filter((x) => x.rule === 'privacy');
+  const r = checkReadiness(LEAD, { ...LEAD_OPTS, privacyRequired: false }).filter((x) => x.rule === 'privacy');
   assert.equal(r.length, 1);
   assert.equal(r[0].level, 'WARN');
-  assert.deepEqual(fails(checkReadiness(dist, { indexable, privacyRequired: true })), ['privacy']);
+  assert.deepEqual(fails(checkReadiness(LEAD, { ...LEAD_OPTS, privacyRequired: true })), ['privacy']);
   const ok = replaceIn('privacy.html', '</main>', '<p>Kept 30 days, 24 months and 12 months.</p></main>');
-  assert.deepEqual(seeded(ok, { privacyRequired: true }), []);
-  assert.deepEqual(seeded(replaceIn('privacy.html', '</main>', '<p>Kept 30 days and 730 days.</p></main>'), { privacyRequired: true }), ['privacy']);
+  assert.deepEqual(seeded(ok, { ...LEAD_OPTS, privacyRequired: true }, LEAD), []);
+  assert.deepEqual(seeded(replaceIn('privacy.html', '</main>', '<p>Kept 30 days and 730 days.</p></main>'), { ...LEAD_OPTS, privacyRequired: true }, LEAD), ['privacy']);
+  // With lead capture a missing Privacy page fails.
+  assert.deepEqual(seeded(({ file }) => rmSync(file('privacy.html')), LEAD_OPTS, LEAD), ['privacy']);
+});
+
+test('privacy, soft launch: no Privacy page is the expectation; a built one fails', () => {
+  if (BUILD.leadCapture) return;
+  assert.deepEqual(checkReadiness(dist, { indexable }).filter((x) => x.rule === 'privacy'), [], 'no privacy row at all');
+  assert.deepEqual(seeded(({ write }) => write('privacy.html', readFileSync(join(LEAD, 'privacy.html'), 'utf8'))), ['privacy']);
 });
 
 test('noindex: a non-indexable build with a sitemap, a Sitemap line, a page without noindex or no X-Robots-Tag fails', () => {
@@ -102,6 +116,8 @@ test('wording: "Book a call", "Broker", "Real Estate Consultant", a Gmail addres
 
 test('whatsapp: an extra WhatsApp link on /new-launches fails; the hidden form fallback does not count', () => {
   const wa = '<a href="https://wa.me/971555414468?text=Hi">WhatsApp</a>';
-  assert.deepEqual(seeded(replaceIn('new-launches.html', '<h2 class="nl-h2" id="ask"', `${wa}<h2 class="nl-h2" id="ask"`)), ['whatsapp']);
-  assert.match(readFileSync(join(dist, 'new-launches.html'), 'utf8'), /id="lead-alert-tpl" hidden>[\s\S]*?wa\.me/);
+  assert.deepEqual(seeded(replaceIn('new-launches.html', '<h2 class="nl-h2" id="ask"', `${wa}<h2 class="nl-h2" id="ask"`), LEAD_OPTS, LEAD), ['whatsapp']);
+  assert.match(readFileSync(join(LEAD, 'new-launches.html'), 'utf8'), /id="lead-alert-tpl" hidden>[\s\S]*?wa\.me/);
+  // Soft launch has no site-wide WhatsApp link, so any WhatsApp link on /new-launches fails.
+  if (!BUILD.leadCapture) assert.deepEqual(seeded(replaceIn('new-launches.html', '<h2 class="nl-sources-title"', `${wa}<h2 class="nl-sources-title"`)), ['whatsapp']);
 });

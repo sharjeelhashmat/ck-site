@@ -2,11 +2,15 @@
 import Base from '../layouts/Base.astro';
 import { FAQS, segments } from '../lib/faq';
 import { AFFILIATION_LINE } from '../lib/site';
+import { LEAD_CAPTURE } from '../lib/golive';
 
+// Soft launch (LEAD_CAPTURE false): the two questions whose answers describe the enquiry form are hidden, on the page and in
+// the FAQPage data, and the "Get in touch" button is not rendered.
+const faqs = FAQS.filter((f) => LEAD_CAPTURE || !f.needsLeadCapture);
 const ld = {
   '@context': 'https://schema.org',
   '@type': 'FAQPage',
-  mainEntity: FAQS.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+  mainEntity: faqs.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
 };
 ---
 <Base title="Frequently asked questions" description="How to start, who I work with, areas covered, off-plan versus secondary, non-resident mortgages and response times.">
@@ -16,7 +20,7 @@ const ld = {
       <p class="eyebrow">FAQ</p>
       <h1>Frequently asked <em>questions</em></h1>
       <div class="faq">
-        {FAQS.map((f) => (
+        {faqs.map((f) => (
           <details>
             <summary>{f.q}</summary>
             <div class="answer">
@@ -26,7 +30,7 @@ const ld = {
         ))}
       </div>
       <p class="fine" style="margin-top:var(--space-12)">General information, not financial, tax or legal advice.{AFFILIATION_LINE && ` ${AFFILIATION_LINE}`}</p>
-      <div class="actions"><a class="btn" href="/contact">Get in touch</a></div>
+      {LEAD_CAPTURE && <div class="actions"><a class="btn" href="/contact">Get in touch</a></div>}
     </div>
   </section>
 </Base>

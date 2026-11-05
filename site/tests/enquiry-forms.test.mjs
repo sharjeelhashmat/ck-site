@@ -1,5 +1,8 @@
 // New Launches ask-me page, preferred contact on the enquiry forms, and the one 24-hour promise (owner-approved
 // 2026-10-10). Run after `npm run build`.
+// The forms, the "Ask me about a launch" block and the FAQ answer exist only with lead capture (golive.ts LEAD_CAPTURE), so
+// every check here reads a lead-capture build (site/dist when it has lead capture). The soft-launch versions of these pages
+// are checked at the end of this file and in tests/soft-launch.test.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -9,15 +12,16 @@ import {
   BOX_MAX, CONTACT_CHOICES, LIMIT_MESSAGES, MESSAGE_MAX, MESSAGES, REPLY_FALLBACK, composeMessage, lengthProblem, successText, validateLead,
 } from '../src/lib/lead-submit.mjs';
 import { MESSAGES as PROFILE_MESSAGES } from '../src/lib/profile-submit.mjs';
-import { BUILD } from './helpers/build-mode.mjs';
+import { BUILD, leadCaptureDist } from './helpers/build-mode.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
-const dist = join(root, 'dist');
+const { dir: dist, mode: LEAD_MODE } = leadCaptureDist();
+const siteDist = join(root, 'dist');
 // Scoped styles add data-astro-cid-* attributes; drop them so the markup compares as written.
 const bare = (h) => h.replace(/ data-astro-cid-[a-z0-9]+/g, '');
-const read = (p) => bare(readFileSync(join(dist, p), 'utf8'));
+const read = (p, dir = dist) => bare(readFileSync(join(dir, p), 'utf8'));
 const src = (p) => readFileSync(join(root, p), 'utf8');
-const main = (p) => read(p).match(/<main id="main">([\s\S]*?)<\/main>/)[1];
+const main = (p, dir = dist) => read(p, dir).match(/<main id="main">([\s\S]*?)<\/main>/)[1];
 const text = (html) => html.replace(/<div id="(lead|profile)-alert-tpl" hidden>[\s\S]*?<\/div>/g, '').replace(/<[^>]+>/g, ' ').replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const form = (p) => read(p).match(/<form class="card" id="lead-form"[\s\S]*?<\/form>/)[0];
 const FORMS = ['contact.html', 'sell.html', 'new-launches.html'];
@@ -110,7 +114,7 @@ test('new launches: no empty card, no WhatsApp link, no images, no banned wordin
   const desc = 'Thinking about a Dubai off-plan launch? The facts every buyer should know, the questions worth asking, and a straight answer within 24 hours.';
   assert.ok(h.includes(`<meta name="description" content="${desc}">`));
   // noindex until the agency, ORN, BRN and permit exist (and always on a noindex build); indexed on the public build with them.
-  assert.match(h, BUILD.indexable && BUILD.launchCards ? /<meta name="robots" content="index,follow,max-image-preview:large">/ : /<meta name="robots" content="noindex,nofollow">/);
+  assert.match(h, LEAD_MODE.indexable && LEAD_MODE.launchCards ? /<meta name="robots" content="index,follow,max-image-preview:large">/ : /<meta name="robots" content="noindex,nofollow">/);
   // Audit M2: noindex follows LAUNCH_CARDS_ALLOWED (tests/new-launches-indexing.test.mjs builds both modes).
   assert.match(src('src/pages/new-launches.astro'), /noindex=\{!LAUNCH_CARDS_ALLOWED\}>/);
   assert.match(src('src/pages/new-launches.astro'), /Compliance: this form and "Send my question" are a service call to action\./);
@@ -257,8 +261,53 @@ test('unchanged: investor profile, footer newsletter and the ROI calculator have
   const profile = read('investor-profile.html');
   assert.doesNotMatch(profile, /preferred_contact|Preferred contact/);
   assert.equal(PROFILE_MESSAGES.success, 'Thank you. Your profile has been added to your enquiry.');
-  assert.doesNotMatch(src('src/pages/investor-profile.astro'), /preferred/i);
+  assert.doesNotMatch(src('src/gated-pages/investor-profile.astro'), /preferred/i);
   assert.doesNotMatch(src('src/components/NewsletterSignup.astro'), /preferred/i);
   assert.doesNotMatch(src('src/components/ROICalc.astro'), /preferred/i);
   for (const p of ['index.html', 'invest.html']) assert.doesNotMatch(read(p), /preferred_contact/, p);
+});
+
+// ---------- Soft launch (golive.ts softLaunch, LEAD_CAPTURE false): the same pages without lead capture ----------
+
+test('soft launch: /new-launches keeps every approved line except the ask-me button, sentence and block, in order', () => {
+  if (BUILD.leadCapture) return; // this build has lead capture: the tests above read site/dist itself
+  const m = main('new-launches.html', siteDist);
+  const t = text(m);
+  const lines = [
+    'New Launches', 'New launches, checked.',
+    'Every launch comes with a brochure. Few come with straight answers. Ask me anything about a launch.',
+    'Launch activity', 'Updated weekly.',
+    'Why a launch needs a different check',
+    'Questions worth asking before you commit',
+    "Not sure of the answer for the launch you're looking at? Ask me.",
+    'Sources',
+    'General information on new launches in Dubai, citing the law as at October 2026.',
+  ];
+  let at = 0;
+  for (const l of lines) {
+    const i = t.indexOf(l, at);
+    assert.ok(i >= 0, `missing or out of order: ${l}`);
+    at = i + l.length;
+  }
+  assert.match(m, /<p class="launch-close">Updated weekly\.<\/p>/, 'launch activity: only "Updated weekly."');
+  assert.doesNotMatch(m, /href="#ask"|id="ask"|Ask me about a launch|Tell me what you want to know|Send my question|Want to know what they mean/);
+  assert.doesNotMatch(m, /<form\b|lead-form|launch-form|class="btn"/);
+  const h2 = [...m.matchAll(/<h2([^>]*)>([^<]*)<\/h2>/g)].map((x) => x[2]);
+  assert.deepEqual(h2, ['Launch activity', 'Why a launch needs a different check', 'Questions worth asking before you commit', 'Sources']);
+  // Title, description and noindex are unchanged.
+  const h = read('new-launches.html', siteDist);
+  assert.match(h, /<title>New Launches: Ask Before You Commit · Sharjeel Hashmat<\/title>/);
+  assert.match(h, BUILD.indexable && BUILD.launchCards ? /<meta name="robots" content="index,follow,max-image-preview:large">/ : /<meta name="robots" content="noindex,nofollow">/);
+});
+
+test('soft launch: /contact keeps its intro and shows the footer phone and email links instead of the form; the FAQ answer is hidden', () => {
+  if (BUILD.leadCapture) return;
+  const m = main('contact.html', siteDist);
+  assert.match(m, /<p class="lede">Your budget\. Your objective\. Your timeline\. I'll take it from there, within 24 hours\.<\/p>/);
+  assert.match(m, /<div class="foot-links"[^>]*>\s*<a href="tel:\+971555414468">\+971 55 541 4468<\/a>\s*<a href="mailto:hello@sharjeelhashmat\.com">hello@sharjeelhashmat\.com<\/a>\s*<\/div>/);
+  assert.doesNotMatch(m, /<form\b|lead-form|wa\.me/);
+  const faq = readFileSync(join(siteDist, 'faq.html'), 'utf8');
+  assert.ok(!text(bare(faq)).includes("Enquiries sent through the website's forms"), 'visible FAQ');
+  const ld = [...faq.matchAll(/<script type="application\/ld\+json">(.*?)<\/script>/gs)].map((x) => JSON.parse(x[1])).find((j) => j['@type'] === 'FAQPage');
+  assert.equal(ld.mainEntity.find((e) => e.name === 'How quickly do you respond to enquiries?'), undefined, 'JSON-LD');
 });

@@ -1,6 +1,7 @@
 ---
 import Base from '../layouts/Base.astro';
 import { waLink } from '../lib/site';
+import { LEAD_CAPTURE } from '../lib/golive';
 import { loadChanges, loadPublic } from '../lib/intel-data.mjs';
 const { articles, insightsLive } = loadPublic();
 // The tracker link shows only while a tracker is current: the same rule astro.config.mjs uses for the /projects sitemap entry.
@@ -18,7 +19,7 @@ const noindex = !insightsLive;
       {list.length === 0 ? (
         <div class="card empty" style="margin-top:var(--space-12)">
           <p>The first Insights articles are being written. Check back soon, or ask Sharjeel directly in the meantime.</p>
-          <div class="actions" style="justify-content:center"><a class="btn btn--ghost" href={waLink('Hi Sharjeel, do you have any market insights you can share?')} target="_blank" rel="noopener">Ask Sharjeel →</a></div>
+          {LEAD_CAPTURE && <div class="actions" style="justify-content:center"><a class="btn btn--ghost" href={waLink('Hi Sharjeel, do you have any market insights you can share?')} target="_blank" rel="noopener">Ask Sharjeel →</a></div>}
         </div>
       ) : (
         <div class="grid" style="margin-top:var(--space-12)">

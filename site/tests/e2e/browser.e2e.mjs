@@ -57,6 +57,11 @@ async function page(width, { areas = AREAS, launches = LAUNCHES, area = null, bl
   return p;
 }
 const check = async (name, fn) => { try { await fn(); results.push(['PASS', name]); } catch (e) { results.push(['FAIL', name, e.message]); } };
+// Lead capture (golive.ts LEAD_CAPTURE): the enquiry, profile and newsletter forms exist only then. A soft-launch build
+// (softLaunch true) has none, so their checks are reported as SKIP; run this file on a build made with
+// GOLIVE_OVERRIDES='{"softLaunch":false}' to exercise them. The soft-launch build gets its own check below.
+const LEAD = fs.readFileSync(path.join(dist, 'contact.html'), 'utf8').includes('id="lead-form"');
+const leadCheck = (name, fn) => (LEAD ? check(name, fn) : (results.push(['SKIP', name, 'soft launch build: no lead capture']), undefined));
 const noSideScroll = async (p) => assert.ok(await p.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), 'horizontal page scroll');
 const shot = async (p, name, full = true) => { if (shots) await p.screenshot({ path: path.join(shots, `${name}.png`), fullPage: full }); };
 const visible = (p, sel) => p.locator(sel).isVisible();
@@ -71,7 +76,8 @@ for (const width of [1280, 360]) {
     assert.ok(!(await visible(p, '.mk-panel[data-emirate="abu_dhabi"]')));
     assert.ok(await visible(p, '.mk-guides[data-emirate="dubai"]') && !(await visible(p, '.mk-guides[data-emirate="abu_dhabi"]')));
     assert.equal(await p.locator('.mk-panel[data-emirate="dubai"] .mk-card').count(), 8);
-    assert.ok(await visible(p, '#mk-ask'));
+    if (LEAD) assert.ok(await visible(p, '#mk-ask'));
+    else assert.equal(await p.locator('#mk-ask').count(), 0, 'soft launch: no "Ask me" line');
     await noSideScroll(p);
     await shot(p, `areas-dubai-${width}`);
     await p.click('.mk-pill[data-emirate="abu_dhabi"]');
@@ -172,7 +178,7 @@ await check('footer with GOLIVE empty (1280 and 360)', async () => {
 });
 
 for (const route of ['/new-launches', '/about']) {
-  await check(`newsletter success on ${route} (mocked Turnstile and Worker)`, async () => {
+  await leadCheck(`newsletter success on ${route} (mocked Turnstile and Worker)`, async () => {
     const p = await page(1280);
     await p.goto(`${base}${route}`);
     await p.fill('footer .nl-form input[name=email]', 'reader@test.invalid');
@@ -184,7 +190,7 @@ for (const route of ['/new-launches', '/about']) {
   });
 }
 
-await check('the launch question form on /new-launches no longer triggers the newsletter error (Part C regression)', async () => {
+await leadCheck('the launch question form on /new-launches no longer triggers the newsletter error (Part C regression)', async () => {
   const p = await page(1280);
   await p.goto(`${base}/new-launches`);
   await p.fill('#lead-form input[name=email]', 'reader@test.invalid');
@@ -270,7 +276,7 @@ const fillLead = async (p) => {
 };
 
 for (const width of [320, 375, 1280]) {
-  await check(`/contact @${width} with the Turnstile script blocked: Send shows the WhatsApp + email alert, not "Please wait"`, async () => {
+  await leadCheck(`/contact @${width} with the Turnstile script blocked: Send shows the WhatsApp + email alert, not "Please wait"`, async () => {
     const p = await page(width, { blockTurnstile: true });
     await p.goto(`${base}/contact`);
     await fillLead(p);
@@ -285,7 +291,7 @@ for (const width of [320, 375, 1280]) {
   });
 }
 
-await check('/new-launches (launch mode) with the Turnstile script blocked: the WhatsApp + email alert', async () => {
+await leadCheck('/new-launches (launch mode) with the Turnstile script blocked: the WhatsApp + email alert', async () => {
   const p = await page(375, { blockTurnstile: true });
   await p.goto(`${base}/new-launches`);
   await fillLead(p);
@@ -295,7 +301,7 @@ await check('/new-launches (launch mode) with the Turnstile script blocked: the 
   await p.close();
 });
 
-await check('/contact: Turnstile and libphonenumber load on demand, not with the page; a valid enquiry is received', async () => {
+await leadCheck('/contact: Turnstile and libphonenumber load on demand, not with the page; a valid enquiry is received', async () => {
   const p = await page(1280);
   const scripts = [];
   p.on('request', (r) => { if (r.resourceType() === 'script') scripts.push(r.url()); });
@@ -314,7 +320,7 @@ await check('/contact: Turnstile and libphonenumber load on demand, not with the
   await p.close();
 });
 
-await check('/contact: Worker blocked or answering 503 temporarily_unavailable -> the WhatsApp + email alert', async () => {
+await leadCheck('/contact: Worker blocked or answering 503 temporarily_unavailable -> the WhatsApp + email alert', async () => {
   for (const opts of [{ blockWorker: true }, { lead: [503, { ok: false, error: 'temporarily_unavailable' }] }]) {
     const p = await page(375, opts);
     await p.goto(`${base}/contact`);
@@ -326,7 +332,7 @@ await check('/contact: Worker blocked or answering 503 temporarily_unavailable -
   }
 });
 
-await check('/contact errors: aria-invalid + aria-describedby, focus on the first invalid field, cleared when fixed', async () => {
+await leadCheck('/contact errors: aria-invalid + aria-describedby, focus on the first invalid field, cleared when fixed', async () => {
   const p = await page(375);
   await p.goto(`${base}/contact`);
   await p.fill('#f-email', 'not-an-email');
@@ -350,7 +356,7 @@ await check('/contact errors: aria-invalid + aria-describedby, focus on the firs
   await p.close();
 });
 
-await check('/investor-profile errors: aria-invalid + aria-describedby, focus on the first unanswered question', async () => {
+await leadCheck('/investor-profile errors: aria-invalid + aria-describedby, focus on the first unanswered question', async () => {
   const p = await page(375);
   await p.goto(`${base}/investor-profile?lead=00000000-0000-0000-0000-000000000000`);
   await p.click('#profile-submit');
@@ -361,6 +367,25 @@ await check('/investor-profile errors: aria-invalid + aria-describedby, focus on
   }
   await p.selectOption('#p-objective', { index: 1 });
   assert.equal(await p.getAttribute('#p-objective', 'aria-invalid'), null);
+  await p.close();
+});
+
+await check(`soft launch: no form, WhatsApp link, newsletter, Turnstile or link to /privacy or /terms in the rendered pages`, async () => {
+  if (LEAD) return;
+  const p = await page(1280);
+  const bad = [];
+  for (const u of ['/', '/contact', '/sell', '/new-launches', '/about', '/faq', '/invest', '/buy', '/insights/costs-investors-forget-before-yield']) {
+    await p.goto(`${base}${u}`);
+    await p.waitForTimeout(150);
+    const found = await p.evaluate(() => ({
+      forms: document.querySelectorAll('form').length,
+      wa: [...document.querySelectorAll('a')].filter((a) => /wa\.me|whatsapp\.com/.test(a.href)).length,
+      legal: [...document.querySelectorAll('a')].filter((a) => /\/(privacy|terms)$/.test(new URL(a.href).pathname)).length,
+      turnstile: [...document.scripts].filter((s) => /challenges\.cloudflare\.com/.test(s.src)).length + document.querySelectorAll('[data-sitekey]').length,
+    }));
+    for (const [k, v] of Object.entries(found)) if (v) bad.push(`${u}: ${k} ${v}`);
+  }
+  assert.deepEqual(bad, []);
   await p.close();
 });
 
@@ -401,5 +426,6 @@ await browser.close();
 server.close();
 for (const r of results) console.log(r.join(' | '));
 const failed = results.filter((r) => r[0] === 'FAIL').length;
-console.log(`${results.length - failed} passed, ${failed} failed`);
+const skipped = results.filter((r) => r[0] === 'SKIP').length;
+console.log(`${results.length - failed - skipped} passed, ${skipped} skipped, ${failed} failed`);
 process.exitCode = failed ? 1 : 0;

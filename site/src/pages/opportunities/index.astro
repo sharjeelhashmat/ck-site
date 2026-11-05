@@ -2,6 +2,7 @@
 import Base from '../../layouts/Base.astro';
 import { loadPublic } from '../../lib/intel-data.mjs';
 import { waLink } from '../../lib/site';
+import { LEAD_CAPTURE } from '../../lib/golive';
 const { opportunities } = loadPublic();
 // Empty until the first opportunity clears verification and the owner approves it. No placeholder listings, no sample data.
 const noindex = opportunities.length === 0;
@@ -17,7 +18,7 @@ const noindex = opportunities.length === 0;
           <p>No opportunity has passed verification yet. In the meantime, see how I assess a property, or ask me directly.</p>
           <div class="actions" style="justify-content:center">
             <a class="btn" href="/investment-approach">The investment approach</a>
-            <a class="btn btn--ghost" href={waLink('Hi Sharjeel, what opportunities are you looking at right now?')} target="_blank" rel="noopener">Ask Sharjeel →</a>
+            {LEAD_CAPTURE && <a class="btn btn--ghost" href={waLink('Hi Sharjeel, what opportunities are you looking at right now?')} target="_blank" rel="noopener">Ask Sharjeel →</a>}
           </div>
         </div>
       ) : (

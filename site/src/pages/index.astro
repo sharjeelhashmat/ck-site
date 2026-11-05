@@ -1,9 +1,12 @@
 ---
 import Base from '../layouts/Base.astro';
 import { BLURBS, INTENTS, waLink } from '../lib/site';
+import { LEAD_CAPTURE } from '../lib/golive';
 const intents = INTENTS.filter((i) => i.value !== 'other');
 // The four ways: number, audience label and a generic line icon per intent (Brand v3.1; labels owner-approved 2026-10-10).
-// Cards 2 and 3 are Ink, so the 2-column grid reads as a checkerboard.
+// Cards 2 and 3 are Ink, so the 2-column grid reads as a checkerboard. In soft launch (LEAD_CAPTURE false) the cards are not
+// links to the enquiry form: same text and styling, without the arrow. The hero buttons, "Start the conversation" and the
+// "Ready to talk?" block are not rendered either.
 const WAYS: Record<string, { n: string; label: string; icon: string }> = {
   buy: { n: '01', label: 'For homebuyers', icon: '<path d="M5 15 16 6l11 9"/><path d="M8 13v13h16V13"/><path d="M13.5 26v-7h5v7"/>' },
   invest: { n: '02', label: 'For investors', icon: '<path d="M5 26h22"/><path d="m6 21 6-6 4.5 3.5L26 9"/><path d="M20 9h6v6"/>' },
@@ -17,10 +20,12 @@ const WAYS: Record<string, { n: string; label: string; icon: string }> = {
       <p class="eyebrow both">United Arab Emirates</p>
       <h1 style="max-width:16ch;margin:0 auto">Clarity <em>before commitment.</em></h1>
       <p class="lede" style="margin-inline:auto">UAE property analysis for investors: price, yield, costs and exit, before anyone asks you to sign.</p>
-      <div class="actions">
-        <a class="btn" href="/contact">Get the numbers on a property</a>
-        <a class="btn btn--ghost" href={waLink("Hi Sharjeel, I'd like to speak about UAE real estate.")} target="_blank" rel="noopener">Speak with Sharjeel →</a>
-      </div>
+      {LEAD_CAPTURE && (
+        <div class="actions">
+          <a class="btn" href="/contact">Get the numbers on a property</a>
+          <a class="btn btn--ghost" href={waLink("Hi Sharjeel, I'd like to speak about UAE real estate.")} target="_blank" rel="noopener">Speak with Sharjeel →</a>
+        </div>
+      )}
     </div>
   </section>
 
@@ -33,8 +38,10 @@ const WAYS: Record<string, { n: string; label: string; icon: string }> = {
         <h2>Four ways people <em>work with me.</em></h2>
       </div>
       <div class="grid grid--pair ways" style="margin-top:var(--space-12)">
-        {intents.map((i, k) => (
-          <a class={`card way${k === 1 || k === 2 ? ' way--ink' : ''}`} href={`/contact?intent=${i.value}`}>
+        {intents.map((i, k) => {
+          const Card = LEAD_CAPTURE ? 'a' : 'div';
+          return (
+          <Card class={`card way${k === 1 || k === 2 ? ' way--ink' : ''}`} href={LEAD_CAPTURE ? `/contact?intent=${i.value}` : undefined}>
             <div class="way-top">
               <span class="way-num" aria-hidden="true">{WAYS[i.value].n}</span>
               <svg class="way-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" set:html={WAYS[i.value].icon} />
@@ -42,9 +49,10 @@ const WAYS: Record<string, { n: string; label: string; icon: string }> = {
             <p class="way-label">{WAYS[i.value].label}</p>
             <h3>{i.label}</h3>
             <p class="way-text">{BLURBS[i.value]}</p>
-            <span class="way-arrow" aria-hidden="true">→</span>
-          </a>
-        ))}
+            {LEAD_CAPTURE && <span class="way-arrow" aria-hidden="true">→</span>}
+          </Card>
+          );
+        })}
       </div>
     </div>
   </section>
@@ -68,7 +76,7 @@ const WAYS: Record<string, { n: string; label: string; icon: string }> = {
         <p class="eyebrow">For international clients</p>
         <h2>Buying in the UAE <em>from abroad.</em></h2>
         <p>You don't need to be in the UAE to make a well-informed property decision. Briefing, virtual shortlist, remote viewings, due diligence, negotiation, transaction coordination and handover, all managed on your behalf.</p>
-        <div class="actions"><a class="btn btn--ghost" href="/contact?intent=abroad">Start the conversation →</a></div>
+        {LEAD_CAPTURE && <div class="actions"><a class="btn btn--ghost" href="/contact?intent=abroad">Start the conversation →</a></div>}
       </div>
     </div>
   </section>
@@ -82,11 +90,13 @@ const WAYS: Record<string, { n: string; label: string; icon: string }> = {
     </div>
   </section>
 
-  <section class="section band--navy center">
-    <div class="narrow">
-      <h2>Ready to <em>talk?</em></h2>
-      <p>Tell me what you're looking for. Your budget. Your objective. Your timeline. I'll take it from there.</p>
-      <div class="actions"><a class="btn" href="/contact">Get in touch</a></div>
-    </div>
-  </section>
+  {LEAD_CAPTURE && (
+    <section class="section band--navy center">
+      <div class="narrow">
+        <h2>Ready to <em>talk?</em></h2>
+        <p>Tell me what you're looking for. Your budget. Your objective. Your timeline. I'll take it from there.</p>
+        <div class="actions"><a class="btn" href="/contact">Get in touch</a></div>
+      </div>
+    </section>
+  )}
 </Base>
