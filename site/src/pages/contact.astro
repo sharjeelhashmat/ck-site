@@ -1,6 +1,9 @@
 ---
 import Base from '../layouts/Base.astro';
 import LeadForm from '../components/LeadForm.astro';
+import { SITE } from '../lib/site';
+import { LEAD_CAPTURE } from '../lib/golive';
+// Soft launch (LEAD_CAPTURE false): no enquiry form; the footer's phone and email links instead, same text.
 ---
 <Base title="Contact" description="Tell me what you're looking for: your budget, your objective, your timeline.">
   <section class="section">
@@ -8,7 +11,14 @@ import LeadForm from '../components/LeadForm.astro';
       <p class="eyebrow">Get in touch</p>
       <h1>Tell me what you're <em>looking for.</em></h1>
       <p class="lede">Your budget. Your objective. Your timeline. I'll take it from there, within 24 hours.</p>
-      <div style="margin-top:var(--space-8)"><LeadForm mode="general" /></div>
+      {LEAD_CAPTURE ? (
+        <div style="margin-top:var(--space-8)"><LeadForm mode="general" /></div>
+      ) : (
+        <div class="foot-links" style="margin-top:var(--space-8)">
+          <a href={`tel:+${SITE.phoneE164}`}>{SITE.phoneDisplay}</a>
+          <a href={`mailto:${SITE.email}`}>{SITE.email}</a>
+        </div>
+      )}
     </div>
   </section>
 </Base>

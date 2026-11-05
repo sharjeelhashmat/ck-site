@@ -32,16 +32,27 @@ test('public build with the agency, ORN, BRN and permit: /new-launches is index,
   assert.match(h, /<link rel="canonical" href="https:\/\/www\.sharjeelhashmat\.com\/new-launches">/);
   assert.match(readFileSync(join(out, 'sitemap-0.xml'), 'utf8'), /<loc>https:\/\/www\.sharjeelhashmat\.com\/new-launches<\/loc>/);
   assert.doesNotMatch(readFileSync(join(out, 'sitemap-0.xml'), 'utf8'), /\/investor-profile</, '/investor-profile stays out');
-  assert.deepEqual(checkReadiness(out, { indexable: true }).filter((x) => x.level === 'FAIL'), []);
+  assert.deepEqual(checkReadiness(out, { indexable: true, leadCapture: true }).filter((x) => x.level === 'FAIL'), []);
 });
 
-test('public build without the go-live values is refused, so /new-launches can never be public without them', () => {
-  for (const o of [{ indexing: true }, { indexing: true, agencyName: 'Example Agency', agencyOrn: 'TEST-ORN', brokerBrn: 'TEST-BRN' }]) {
+test('public build without the go-live values is refused outside soft launch, so /new-launches can never be public without them', () => {
+  for (const o of [{ indexing: true, softLaunch: false }, { indexing: true, softLaunch: false, agencyName: 'Example Agency', agencyOrn: 'TEST-ORN', brokerBrn: 'TEST-BRN' }]) {
     const { out, status, log } = build({ PUBLIC_INDEXABLE: 'true', GOLIVE_OVERRIDES: JSON.stringify(o) });
     assert.notEqual(status, 0, JSON.stringify(o));
     assert.match(log, /PUBLIC_INDEXABLE=true requires golive\.ts: .*advertiserPermitNo/);
     assert.equal(existsSync(join(out, 'new-launches.html')), false);
   }
+});
+
+test('soft launch: a public build needs only indexing; /new-launches stays noindex and out of the sitemap without the values', () => {
+  const refused = build({ PUBLIC_INDEXABLE: 'true', GOLIVE_OVERRIDES: JSON.stringify({ indexing: false, softLaunch: true }) });
+  assert.notEqual(refused.status, 0);
+  assert.match(refused.log, /PUBLIC_INDEXABLE=true requires golive\.ts: indexing\./);
+  const { out, status, log } = build({ PUBLIC_INDEXABLE: 'true', GOLIVE_OVERRIDES: JSON.stringify({ indexing: true, softLaunch: true }) });
+  assert.equal(status, 0, log);
+  assert.equal(page(out).match(ROBOTS)[1], 'noindex,nofollow');
+  assert.doesNotMatch(readFileSync(join(out, 'sitemap-0.xml'), 'utf8'), /\/new-launches</);
+  assert.deepEqual(checkReadiness(out, { indexable: true, leadCapture: false }).filter((x) => x.level === 'FAIL'), []);
 });
 
 test('non-indexable builds: /new-launches is noindex with or without the values, and there is no sitemap', () => {
@@ -52,5 +63,5 @@ test('non-indexable builds: /new-launches is noindex with or without the values,
   assert.equal(page(out).match(ROBOTS)[1], 'noindex,nofollow');
   assert.doesNotMatch(page(out), /rel="canonical"/);
   assert.equal(existsSync(join(out, 'sitemap-index.xml')), false);
-  assert.deepEqual(checkReadiness(out, { indexable: false }).filter((x) => x.level === 'FAIL'), []);
+  assert.deepEqual(checkReadiness(out, { indexable: false, leadCapture: true }).filter((x) => x.level === 'FAIL'), []);
 });

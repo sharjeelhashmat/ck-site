@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { inflateSync } from 'node:zlib';
-import { PERSON_IDS } from './helpers/build-mode.mjs';
+import { BUILD, PERSON_IDS, leadCaptureDist } from './helpers/build-mode.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const dist = join(root, 'dist');
@@ -128,18 +128,24 @@ test('no hex colour outside the token block: global.css, components, layouts and
   }
 });
 
-const page = (p) => readFileSync(join(dist, p), 'utf8');
+const page = (p, dir = dist) => readFileSync(join(dir, p), 'utf8');
+// The nav WhatsApp link and the linked "four ways" cards exist only with lead capture (golive.ts LEAD_CAPTURE): checked on a
+// lead-capture build (site/dist when it has it); soft launch (site/dist otherwise) has neither.
+const LEAD = leadCaptureDist().dir;
+const leadHtmlFiles = walk(LEAD).filter((f) => f.endsWith('.html'));
 const navOf = (h) => h.match(/<nav class="site-menu"[^>]*>.*?<\/nav>/s)?.[0] ?? '';
 const linksIn = (html, cls) => [...(html.match(new RegExp(`<div class="${cls}"[^>]*>(.*?)</div>`, 's'))?.[1] ?? '').matchAll(/<a href="([^"]+)"[^>]*>([^<]+)<\/a>/g)].map((m) => [m[1], m[2]]);
 
-test('nav: one Primary nav with the segmented, pill and plain groups plus WhatsApp', () => {
-  for (const f of htmlFiles) {
+test('nav: one Primary nav with the segmented, pill and plain groups plus WhatsApp (soft launch: no WhatsApp)', () => {
+  for (const f of [...new Set([...htmlFiles, ...leadHtmlFiles])]) {
+    const lead = f.startsWith(LEAD + '/') || BUILD.leadCapture;
     const nav = navOf(readFileSync(f, 'utf8'));
     assert.ok(nav, `${f}: primary nav`);
     assert.deepEqual(linksIn(nav, 'nav-seg'), [['/buy', 'Buy'], ['/invest', 'Invest'], ['/sell', 'Sell']], `${f}: segmented group`);
     assert.deepEqual(linksIn(nav, 'nav-pills'), [['/areas', 'Areas'], ['/new-launches', 'New Launches'], ['/insights', 'Insights']], `${f}: pill group`);
     assert.deepEqual(linksIn(nav, 'nav-plain'), [['/about', 'About'], ['/contact', 'Contact']], `${f}: plain group`);
-    assert.match(nav, /<a class="nav-wa" href="https:\/\/wa\.me\/[^"]+" target="_blank" rel="noopener">WhatsApp<\/a>/, `${f}: WhatsApp`);
+    if (lead) assert.match(nav, /<a class="nav-wa" href="https:\/\/wa\.me\/[^"]+" target="_blank" rel="noopener">WhatsApp<\/a>/, `${f}: WhatsApp`);
+    else assert.doesNotMatch(nav, /nav-wa|wa\.me|WhatsApp/, `${f}: soft launch, no WhatsApp in the nav`);
     assert.match(readFileSync(f, 'utf8'), /aria-controls="site-menu"/, `${f}: menu button controls the nav`);
   }
 });
@@ -165,10 +171,24 @@ test('trust strip: four chips, none of them links', () => {
 test('four ways cards: number, label, aria-hidden icon and the unchanged description, checkerboard Ink 2 and 3', () => {
   const site = readFileSync(join(root, 'src/lib/site.ts'), 'utf8');
   const blurb = (k) => site.match(new RegExp(`^  ${k}: (['"])(.*)\\1,$`, 'm'))[2].replace(/'/g, '&#39;');
-  const cards = [...page('index.html').matchAll(/<a class="card way( way--ink)?" href="\/contact\?intent=(\w+)"[^>]*>(.*?)<\/a>/gs)];
-  assert.equal(cards.length, 4);
   const want = [['buy', '01', 'For homebuyers', ''], ['invest', '02', 'For investors', ' way--ink'], ['sell', '03', 'For owners', ' way--ink'], ['abroad', '04', 'For overseas buyers', '']];
-  cards.forEach(([, ink = '', intent, body], k) => {
+  // Lead capture: each card links to the enquiry form with its intent and ends with the arrow.
+  const linked = [...page('index.html', LEAD).matchAll(/<a class="card way( way--ink)?" href="\/contact\?intent=(\w+)"[^>]*>(.*?)<\/a>/gs)];
+  assert.equal(linked.length, 4);
+  linked.forEach(([, ink = '', intent, body], k) => {
+    assert.equal(intent, want[k][0]);
+    assert.match(body, /<span class="way-arrow" aria-hidden="true">→<\/span>/, `${intent}: arrow`);
+    checkCard(ink, intent, body, k);
+  });
+  // Soft launch: the same cards as plain blocks (no link, no arrow), same text and classes.
+  if (!BUILD.leadCapture) {
+    const home = page('index.html');
+    assert.doesNotMatch(home, /<a class="card way|way-arrow|href="\/contact\?intent=/, 'soft launch: cards are not links');
+    const plain = [...home.matchAll(/<div class="card way( way--ink)?"[^>]*>(.*?<p class="way-text">.*?<\/p>)\s*<\/div>/gs)];
+    assert.equal(plain.length, 4);
+    plain.forEach(([, ink = '', body], k) => checkCard(ink, want[k][0], body, k));
+  }
+  function checkCard(ink, intent, body, k) {
     const [i, n, label, tone] = want[k];
     assert.equal(intent, i); assert.equal(ink, tone, `${i}: tone`);
     assert.match(body, new RegExp(`<span class="way-num" aria-hidden="true">${n}</span>`), `${i}: number`);
@@ -176,7 +196,7 @@ test('four ways cards: number, label, aria-hidden icon and the unchanged descrip
     assert.match(body, new RegExp(`<p class="way-label">${label}</p>`), `${i}: label`);
     const text = body.match(/<p class="way-text">(.*?)<\/p>/s)[1];
     assert.equal(text, blurb(i).replace(/&#39;/g, '&#39;'), `${i}: description unchanged`);
-  });
+  }
 });
 
 test('footer social row: exactly LinkedIn, Instagram, Facebook, opening safely in a new tab', () => {

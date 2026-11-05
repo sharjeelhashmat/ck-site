@@ -2,6 +2,7 @@
 import Base from '../layouts/Base.astro';
 import { AREAS } from '../lib/areas';
 import { waLink } from '../lib/site';
+import { LEAD_CAPTURE } from '../lib/golive';
 ---
 <Base title="Buy UAE Property" description="Find and buy the right property in the UAE (ready or off-plan) with personal guidance from selection through DLD registration.">
   <section class="section">
@@ -12,10 +13,12 @@ import { waLink } from '../lib/site';
 
       <div class="card empty" style="margin-top:var(--space-12)">
         <p>No live sale listings yet. Real listings, photos and compliance data are being added as they come in.</p>
-        <div class="actions" style="justify-content:center">
-          <a class="btn" href="/contact?intent=buy">Tell me what you're looking for</a>
-          <a class="btn btn--ghost" href={waLink("Hi Sharjeel, I'd like to discuss buying a property in the UAE.")} target="_blank" rel="noopener">WhatsApp me instead →</a>
-        </div>
+        {LEAD_CAPTURE && (
+          <div class="actions" style="justify-content:center">
+            <a class="btn" href="/contact?intent=buy">Tell me what you're looking for</a>
+            <a class="btn btn--ghost" href={waLink("Hi Sharjeel, I'd like to discuss buying a property in the UAE.")} target="_blank" rel="noopener">WhatsApp me instead →</a>
+          </div>
+        )}
       </div>
 
       <div class="grid grid--2" style="margin-top:var(--space-12)">

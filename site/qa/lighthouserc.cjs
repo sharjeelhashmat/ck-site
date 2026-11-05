@@ -10,11 +10,12 @@ const path = require('node:path');
 const DIST = process.env.QA_DIST || '../dist';
 const PORT = 4173;
 const BASE = `http://127.0.0.1:${PORT}`;
-const PAGES = ['/', '/about', '/contact', '/new-launches', '/investor-profile', '/areas/downtown-dubai', '/insights/costs-investors-forget-before-yield'];
-const indexed = (p) => {
-  const f = path.resolve(__dirname, DIST, p === '/' ? 'index.html' : `.${p}.html`);
-  return /<meta name="robots" content="index,/.test(fs.readFileSync(f, 'utf8'));
-};
+// Every CI page the build has: /investor-profile exists only with lead capture (golive.ts LEAD_CAPTURE), so a soft-launch
+// build (no profile page, a 404) checks the other six.
+const fileOf = (p) => path.resolve(__dirname, DIST, p === '/' ? 'index.html' : `.${p}.html`);
+const ALL_PAGES = ['/', '/about', '/contact', '/new-launches', '/investor-profile', '/areas/downtown-dubai', '/insights/costs-investors-forget-before-yield'];
+const PAGES = ALL_PAGES.filter((p) => fs.existsSync(fileOf(p)));
+const indexed = (p) => /<meta name="robots" content="index,/.test(fs.readFileSync(fileOf(p), 'utf8'));
 const esc = (p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const SEO_PAGES = PAGES.filter(indexed);
 const median = (minScore) => ['error', { minScore, aggregationMethod: 'median-run' }];

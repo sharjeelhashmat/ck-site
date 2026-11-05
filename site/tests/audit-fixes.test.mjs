@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GOLIVE_TEST } from './helpers/golive.mjs';
+import { leadCaptureDist } from './helpers/build-mode.mjs';
 import { canonicalUrl } from '../src/lib/seo.mjs';
 import { FIELD_MESSAGES, MESSAGES, outcomeFor, sendLead, turnstileGate, validateLead } from '../src/lib/lead-submit.mjs';
 import { CHOOSE_ONE, MESSAGES as PROFILE_MESSAGES, profileProblems } from '../src/lib/profile-submit.mjs';
@@ -20,6 +21,9 @@ import { toE164 } from '../src/lib/phone.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const dist = join(root, 'dist');
+// The enquiry and profile forms exist only with lead capture (golive.ts LEAD_CAPTURE): H12, H13 and H15 read a lead-capture
+// build (site/dist when it has lead capture). Their absence in soft launch: tests/soft-launch.test.mjs.
+const LEAD = leadCaptureDist().dir;
 const ORIGIN = 'https://www.sharjeelhashmat.com';
 const src = (p) => readFileSync(join(root, p), 'utf8');
 const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]));
@@ -301,7 +305,7 @@ test('H12: Send shows the fallback alert when the check never loaded or errored,
   assert.match(js, /'error-callback': \(\) => \{ widgetErrored = true; \}/);
   // The alert (with WhatsApp) is on every form page, including launch mode.
   for (const f of ['contact.html', 'sell.html', 'new-launches.html']) {
-    const h = readFileSync(join(dist, f), 'utf8');
+    const h = readFileSync(join(LEAD, f), 'utf8');
     assert.match(h.match(/<div id="lead-alert-tpl" hidden>([\s\S]*?)<\/div>/)[1], /wa\.me[\s\S]*mailto:/, f);
   }
 });
@@ -316,7 +320,7 @@ const formErrors = (h, formId) => {
 test('H13: every error span has an id, no per-field role="alert", and its control points at it with aria-describedby', () => {
   const cases = [['contact.html', 'lead-form'], ['sell.html', 'lead-form'], ['new-launches.html', 'lead-form'], ['investor-profile.html', 'profile-form']];
   for (const [f, id] of cases) {
-    const { form, spans } = formErrors(readFileSync(join(dist, f), 'utf8'), id);
+    const { form, spans } = formErrors(readFileSync(join(LEAD, f), 'utf8'), id);
     assert.ok(spans.length >= 4, f);
     for (const s of spans) {
       const sid = s.match(/\bid="([^"]+)"/)?.[1];
@@ -329,7 +333,7 @@ test('H13: every error span has an id, no per-field role="alert", and its contro
     }
   }
   for (const f of ['contact.html', 'sell.html']) {
-    assert.match(readFileSync(join(dist, f), 'utf8'), /<select id="f-country" name="country" autocomplete="country">/, f);
+    assert.match(readFileSync(join(LEAD, f), 'utf8'), /<select id="f-country" name="country" autocomplete="country">/, f);
   }
 });
 
@@ -347,7 +351,7 @@ test('H13: problems come back in page order (first gets focus); aria-invalid is 
   assert.match(lead, /for \(const c of controls\(field\)\) c\.removeAttribute\('aria-invalid'\);/);
   assert.match(lead, /focusField\(problems\[0\]\[0\]\);/);
   assert.match(lead, /form\.addEventListener\('input', recheck\);/);
-  const profile = src('src/pages/investor-profile.astro');
+  const profile = src('src/gated-pages/investor-profile.astro');
   assert.match(profile, /control\(f\)\?\.setAttribute\('aria-invalid', 'true'\);/);
   assert.match(profile, /control\(f\)\?\.removeAttribute\('aria-invalid'\);/);
   assert.match(profile, /control\(problems\[0\]\[0\]\)\?\.focus\(\);/);
@@ -381,16 +385,16 @@ test('H14: every auto-fit / auto-fill grid uses minmax(min(X, 100%), 1fr) with i
 // ---------- H15. Phone library and Turnstile on demand ----------
 
 test('H15: /contact loads neither libphonenumber nor Turnstile with the page', () => {
-  const h = readFileSync(join(dist, 'contact.html'), 'utf8');
+  const h = readFileSync(join(LEAD, 'contact.html'), 'utf8');
   assert.doesNotMatch(h, /<script[^>]*src="https:\/\/challenges\.cloudflare\.com/);
   const entry = [...h.matchAll(/<script type="module" src="(\/_astro\/[^"]+)"/g)].map((m) => m[1]);
   assert.equal(entry.length, 1);
-  const js = readFileSync(join(dist, entry[0]), 'utf8');
+  const js = readFileSync(join(LEAD, entry[0]), 'utf8');
   assert.ok(js.length < 30000, `entry is ${js.length} bytes`);
   assert.doesNotMatch(js, /^import\s.*phone\./m, 'no static import of the phone chunk');
   assert.match(js, /import\("\.\/phone\.[\w-]+\.js"\)/, 'dynamic import of the phone chunk');
-  const phone = readdirSync(join(dist, '_astro')).find((f) => /^phone\.[\w-]+\.js$/.test(f));
-  assert.ok(readFileSync(join(dist, '_astro', phone), 'utf8').length > 50000, 'the phone chunk holds the metadata');
+  const phone = readdirSync(join(LEAD, '_astro')).find((f) => /^phone\.[\w-]+\.js$/.test(f));
+  assert.ok(readFileSync(join(LEAD, '_astro', phone), 'utf8').length > 50000, 'the phone chunk holds the metadata');
   assert.doesNotMatch(h, /rel="modulepreload"[^>]*phone\./);
   const lead = src('src/components/LeadForm.astro');
   assert.match(lead, /import\('\.\.\/lib\/phone\.mjs'\)/);

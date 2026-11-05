@@ -1,11 +1,11 @@
 import { defineConfig } from 'astro/config';
 import sitemap from '@astrojs/sitemap';
 import { loadChanges, loadPublic } from './src/lib/intel-data.mjs';
-import { goLiveMissing, LAUNCH_CARDS_ALLOWED } from './src/lib/golive.ts';
+import { goLiveMissing, LAUNCH_CARDS_ALLOWED, LEAD_CAPTURE } from './src/lib/golive.ts';
 
 // Production-indexable builds are the only ones that may go public (Part B: site/src/lib/golive.ts is the one go-live
 // file). A public build refuses to run unless indexing, the agency, its ORN, the broker's BRN and the advertiser permit are
-// all set there.
+// all set there; in soft launch (GOLIVE.softLaunch) it needs only indexing.
 // Every other build (preview, staging, CI) is noindex.
 const indexable = process.env.PUBLIC_INDEXABLE === 'true';
 if (indexable && goLiveMissing().length) {
@@ -24,13 +24,27 @@ const intel = loadPublic();
 // Loading also validates market events and trackers, so a broken record stops the build before any page is rendered.
 const changes = loadChanges();
 
+// Pages that exist only with lead capture (golive.ts LEAD_CAPTURE, false in soft launch): Privacy, Terms and the Investor
+// Profile form. They live outside src/pages and are routed only while LEAD_CAPTURE is true, so in soft launch they are not
+// built at all (404) and never reach the sitemap.
+const GATED_PAGES = ['privacy', 'terms', 'investor-profile'];
+const gatedPages = {
+  name: 'ck-gated-pages',
+  hooks: {
+    'astro:config:setup': ({ injectRoute }) => {
+      if (!LEAD_CAPTURE) return;
+      for (const p of GATED_PAGES) injectRoute({ pattern: `/${p}`, entrypoint: `./src/gated-pages/${p}.astro` });
+    },
+  },
+};
+
 export default defineConfig({
   site: 'https://www.sharjeelhashmat.com',
   output: 'static',
   trailingSlash: 'never',
   build: { format: 'file' },
   // No sitemap at all in a non-indexable build (audit item 22).
-  integrations: indexable ? [
+  integrations: [gatedPages, ...(indexable ? [
     sitemap({
       filter: (page) => {
         const path = new URL(page).pathname;
@@ -42,6 +56,6 @@ export default defineConfig({
         return true;
       },
     }),
-  ] : [],
+  ] : [])],
   devToolbar: { enabled: false },
 });

@@ -8,6 +8,8 @@ export interface Faq {
   q: string;
   a: string;
   links?: Record<string, string>;
+  // The answer describes the enquiry form, so the question is shown only with lead capture (golive.ts LEAD_CAPTURE).
+  needsLeadCapture?: true;
 }
 
 export const FAQS: Faq[] = [
@@ -17,6 +19,7 @@ export const FAQS: Faq[] = [
     // "Book a call" removed, owner-approved copy 2026-10-19 (audit M3, item 38): there is no booking link on the site.
     a: 'Fill out the contact form or message me on WhatsApp. Investors can then add a short Investor Profile for a more tailored match.',
     links: { 'contact form': '/contact' },
+    needsLeadCapture: true,
   },
   {
     q: 'Do you only work with UAE residents?',
@@ -40,6 +43,7 @@ export const FAQS: Faq[] = [
     q: 'How quickly do you respond to enquiries?',
     a: "Enquiries sent through the website's forms are answered within 24 hours, by the contact method you choose.",
     links: { "website's forms": '/contact' },
+    needsLeadCapture: true,
   },
 ];
 

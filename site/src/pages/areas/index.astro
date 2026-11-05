@@ -9,6 +9,7 @@ import '../../styles/market.css';
 import { ADREC, PERIOD, guidesFor, type Emirate } from '../../lib/area-guides';
 import { EMIRATES, renderChange, renderTop } from '../../lib/market.mjs';
 import { SITE } from '../../lib/site';
+import { LEAD_CAPTURE } from '../../lib/golive';
 
 const adData = { period: ADREC.period, published: ADREC.published, source_url: ADREC.source_url, areas: ADREC.areas.map((a) => ({ ...a, label: null })) };
 const adTop = renderTop('abu_dhabi', adData);
@@ -46,7 +47,8 @@ const emirates: Emirate[] = ['dubai', 'abu_dhabi'];
         <div data-slot="top" set:html={adTop}></div>
         <div data-slot="change" set:html={adChange}></div>
       </div>
-      <p class="mk-ask" id="mk-ask" hidden>Want to know what these numbers mean for a specific unit? <a href="/contact">Ask me.</a></p>
+      {/* Soft launch (LEAD_CAPTURE false): no "Ask me" line; lib/areas-page.mjs skips a missing #mk-ask. */}
+      {LEAD_CAPTURE && <p class="mk-ask" id="mk-ask" hidden>Want to know what these numbers mean for a specific unit? <a href="/contact">Ask me.</a></p>}
 
       {emirates.map((e) => (
         <section class="mk-guides" data-emirate={e} aria-labelledby={`mk-guides-${e}`}>

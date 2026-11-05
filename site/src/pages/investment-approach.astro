@@ -3,6 +3,7 @@
 // It must exist before OUTBOUND is switched on. Copy below is assembled only from sentences already on the live site.
 import Base from '../layouts/Base.astro';
 import { FIVE_CHECKS } from '../lib/checks';
+import { LEAD_CAPTURE } from '../lib/golive';
 ---
 <Base title="How to assess UAE property before you buy" description="Every recommendation goes through the same five checks: price, returns, risk, exit, and my view.">
   <section class="section">
@@ -28,7 +29,7 @@ import { FIVE_CHECKS } from '../lib/checks';
         <p class="small">Send me any UAE property and I'll run the numbers: price, returns, risk, exit, my view. You can also run your own numbers on the <a href="/invest">ROI Calculator</a>.</p>
       </div>
 
-      <div class="actions"><a href="/contact" class="btn">Get the numbers on a property</a></div>
+      {LEAD_CAPTURE && <div class="actions"><a href="/contact" class="btn">Get the numbers on a property</a></div>}
 
       <p class="fine" style="margin-top:var(--space-8)">Figures are sourced and dated. This is property analysis, not financial advice.</p>
     </div>

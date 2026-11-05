@@ -7,13 +7,15 @@
 //   insights   an archived or draft insight in the sitemap, llms.txt, /insights, any internal link, or built at all
 //   meta       a page title over 60 characters, or a description outside 70 to 160 characters (PR 2 item 21)
 //   privacy    the Privacy page lacks the retention periods: "30 days", "24 months" or "730 days", "12 months" or "365 days"
-//              (a WARNING until PRIVACY_RETENTION_REQUIRED is true)
+//              (a WARNING until PRIVACY_RETENTION_REQUIRED is true). With lead capture only: in soft launch (golive.ts
+//              softLaunch, LEAD_CAPTURE false) the Privacy page is not built, and building it is a FAIL
 //   noindex    a non-indexable build emits a sitemap, advertises one, or a page or path lacks noindex (PR 2 item 22)
 //   wording    "Book a call", "Broker", "Real Estate Consultant", a Gmail address or "Royals Field" on any page
 //   whatsapp   /new-launches has more WhatsApp links than the site-wide ones (nav and floating button): no extra CTA
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { LEAD_CAPTURE } from '../src/lib/golive.ts';
 
 // The lawyer-approved Privacy PR flips this ONE constant to true; from then on missing retention periods fail the build.
 export const PRIVACY_RETENTION_REQUIRED = false;
@@ -50,13 +52,15 @@ export function unpublishedInsights(dir = INSIGHTS_DIR) {
 
 /**
  * @param {string} dist built site
- * @param {{ indexable?: boolean, insightsDir?: string, privacyRequired?: boolean }} [opts]
+ * @param {{ indexable?: boolean, insightsDir?: string, privacyRequired?: boolean, leadCapture?: boolean }} [opts]
  *   indexable: the build was meant to be public (PUBLIC_INDEXABLE=true); default from the environment, as the build reads it
+ *   leadCapture: the build has lead capture and the legal pages (golive.ts LEAD_CAPTURE, as the build reads it)
  * @returns {{ rule: string, level: 'FAIL' | 'WARN', message: string }[]}
  */
 export function checkReadiness(dist, opts = {}) {
   const indexable = opts.indexable ?? process.env.PUBLIC_INDEXABLE === 'true';
   const privacyRequired = opts.privacyRequired ?? PRIVACY_RETENTION_REQUIRED;
+  const leadCapture = opts.leadCapture ?? LEAD_CAPTURE;
   const out = [];
   const fail = (rule, message) => out.push({ rule, level: 'FAIL', message });
   const files = walk(dist).map((f) => relative(dist, f).split(sep).join('/'));
@@ -111,7 +115,9 @@ export function checkReadiness(dist, opts = {}) {
   }
 
   // privacy
-  if (!has('privacy.html')) fail('privacy', 'privacy.html is missing');
+  if (!leadCapture) {
+    if (has('privacy.html')) fail('privacy', 'soft launch: privacy.html must not be built');
+  } else if (!has('privacy.html')) fail('privacy', 'privacy.html is missing');
   else {
     const p = textOf(read('privacy.html'));
     const missing = [['30 days'], ['24 months', '730 days'], ['12 months', '365 days']].filter((alts) => !alts.some((a) => p.includes(a)));
@@ -148,7 +154,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const dist = process.argv[2] ?? join(SITE_ROOT, 'dist');
   const results = checkReadiness(dist);
   const gh = Boolean(process.env.GITHUB_ACTIONS);
-  console.log(`Launch readiness (${process.env.PUBLIC_INDEXABLE === 'true' ? 'public' : 'non-indexable'} build, ${dist})`);
+  console.log(`Launch readiness (${process.env.PUBLIC_INDEXABLE === 'true' ? 'public' : 'non-indexable'} build, ${LEAD_CAPTURE ? 'lead capture' : 'soft launch'}, ${dist})`);
   for (const r of RULES) {
     const hits = results.filter((x) => x.rule === r);
     const level = hits.some((x) => x.level === 'FAIL') ? 'FAIL' : hits.length ? 'WARN' : 'PASS';
