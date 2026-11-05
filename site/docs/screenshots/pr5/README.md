@@ -14,8 +14,9 @@ Visual COPY HOLD: no copy, colour, logo, brand file or legal text changed. Every
 2. **Type roles.** Text in capitals maps to label (Inter 400, 12/16, 0.18em). Other Inter text below 16px maps to small
    (14/20) whatever its size, so sentences are never set in capitals. Text at about 15 to 18px maps to body (16/28).
    Tables are data (16/24, Inter 500) with their headers as labels (400). `strong` and `b` are 500.
-3. **Inter subheads** (`.prose h3`, the card titles on /invest) keep Inter and take the data style (16/24, 500) rather
-   than becoming Cormorant, so they stay below the 28px H2s.
+3. **Inter subheads** (`.prose h3`, the card titles on /invest, and the FAQ questions, owner approved 2026-11-05) use
+   the data style (Inter 500, 16/24, -0.011em) rather than Cormorant, so they stay below the 28px H2s. The FAQ "+"
+   marker stays Inter 400.
 4. **Big figures** are Inter 500, lining and tabular. Stat (48/52) where the figure is short and has room: `.way-num`,
    the /areas year-to-date tiles and the area guide figure. Data (16/24) where it cannot fit at 320px or has no upper
    bound: the two-column top-area cards (`.mk-card .mk-value`), the ROI calculator outputs (`.stat`, amounts the visitor
@@ -30,9 +31,10 @@ Visual COPY HOLD: no copy, colour, logo, brand file or legal text changed. Every
    the floating WhatsApp button. `--radius-xl` is defined; nothing in the site is a large panel, image, hero block or
    modal with corners today. The permit QR image (hidden until go-live) is `--radius-sm`: 24px would clip its finder
    patterns.
-7. **Taglines.** The About lead line ("Numbers first. Straight answers. No pitch.") and the footer title beside the
-   logo are the tagline style (Cormorant Italic 400, 22/32). The About line was the owner-approved 24 to 32px Cormorant
-   display line of 2026-10-10; under v5.8 Cormorant normal starts at 28px and the line reads as a tagline.
+7. **About lead line and footer title.** The About lead line ("Numbers first. Straight answers. No pitch.") is the
+   heading style, upright: Cormorant Garamond 600, 28/36 (owner approved 2026-11-05), the nearest v5.8 step to the
+   upright 24 to 32px Cormorant display line the owner approved on 2026-10-10. The footer title beside the logo is the
+   tagline style (Cormorant Italic 400, 22/32).
 8. **Scrollable tables** (`.table-scroll`) take `tabindex="0"` so a keyboard can scroll them (axe
    scrollable-region-focusable; the insight figures table now scrolls at 375px, and already did at 320px on the base).
 
@@ -42,7 +44,7 @@ Visual COPY HOLD: no copy, colour, logo, brand file or legal text changed. Every
 |---|---|---|
 | `.brand` (header lockup) | Cormorant 1.35rem (21.6px); the header shows only the logo | no font set; the header has no brand text |
 | `.site-footer .brand` text "Property Consultant · UAE" | Cormorant 1.05rem (16.8px) | tagline: Cormorant Italic 400, 22/32 |
-| `.faq summary` (the questions) | Cormorant 600, 1.35rem (21.6px) | heading: Cormorant 600, 28/36 |
+| `.faq summary` (the questions) | Cormorant 600, 1.35rem (21.6px) | data: Inter 500, 16/24, -0.011em (owner approved 2026-11-05) |
 | `.print-head` (print only) | Cormorant 600, 1.15rem (18.4px) | Inter 400, body 16/28 |
 | `.mk-area` (/areas top-area names) | Cormorant 1.3rem (20.8px), 1.1rem (17.6px) below 30rem | heading: Cormorant 600, 28/36 at every width |
 
@@ -143,7 +145,7 @@ button-like options` (`--radius-md`).
 | `styles/global.css` | `:root` | `--lh-small` | `(none)` | `1.25rem` |
 | `styles/global.css` | `:root` | `--ls-small` | `(none)` | `-0.006em` |
 
-## Every selector whose value changed (673 declarations)
+## Every selector whose value changed (674 declarations)
 
 From a declaration-by-declaration diff of site/src (stylesheets, <style> blocks and style attributes) against phase2-site. (none) means the property was added or removed.
 
@@ -217,9 +219,9 @@ From a declaration-by-declaration diff of site/src (stylesheets, <style> blocks 
 | `components/ROICalc.astro` | `p (#2)` | `margin-top` | `1.5rem` | `var(--space-6)` |
 | `components/ROICalc.astro` | `a` | `margin-top` | `1.25rem` | `var(--space-6)` |
 | `pages/about.astro` | `.about .lede` | `margin-top` | `2rem` | `var(--space-8)` |
-| `pages/about.astro` | `.about .about-lead` | `font-size` | `clamp(1.5rem, 1.2rem + 1.5vw, 2rem)` | `var(--fs-tagline)` |
-| `pages/about.astro` | `.about .about-lead` | `line-height` | `1.2` | `var(--lh-tagline)` |
-| `pages/about.astro` | `.about .about-lead` | `font-style` | `(none)` | `italic` |
+| `pages/about.astro` | `.about .about-lead` | `font-weight` | `400` | `600` |
+| `pages/about.astro` | `.about .about-lead` | `font-size` | `clamp(1.5rem, 1.2rem + 1.5vw, 2rem)` | `var(--fs-heading)` |
+| `pages/about.astro` | `.about .about-lead` | `line-height` | `1.2` | `var(--lh-heading)` |
 | `pages/about.astro` | `.about .about-lead` | `letter-spacing` | `(none)` | `0` |
 | `pages/about.astro` | `.about-h2` | `margin-top` | `3rem` | `var(--space-12)` |
 | `pages/about.astro` | `.about-checks` | `margin` | `1rem 0 0` | `var(--space-4) 0 0` |
@@ -634,10 +636,11 @@ From a declaration-by-declaration diff of site/src (stylesheets, <style> blocks 
 | `styles/global.css` | `.faq` | `margin-top` | `2rem` | `var(--space-8)` |
 | `styles/global.css` | `.faq summary` | `gap` | `1.5rem` | `var(--space-6)` |
 | `styles/global.css` | `.faq summary` | `padding` | `1.25rem 0` | `var(--space-6) 0` |
-| `styles/global.css` | `.faq summary` | `font-size` | `1.35rem` | `var(--fs-heading)` |
-| `styles/global.css` | `.faq summary` | `line-height` | `1.3` | `var(--lh-heading)` |
-| `styles/global.css` | `.faq summary` | `font-weight` | `(none)` | `600` |
-| `styles/global.css` | `.faq summary` | `letter-spacing` | `(none)` | `0` |
+| `styles/global.css` | `.faq summary` | `font-family` | `var(--serif)` | `var(--sans)` |
+| `styles/global.css` | `.faq summary` | `font-size` | `1.35rem` | `var(--fs-data)` |
+| `styles/global.css` | `.faq summary` | `line-height` | `1.3` | `var(--lh-data)` |
+| `styles/global.css` | `.faq summary` | `font-weight` | `(none)` | `500` |
+| `styles/global.css` | `.faq summary` | `letter-spacing` | `(none)` | `var(--ls-data)` |
 | `styles/global.css` | `.faq summary::after` | `font-size` | `1.4rem` | `var(--fs-body)` |
 | `styles/global.css` | `.faq summary::after` | `font-weight` | `300` | `400` |
 | `styles/global.css` | `.faq summary::after` | `line-height` | `(none)` | `var(--lh-body)` |

@@ -43,9 +43,10 @@ import { SITE, AFFILIATION_LINE } from '../lib/site';
   /* One rhythm for the whole page: every H2 at the page H2 size with the same space above it; paragraphs keep the
      site's normal size and spacing. */
   .about .lede { margin-top: var(--space-8); }
-  /* The lead line is a tagline: the Cormorant Italic tagline style (Rules 1c v5.8). The closing line keeps the plain
-     .lede style. */
-  .about .about-lead { font-family: var(--serif); font-style: italic; font-weight: 400; font-size: var(--fs-tagline); line-height: var(--lh-tagline); letter-spacing: 0; color: var(--ink); }
+  /* The lead line is the upright Cormorant display line the owner approved on 2026-10-10 (24 to 32px), set in the
+     nearest Rules 1c v5.8 step: heading, Cormorant 600, 28/36 (owner approved 2026-11-05). The closing line keeps the
+     plain .lede style. */
+  .about .about-lead { font-family: var(--serif); font-weight: 600; font-size: var(--fs-heading); line-height: var(--lh-heading); letter-spacing: 0; color: var(--ink); }
   .about-h2 { margin-top: var(--space-12); margin-bottom: 0; }
   .about-checks { margin: var(--space-4) 0 0; padding-left: var(--space-6); display: grid; gap: var(--space-2); }
   .about .about-close { margin-top: var(--space-12); }

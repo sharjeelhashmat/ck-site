@@ -381,7 +381,7 @@ form.card { padding: var(--space-8); }
 .faq details { border-bottom: 1px solid var(--line); }
 .faq summary {
   list-style: none; cursor: pointer; display: flex; justify-content: space-between; align-items: center; gap: var(--space-6);
-  padding: var(--space-6) 0; font-family: var(--serif); font-weight: 600; font-size: var(--fs-heading); line-height: var(--lh-heading); letter-spacing: 0; color: var(--navy-deep);
+  padding: var(--space-6) 0; font-family: var(--sans); font-weight: 500; font-size: var(--fs-data); line-height: var(--lh-data); letter-spacing: var(--ls-data); color: var(--navy-deep);
 }
 .faq summary::-webkit-details-marker { display: none; }
 .faq summary::after { content: '+'; font-family: var(--sans); font-size: var(--fs-body); line-height: var(--lh-body); letter-spacing: var(--ls-body); font-weight: 400; color: var(--brass-deep); flex: none; transition: transform .15s; }
