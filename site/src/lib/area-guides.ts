@@ -40,8 +40,14 @@ export interface AdrecFile {
 export const VIEW_HEADING: string = data.view_heading;
 export const GUIDES = data.guides as Guide[];
 export const ADREC = adrec as AdrecFile;
-/** The period both emirates show: the latest one ADREC publishes by area. */
-export const PERIOD = ADREC.period;
+/** Abu Dhabi's period: the latest one ADREC publishes by area (src/data/adrec-areas.json). */
+export const ADREC_PERIOD = ADREC.period;
+/**
+ * Dubai's period: the Worker's latest year to date (?period=ytd resolves to 1 January to the last complete month of the
+ * DLD data, e.g. 2026-YTD10 = Jan to Oct 2026). The page labels the period the response names (servedPeriod in
+ * lib/market.mjs), never this alias.
+ */
+export const DUBAI_PERIOD = 'ytd';
 
 export const guidesFor = (e: Emirate) => GUIDES.filter((g) => g.emirate === e);
 

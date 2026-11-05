@@ -11,8 +11,8 @@ import { fileURLToPath } from 'node:url';
 import { GOLIVE_TEST } from './helpers/golive.mjs';
 import { BUILD, PERSON_IDS, leadCaptureDist } from './helpers/build-mode.mjs';
 import {
-  checkAdrecAreas, checkLaunchReviews, dubaiRows, formatChange, fmtDate, fmtMonth, isHalfYear, periodLabel, priorPeriodId, rankByChange,
-  renderChange, renderGuideCard, renderLaunchPanel, renderTop, renderYtd,
+  checkAdrecAreas, checkLaunchReviews, dubaiRows, formatChange, fmtDate, fmtMonth, isHalfYear, isYtd, periodLabel, priorPeriodId, rankByChange,
+  renderChange, renderGuideCard, renderLaunchPanel, renderTop, renderYtd, servedPeriod,
 } from '../src/lib/market.mjs';
 import { decide } from '../src/lib/areas-page.mjs';
 
@@ -171,6 +171,13 @@ test('E: period labels, prior period and the half-year rule', () => {
   assert.equal(isHalfYear('2026-H2'), true);
   assert.equal(isHalfYear('2026-Q3'), false);
   assert.equal(fmtDate('2026-10-09'), '9 Oct 2026');
+  // Dubai year to date (Worker period=ytd): 1 January to the last complete month, against the same months a year earlier.
+  assert.equal(periodLabel('2026-YTD10'), 'Jan to Oct 2026');
+  assert.equal(periodLabel(priorPeriodId('2026-YTD10')), 'Jan to Oct 2025');
+  assert.equal(periodLabel('2026-YTD01'), 'Jan 2026');
+  assert.equal(isYtd('2026-YTD10'), true);
+  assert.equal(isYtd('2026-H1'), false);
+  assert.equal(isHalfYear('2026-YTD06'), false);
 });
 
 test('E: change formatting: +N%, true-minus −N%, change n/p, new this year, ≈N× at +200% and above, ADREC text as given', () => {
@@ -205,7 +212,10 @@ test('E: Dubai top 8 cards from the expected output: rank, name + label, AED x.x
   const t = text(html);
   assert.match(t, /Top areas by sales value · Dubai/);
   assert.match(html, /<p class="mk-chip">Jan to Jun 2026 vs Jan to Jun 2025<\/p>/);
-  assert.match(t, /Both emirates show Jan to Jun 2026: the latest period ADREC publishes by area, so Dubai and Abu Dhabi stay comparable\. Both move to a newer period together as soon as ADREC publishes it\./);
+  // No emirate claims the other's period any more (owner decision 2026-11-05): the old shared sentence is gone, and an
+  // explicit half year on Dubai carries no period sentence.
+  assert.doesNotMatch(t, /Both emirates|stay comparable|move to a newer period together/);
+  assert.doesNotMatch(html, /class="mk-note"/);
   assert.equal([...html.matchAll(/<article class="mk-card">/g)].length, 8);
   assert.match(t, /#1 Al Yelayiss 1 AED 11\.1bn 6\.1% of total ≈15×/);
   assert.match(t, /#2 Madinat Al Mataar Dubai South AED 10\.9bn 6\.0% of total \+16%/);
@@ -213,6 +223,73 @@ test('E: Dubai top 8 cards from the expected output: rank, name + label, AED x.x
   assert.match(html, /<span class="mk-change mk-fall">−14%<\/span>/);
   assert.match(html, /<span style="width:100%"><\/span>/);
   assert.match(html, /<span style="width:63%"><\/span>/); // 6.99 / 11.07
+});
+
+test('E: Dubai year to date: the chip and the one Dubai sentence name the served months; Abu Dhabi its own ADREC period', () => {
+  const ytd = { ...EXPECTED_DUBAI, period: '2026-YTD10', prior_period: '2025-YTD10', first_month: '2026-01', last_month: '2026-10', prior_first_month: '2025-01', prior_last_month: '2025-10' };
+  const html = renderTop('dubai', { period: servedPeriod(ytd), areas: dubaiRows(ytd) });
+  assert.match(html, /<p class="mk-chip">Jan to Oct 2026 vs Jan to Oct 2025<\/p>/);
+  assert.match(html, /<p class="mk-note">Dubai: Jan to Oct 2026 against the same months of 2025, from DLD open data, updated weekly\.<\/p>/);
+  assert.doesNotMatch(html, /ADREC|Abu Dhabi|Jun 2026/);
+  const ad = renderTop('abu_dhabi', { period: '2026-H1', areas: [{ rank: 1, area: 'Saadiyat Island', value_bn: 13.3, share_pct: 18.9, change_pct: 63 }, { rank: 2, area: 'Yas Island', value_bn: 7.3, share_pct: 10.4, change_pct: 91 }] });
+  assert.match(ad, /<p class="mk-chip">Jan to Jun 2026 vs Jan to Jun 2025<\/p>/);
+  assert.match(ad, /<p class="mk-note">Abu Dhabi: Jan to Jun 2026, the latest period ADREC publishes by area\.<\/p>/);
+  assert.doesNotMatch(ad, /Dubai|DLD|Oct/);
+  // A later ADREC period moves the Abu Dhabi sentence with it, never the Dubai one.
+  assert.match(renderTop('abu_dhabi', { period: '2026-Q3', areas: [{ rank: 1, area: 'X', value_bn: 1, share_pct: 1, change_pct: 1 }] }), /Abu Dhabi: Jul to Sep 2026, the latest period ADREC publishes by area\./);
+});
+
+test('E: the Dubai label always matches the months the Worker served (for every as_of across two years)', async () => {
+  // The Worker's own period code (worker/src/market-core.ts) builds the body; the site labels what that body names.
+  const core = await import('../../worker/src/market-core.ts');
+  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const cur = [{ area_en: 'Alpha', value: 2e9, count: 2, offplan: 1 }];
+  const prior = [{ area_en: 'Alpha', value: 1e9, count: 1, offplan: 0 }];
+  for (let t = Date.UTC(2026, 0, 1); t <= Date.UTC(2027, 11, 31); t += 86400000) {
+    const asOf = new Date(t).toISOString().slice(0, 10);
+    const body = core.areasBody(core.ytdPeriod(asOf), cur, prior, [], asOf);
+    const id = servedPeriod(body);
+    const last = core.lastCompleteMonth(asOf);
+    const [y, m] = [Number(last.slice(0, 4)), Number(last.slice(5, 7))];
+    const want = m === 1 ? `Jan ${y}` : `Jan to ${MON[m - 1]} ${y}`;
+    assert.equal(periodLabel(id), want, asOf);
+    assert.equal(periodLabel(priorPeriodId(id)), want.replace(String(y), String(y - 1)), asOf);
+    assert.equal(body.last_month, last, asOf);
+    // The month on screen is never later than the data: its last day is on or before as_of.
+    assert.ok(core.parsePeriod(id).endDate <= asOf, asOf);
+    const area = core.areaBodies(core.ytdPeriod(asOf), cur, prior, asOf).get('Alpha');
+    assert.equal(servedPeriod(area), id, asOf);
+  }
+  // Data dated 31 Oct covers October; data dated 30 Oct does not.
+  assert.equal(periodLabel(servedPeriod(core.areasBody(core.ytdPeriod('2026-10-31'), cur, prior, [], '2026-10-31'))), 'Jan to Oct 2026');
+  assert.equal(periodLabel(servedPeriod(core.areasBody(core.ytdPeriod('2026-10-30'), cur, prior, [], '2026-10-30'))), 'Jan to Sep 2026');
+});
+
+test('E: a body whose named months disagree with its period is not shown (no label that could be wrong)', () => {
+  const ok = { period: '2026-YTD10', prior_period: '2025-YTD10', first_month: '2026-01', last_month: '2026-10', prior_first_month: '2025-01', prior_last_month: '2025-10' };
+  assert.equal(servedPeriod(ok), '2026-YTD10');
+  for (const bad of [
+    { ...ok, last_month: '2026-09' }, { ...ok, first_month: '2026-02' }, { ...ok, prior_last_month: '2025-09' }, { ...ok, prior_period: '2025-H1' },
+    { period: '2026-YTD10' }, { ...ok, period: '2026-YTD13' }, { ...ok, period: 'ytd' }, { ...ok, period: '2026-H1' }, null, {},
+  ]) assert.equal(servedPeriod(bad), '', JSON.stringify(bad));
+  // A half or quarter from a Worker that does not name months yet is still accepted; named months must agree.
+  assert.equal(servedPeriod({ period: '2026-H1', prior_period: '2025-H1' }), '2026-H1');
+  assert.equal(servedPeriod({ period: '2026-H1', first_month: '2026-01', last_month: '2026-06', prior_first_month: '2025-01', prior_last_month: '2025-06' }), '2026-H1');
+  assert.equal(servedPeriod({ period: '2026-H1', first_month: '2026-01', last_month: '2026-10', prior_first_month: '2025-01', prior_last_month: '2025-10' }), '');
+  // Nothing renders for an untrusted period.
+  assert.equal(renderTop('dubai', { period: servedPeriod({ ...ok, last_month: '2026-09' }), areas: dubaiRows(EXPECTED_DUBAI) }), '');
+  assert.equal(renderGuideCard('dubai', { period: '', area: { rank: 1, area: 'A', value_bn: 1, share_pct: 1, change_pct: 1 } }), '');
+});
+
+test('E: the built /areas: Dubai asks the Worker for its year to date; Abu Dhabi shows ADREC\'s period with its own sentence', () => {
+  const m = main('areas.html');
+  assert.match(m, /<div class="wrap" id="mk-root" data-worker="https:\/\/ck-lead-worker\.sharjeelhashmat\.workers\.dev" data-period="ytd">/);
+  const panel = m.match(/<div class="mk-panel" data-emirate="abu_dhabi"[\s\S]*?(<p class="mk-ask"|<section class="mk-guides")/)[0];
+  assert.match(panel, /<p class="mk-chip">Jan to Jun 2026 vs Jan to Jun 2025<\/p><p class="mk-note">Abu Dhabi: Jan to Jun 2026, the latest period ADREC publishes by area\.<\/p>/);
+  assert.equal(ADREC.period, '2026-H1');
+  for (const f of htmlFiles) assert.doesNotMatch(readFileSync(f, 'utf8'), /Both emirates show|stay comparable\. Both move/, f);
+  assert.match(src('src/pages/areas/index.astro'), /servedPeriod\(areas\)/, 'the Dubai label comes from the served body');
+  assert.match(src('src/pages/areas/[slug].astro'), /period: servedPeriod\(b\)/, 'the guide card label comes from the served body');
 });
 
 test('E: change table ranks by change (≈N× above percentages), rises Ink, falls Brass Deep; Dubai has no n/p note', () => {
@@ -389,10 +466,12 @@ test('F: every guide page renders the exact approved copy in the template order,
   }
 });
 
-test('F: the live figures card: Dubai loads /market/area/<DLD area> for the /areas period; hidden when there is no data', () => {
+test('F: the live figures card: Dubai loads /market/area/<DLD area> for Dubai\'s year to date; hidden when there is no data', () => {
   for (const g of GUIDES.filter((x) => x.emirate === 'dubai')) {
     const m = main(`areas/${g.slug}.html`);
-    assert.match(m, new RegExp(`<div class="mk-guide-card" id="guide-figures" hidden data-worker="https://ck-lead-worker\\.sharjeelhashmat\\.workers\\.dev" data-area="${g.dld_area}" data-period="${ADREC.period}"`), g.slug);
+    // Dubai's own period (the Worker's latest year to date), not ADREC's: the two emirates never share a period.
+    assert.match(m, new RegExp(`<div class="mk-guide-card" id="guide-figures" hidden data-worker="https://ck-lead-worker\\.sharjeelhashmat\\.workers\\.dev" data-area="${g.dld_area}" data-period="ytd"`), g.slug);
+    assert.doesNotMatch(m, new RegExp(`data-period="${ADREC.period}"`), g.slug);
   }
   for (const g of GUIDES.filter((x) => x.emirate === 'abu_dhabi')) {
     const listed = ADREC.areas.some((a) => a.guide === g.slug);
@@ -403,6 +482,8 @@ test('F: the live figures card: Dubai loads /market/area/<DLD area> for the /are
   const dubai = text(renderGuideCard('dubai', { period: '2026-H1', dldArea: 'Burj Khalifa', area: { rank: 9, area: 'Burj Khalifa', value_bn: 5.04, share_pct: 2.8, change_pct: -31 } }));
   assert.match(dubai, /AED 5\.0bn residential sales value, Jan to Jun 2026 2\.8% of Dubai's total −31%/);
   assert.match(dubai, /Residential sales value for the DLD area Burj Khalifa\./);
+  const ytdCard = text(renderGuideCard('dubai', { period: '2026-YTD10', dldArea: 'Burj Khalifa', area: { rank: 9, area: 'Burj Khalifa', value_bn: 5.04, share_pct: 2.8, change_pct: -31 } }));
+  assert.match(ytdCard, /Jan to Oct 2026 vs Jan to Oct 2025 AED 5\.0bn residential sales value, Jan to Oct 2026 2\.8% of Dubai's total −31%/);
 });
 
 test('F: the old placeholder sections and the old "Ask Sharjeel about" line are gone everywhere', () => {

@@ -1,12 +1,13 @@
 ---
 // /areas (Part E, owner-approved preview 2026-10-16). Dubai and Abu Dhabi measured the same way: residential sales value
-// for the same period, against the same period a year earlier. The period is the one in src/data/adrec-areas.json (the
-// latest ADREC publishes by area); Dubai is computed for that same period by the Worker from DLD open data.
+// against the same months a year earlier, each for its own latest period (owner decision 2026-11-05). Dubai: the Worker's
+// latest year to date from DLD open data (?period=ytd, labelled with the months the response names). Abu Dhabi: the
+// period in src/data/adrec-areas.json, the latest ADREC publishes by area.
 // Abu Dhabi areas render at build time; Dubai figures and both year-to-date rows load in the browser. An emirate with no
 // data is not shown; with one emirate left the switch is hidden. Nothing renders as empty, zero or "loading".
 import Base from '../../layouts/Base.astro';
 import '../../styles/market.css';
-import { ADREC, PERIOD, guidesFor, type Emirate } from '../../lib/area-guides';
+import { ADREC, DUBAI_PERIOD, guidesFor, type Emirate } from '../../lib/area-guides';
 import { EMIRATES, renderChange, renderTop } from '../../lib/market.mjs';
 import { SITE } from '../../lib/site';
 import { LEAD_CAPTURE } from '../../lib/golive';
@@ -35,7 +36,7 @@ const emirates: Emirate[] = ['dubai', 'abu_dhabi'];
       </div>
     </div>
 
-    <div class="wrap" id="mk-root" data-worker={SITE.workerUrl} data-period={PERIOD}>
+    <div class="wrap" id="mk-root" data-worker={SITE.workerUrl} data-period={DUBAI_PERIOD}>
       <div class="mk-panel" data-emirate="dubai" hidden>
         <div data-slot="ytd"></div>
         <div data-slot="top"></div>
@@ -65,7 +66,7 @@ const emirates: Emirate[] = ['dubai', 'abu_dhabi'];
 </Base>
 
 <script>
-  import { dubaiRows, renderChange, renderTop, renderYtd } from '../../lib/market.mjs';
+  import { dubaiRows, renderChange, renderTop, renderYtd, servedPeriod } from '../../lib/market.mjs';
   import { initAreasPage } from '../../lib/areas-page.mjs';
 
   const root = document.getElementById('mk-root')!;
@@ -78,7 +79,8 @@ const emirates: Emirate[] = ['dubai', 'abu_dhabi'];
   Promise.all([get(`/market/areas?period=${encodeURIComponent(period)}`), get('/market/launches')])
     .then(([areas, launches]) => {
       const dubai = areas?.dubai ?? null;
-      const dubaiData = dubai ? { period: areas.period, areas: dubaiRows(areas) } : null;
+      // The Dubai label is built from the period the response names, and only when its months match it.
+      const dubaiData = dubai && servedPeriod(areas) ? { period: servedPeriod(areas), areas: dubaiRows(areas) } : null;
       const ad = launches?.abu_dhabi ?? null;
       return {
         dubai: {

@@ -9,7 +9,8 @@ import { DatabaseSync } from 'node:sqlite';
 import { describe, expect, it } from 'vitest';
 import { buildArtifact, validateArtifact } from '../scripts/market-sync/artifact';
 import { badRowsProblem, CsvParser, DLD_TX_COLUMNS, DldProjectsAggregator, DldTxAggregator, isoDate, parseAdrec, parseCsv, safeUrl } from '../scripts/market-sync/dld';
-import { buildSql, checkSql } from '../scripts/market-sync/sql';
+import { buildSql, cacheRows, checkSql } from '../scripts/market-sync/sql';
+import { priorPeriod, ytdPeriod } from '../src/market-core';
 import { assertDownloadUrl, DLD_DOWNLOAD_TIMEOUT_MS, readDld, runApply, runDld, streamRecords, type Ctx } from '../scripts/market-sync/sync';
 import { csvLine, fixtureLines, HEADER, row } from './market-fixture';
 
@@ -505,6 +506,25 @@ describe('market_cache in the sync import (B1)', () => {
     d.exec(sqlFor(aggregate(fixtureLines().slice(0, 3)), { runId: 'run-small' }));
     expect(d.prepare("SELECT dld_written FROM market_sync_runs WHERE run_id = 'run-small'").get()).toEqual({ dld_written: 0 });
     expect(d.prepare('SELECT key, body FROM market_cache ORDER BY key').all()).toEqual(before);
+  });
+
+  it('writes the latest Dubai year to date under the ytd keys, its body naming the period; only with the prior months in the data', () => {
+    const d = db();
+    d.exec(sqlFor(aggregate()));
+    const row = d.prepare("SELECT body FROM market_cache WHERE key = 'areas:ytd'").get() as { body: string } | undefined;
+    expect(row).toBeDefined();
+    const b = JSON.parse(row!.body);
+    const want = ytdPeriod(b.dubai.as_of);
+    expect([b.period, b.first_month, b.last_month, b.prior_period, b.prior_first_month, b.prior_last_month])
+      .toEqual([want.id, '2026-01', want.lastMonth, priorPeriod(want).id, '2025-01', priorPeriod(want).lastMonth]);
+    expect((d.prepare("SELECT COUNT(*) AS n FROM market_cache WHERE key LIKE 'area:ytd:%'").get() as { n: number }).n).toBeGreaterThan(0);
+    // The cached ytd body is the same body the explicit period gives.
+    const a = aggregate();
+    const rows = new Map(cacheRows({ asOf: a.asOf, areaMonths: a.areaMonths(), monthTotals: a.monthTotals() }));
+    expect(rows.get('areas:ytd')).toBe(row!.body);
+    // No ytd rows when the prior year's months are not in the data (DLD data starts in January 2025).
+    const early = cacheRows({ asOf: '2025-10-31', areaMonths: a.areaMonths(), monthTotals: a.monthTotals() });
+    expect(early.some(([k]) => k === 'areas:ytd' || k.startsWith('area:ytd:'))).toBe(false);
   });
 
   it('launches: written only when this run read both sources; the ADREC as_of comes from the stored row', () => {

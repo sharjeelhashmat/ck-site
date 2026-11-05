@@ -19,8 +19,8 @@ const today = new Date().toISOString().slice(0, 10);
 const row = (rank, area_en) => ({ rank, area_en, label: null, value_bn: 9 - rank, share_pct: 5 - rank / 2, change_pct: 10 - rank * 5, prior_zero: false, offplan_pct: 50 });
 const top8 = ['Al Yelayiss 1', 'Madinat Al Mataar', 'Palm Deira', 'Hadaeq Sheikh Mohammed Bin Rashid', 'Wadi Al Safa 3', 'Business Bay', 'Marsa Dubai', 'Wadi Al Safa 5'].map((a, i) => row(i + 1, a));
 const FIXTURES = {
-  areas: { period: '2026-H1', prior_period: '2025-H1', dubai: { ytd: { sales_bn: 391.7, total_bn: 591.6, mortgages_bn: 154.7, as_of: today }, top8, total_res_bn: 182.9, as_of: today } },
-  area: { period: '2026-H1', prior_period: '2025-H1', area: top8[6], total_res_bn: 182.9, as_of: today },
+  areas: { period: '2026-YTD09', prior_period: '2025-YTD09', first_month: '2026-01', last_month: '2026-09', prior_first_month: '2025-01', prior_last_month: '2025-09', dubai: { ytd: { sales_bn: 391.7, total_bn: 591.6, mortgages_bn: 154.7, as_of: today }, top8, total_res_bn: 182.9, as_of: today } },
+  area: { period: '2026-YTD09', prior_period: '2025-YTD09', first_month: '2026-01', last_month: '2026-09', prior_first_month: '2025-01', prior_last_month: '2025-09', area: top8[6], total_res_bn: 182.9, as_of: today },
   launches: {
     dubai: { new_projects_90d: 41, top_areas_90d: [{ area_en: 'Business Bay', label: null, count: 3 }], active_projects: 612, as_of: today, source_label: 'x', source_url: 'https://data.dubai/en/l/467654' },
     abu_dhabi: { transaction_value_bn: 117.04, sales_value_bn: 86.1, mortgage_value_bn: 25.5, year: 2026, as_of: today, source_label: 'x', source_url: 'https://adrec.gov.ae/en' },

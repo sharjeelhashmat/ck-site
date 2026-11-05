@@ -101,7 +101,12 @@ describe('GET /market/areas', () => {
 
   it('returns aggregates only: no raw rows, counts or source columns', async () => {
     await seed();
-    const text = await (await get('/market/areas?period=2026-H1')).text();
+    const body = (await (await get('/market/areas?period=2026-H1')).json()) as Record<string, unknown>;
+    // The period's own months are named on purpose (first_month ... prior_last_month); no other month may appear, so no
+    // raw monthly row leaks.
+    expect([body.first_month, body.last_month, body.prior_first_month, body.prior_last_month]).toEqual(['2026-01', '2026-06', '2025-01', '2025-06']);
+    for (const k of ['first_month', 'last_month', 'prior_first_month', 'prior_last_month']) delete body[k];
+    const text = JSON.stringify(body);
     for (const leak of ['res_sales_count', 'res_offplan_count', 'Synthetic Master', 'instance_date', 'actual_worth', '2026-01']) expect(text).not.toContain(leak);
   });
 });
@@ -168,7 +173,9 @@ describe('quota protection (B1)', () => {
     expect(keys).toContain('area:2026-H1:Gamma');
     expect(keys).toContain('launches');
     expect(keys).not.toContain('areas:2026-H2'); // not complete in the data
-    for (const path of ['/market/areas?period=2026-H1', '/market/areas?period=2026-Q3', '/market/area/Gamma?period=2026-H1', '/market/area/Area09?period=2026-H1', '/market/launches']) {
+    expect(keys).toContain('areas:ytd');
+    expect(keys).toContain('area:ytd:Gamma');
+    for (const path of ['/market/areas?period=2026-H1', '/market/areas?period=2026-Q3', '/market/area/Gamma?period=2026-H1', '/market/area/Area09?period=2026-H1', '/market/areas?period=ytd', '/market/area/Gamma?period=ytd', '/market/launches']) {
       clearMarketMemo();
       const fromCache = await text(path);
       await reset();
@@ -224,5 +231,40 @@ describe('quota protection (B1)', () => {
       expect(r.headers.get('access-control-allow-origin'), path).toBe(ORIGIN);
     }
     spy.mockRestore();
+  });
+});
+
+describe('GET /market/*?period=ytd (Dubai year to date)', () => {
+  it('serves 1 January to the last complete month of the data, against the same months a year earlier, and names them', async () => {
+    await seed();
+    clearMarketMemo();
+    // The fixture data is dated 2026-10-09: October is incomplete, so the year to date runs to the end of September.
+    const r = await get('/market/areas?period=ytd');
+    expect(r.status).toBe(200);
+    const b = (await r.json()) as Record<string, unknown> & { dubai: { as_of: string; top8: unknown[] } };
+    expect(b.dubai.as_of).toBe('2026-10-09');
+    expect({ period: b.period, prior_period: b.prior_period, first_month: b.first_month, last_month: b.last_month, prior_first_month: b.prior_first_month, prior_last_month: b.prior_last_month })
+      .toEqual({ period: '2026-YTD09', prior_period: '2025-YTD09', first_month: '2026-01', last_month: '2026-09', prior_first_month: '2025-01', prior_last_month: '2025-09' });
+    expect(b.dubai.top8.length).toBeGreaterThan(0);
+    // The alias equals the explicit period it resolves to, and the area endpoint follows the same period.
+    clearMarketMemo();
+    const explicit = (await (await get('/market/areas?period=2026-YTD09')).json()) as Record<string, unknown>;
+    expect(explicit).toEqual(b);
+    const g = (await (await get('/market/area/Gamma?period=ytd')).json()) as Record<string, unknown>;
+    expect([g.period, g.first_month, g.last_month]).toEqual(['2026-YTD09', '2026-01', '2026-09']);
+    expect((await get('/market/area/Nowhere?period=ytd')).status).toBe(404);
+    // A year to date that ends after the data is not available.
+    expect((await get('/market/areas?period=2026-YTD10')).status).toBe(404);
+    expect((await get('/market/areas?period=2026-YTD13')).status).toBe(400);
+  });
+
+  it('before the first sync after this change (no ytd rows cached) the alias is computed live from the latest data', async () => {
+    await seed();
+    clearMarketMemo();
+    const cachedText = await (await get('/market/areas?period=ytd')).text();
+    await cf.DB.exec("DELETE FROM market_cache WHERE key LIKE 'areas:ytd' OR key LIKE 'area:ytd:%'");
+    clearMarketMemo();
+    expect(await (await get('/market/areas?period=ytd')).text()).toBe(cachedText);
+    expect(((await (await get('/market/area/Gamma?period=ytd')).json()) as { period: string }).period).toBe('2026-YTD09');
   });
 });
