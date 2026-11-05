@@ -192,9 +192,9 @@ jobs:
       - name: Smoke test
         id: smoke
         run: |
-          SITE_URL=https://ck-site-web.sharjeelhashmat.workers.dev
+          SITE_URL=https://www.sharjeelhashmat.com
           host=${SITE_URL#https://}; host=${host%%/*}
-          [ "$host" = "ck-site-web.sharjeelhashmat.workers.dev" ] && [ "$SITE_URL" = "https://$host" ] || { echo "unexpected smoke host"; exit 1; }
+          [ "$host" = "www.sharjeelhashmat.com" ] && [ "$SITE_URL" = "https://$host" ] || { echo "unexpected smoke host"; exit 1; }
           out="$RUNNER_TEMP/smoke.tsv"
           fetch() { # path -> sets code, body file
             b=$(mktemp)

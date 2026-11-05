@@ -38,7 +38,7 @@ Any one of these:
 
 - Cloudflare dashboard > Workers & Pages > `ck-site-web` > Deployments: the active version is the version_id you entered.
 - From `site/` on your computer: `npx wrangler deployments status --name ck-site-web` shows that version at 100%.
-- Open https://ck-site-web.sharjeelhashmat.workers.dev/ and check that a change made in the newer deploy is gone.
+- Open https://www.sharjeelhashmat.com/ and check that a change made in the newer deploy is gone.
 
 ## 4. Roll forward
 

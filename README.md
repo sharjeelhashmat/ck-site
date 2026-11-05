@@ -25,7 +25,7 @@ Tests run in CI on every change (`npm test` in `site/`; `npx vitest run` in `wor
 
 | Worker | Config | Deployed by | Role |
 |---|---|---|---|
-| `ck-site-web` | `site/wrangler.jsonc` | deploy-site (`confirm_target` ck-site-web) | Production. Goes public at go-live (custom domains, `public` on); its workers.dev URL is switched off in the go-live PR. |
+| `ck-site-web` | `site/wrangler.jsonc` | deploy-site (`confirm_target` ck-site-web) | Production. Public on the custom domains `www.sharjeelhashmat.com` and `sharjeelhashmat.com` (the apex redirects to www; attached 5 Nov 2026); its workers.dev and preview URLs are off (`workers_dev` and `preview_urls` false). |
 | `ck-site-staging` | `site/wrangler.staging.jsonc` | deploy-staging (`confirm_target` ck-site-staging) | Previews. Always built with `PUBLIC_INDEXABLE=false` (workflow-guard R16), workers.dev only, Cloudflare Access for the owner only (ADR-003). |
 
 The Worker's `STAGING_ORIGIN` is `https://ck-site-staging.sharjeelhashmat.workers.dev`: enquiries from staging are stored quarantined as TEST (no alert, no reply). No CI check and no uptime target calls the staging host, so Access breaks nothing.
