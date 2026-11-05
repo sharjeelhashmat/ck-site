@@ -10,7 +10,7 @@ You need two versions of `ck-site-web`: the one live now, and an older one to go
 
 1. Actions > deploy-site > the most recent successful run > run summary. Note **LAST_GOOD** (the version that was
    live before that deploy) and **new version** (the one live now).
-2. If there is only one deploy so far, run deploy-site once more (public off) and use that run's two values.
+2. If there is only one deploy so far, run deploy-site once more (Public ticked: an unticked run is refused) and use that run's two values.
 
 ## 1. Roll back
 
@@ -46,7 +46,7 @@ Either:
 
 - Actions > rollback again, target `ck-site-web`, version_id = the BEFORE value from step 2, reason `roll forward after
   drill`; or
-- Actions > deploy-site (public off), which builds `phase2-site` and deploys it as a new version.
+- Actions > deploy-site (Public ticked: an unticked run is refused), which builds `phase2-site` and deploys it as a new version.
 
 Then repeat step 3 and check that the newer version is active again.
 

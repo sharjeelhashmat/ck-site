@@ -48,6 +48,18 @@ jobs:
             exit 1
           fi
           echo "confirm_target ok: ck-site-web"
+      # ck-site-web is the live site, so it is never deployed noindex (owner decision 2026-11-05): an unticked Public fails
+      # here, before anything is built. workflow-guard R18 keeps this step.
+      - name: Refuse noindex deploy
+        working-directory: .
+        env:
+          PUBLIC: ${{ inputs.public }}
+        run: |
+          if [ "$PUBLIC" != "true" ]; then
+            echo "::error title=Public not ticked::ck-site-web is the live site at www.sharjeelhashmat.com. Tick Public to deploy it. Noindex builds go to ck-site-staging through deploy-staging."
+            exit 1
+          fi
+          echo "public ok: true"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
