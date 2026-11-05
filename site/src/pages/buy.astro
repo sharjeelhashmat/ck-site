@@ -10,7 +10,7 @@ import { waLink } from '../lib/site';
       <h1 style="max-width:18ch">Find the right property. <em>Not just any property.</em></h1>
       <p class="lede">Whether it's your first home in the UAE or your next one, I shortlist based on your actual brief (budget, community, lifestyle, and what you plan to do with the property), not what's easiest to sell.</p>
 
-      <div class="card empty" style="margin-top:2.5rem">
+      <div class="card empty" style="margin-top:var(--space-12)">
         <p>No live sale listings yet. Real listings, photos and compliance data are being added as they come in.</p>
         <div class="actions" style="justify-content:center">
           <a class="btn" href="/contact?intent=buy">Tell me what you're looking for</a>
@@ -18,7 +18,7 @@ import { waLink } from '../lib/site';
         </div>
       </div>
 
-      <div class="grid grid--2" style="margin-top:3rem">
+      <div class="grid grid--2" style="margin-top:var(--space-12)">
         <div class="card">
           <h2>Ready Properties</h2>
           <p>Move-in ready units, personally vetted: the building, the floor plan, the view, the numbers.</p>
@@ -29,16 +29,16 @@ import { waLink } from '../lib/site';
         </div>
       </div>
 
-      <div class="card" style="margin-top:1.5rem">
+      <div class="card" style="margin-top:var(--space-6)">
         <p class="kicker" style="margin:0">Areas I cover</p>
         <ul class="list-plain">
           {AREAS.map((a) => <li><a href={`/areas/${a.slug}`}>{a.name}</a></li>)}
         </ul>
       </div>
 
-      <div style="margin-top:3rem;padding-top:2rem;border-top:1px solid var(--line)">
-        <h2 style="font-size:1.75rem">Buying in the UAE from abroad</h2>
-        <p class="lede" style="font-size:1rem">You don't need to be in the UAE to buy well here. Briefing → virtual shortlist → remote viewings → due diligence → negotiation → transaction coordination → handover or leasing, managed on your behalf from wherever you are.</p>
+      <div style="margin-top:var(--space-12);padding-top:var(--space-8);border-top:1px solid var(--line)">
+        <h2 style="font-size:var(--fs-heading);line-height:var(--lh-heading)">Buying in the UAE from abroad</h2>
+        <p class="lede" style="font-size:var(--fs-body)">You don't need to be in the UAE to buy well here. Briefing → virtual shortlist → remote viewings → due diligence → negotiation → transaction coordination → handover or leasing, managed on your behalf from wherever you are.</p>
       </div>
     </div>
   </section>

@@ -10,13 +10,13 @@ import ROICalc from '../components/ROICalc.astro';
       <h1 style="max-width:18ch">Evaluate the opportunity. <em>Then decide.</em></h1>
       <p class="lede">UAE real estate can offer strong returns, but not every listing is a good investment, and blanket numbers you see quoted elsewhere rarely apply to your specific property. Every recommendation I make goes through the same five checks. <a href="/investment-approach">See how I work through them.</a></p>
 
-      <div class="grid grid--2" style="margin-top:2.5rem">
-        {FIVE_CHECKS.map((c) => <div class="card"><h2 style="font-size:1.25rem;font-family:var(--sans);font-weight:600">{c.name}</h2><p>{asSentence(c.text)}</p></div>)}
+      <div class="grid grid--2" style="margin-top:var(--space-12)">
+        {FIVE_CHECKS.map((c) => <div class="card"><h2 style="font-size:var(--fs-data);line-height:var(--lh-data);letter-spacing:var(--ls-data);font-family:var(--sans);font-weight:500">{c.name}</h2><p>{asSentence(c.text)}</p></div>)}
       </div>
 
-      <div style="margin-top:2.5rem"><ROICalc /></div>
+      <div style="margin-top:var(--space-12)"><ROICalc /></div>
 
-      <div class="card" style="margin-top:2.5rem">
+      <div class="card" style="margin-top:var(--space-12)">
         <h3 style="color:var(--navy)">UAE Market Intelligence</h3>
         <p style="max-width:36rem">Transaction activity, pricing trends, rental market movement and new launch supply: tracked and interpreted, not just reported. Full market updates land with the Insights section.</p>
       </div>

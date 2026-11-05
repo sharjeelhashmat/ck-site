@@ -400,9 +400,9 @@ test('H15: /contact loads neither libphonenumber nor Turnstile with the page', (
 
 // ---------- Cleanup ----------
 
-test('cleanup: only the Cormorant weights in use (400 and 400 italic) are imported', () => {
+test('cleanup: only the Cormorant faces in use (600 and 400 italic, Brand Guide v3.0) are imported', () => {
   const css = src('src/styles/global.css');
-  assert.doesNotMatch(css, /cormorant-garamond\/(300|500)/);
-  assert.match(css, /@import '@fontsource\/cormorant-garamond\/400\.css';/);
+  assert.doesNotMatch(css, /cormorant-garamond\/(300|400|500|700)\.css/);
+  assert.match(css, /@import '@fontsource\/cormorant-garamond\/600\.css';/);
   assert.match(css, /@import '@fontsource\/cormorant-garamond\/400-italic\.css';/);
 });

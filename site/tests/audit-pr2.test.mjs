@@ -8,6 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GOLIVE_TEST } from './helpers/golive.mjs';
+import { BUILD, PERSON_IDS, SITEMAP_LINE } from './helpers/build-mode.mjs';
 import { checkArticle } from '../src/lib/intel.mjs';
 import { pageTitle } from '../src/lib/seo.mjs';
 import { jsonLd } from '../src/lib/jsonld.mjs';
@@ -34,12 +35,21 @@ let publicOut;
 const pub = () => (publicOut ??= build(PUBLIC));
 
 // ---------- 22. Non-indexable builds: robots Allow, X-Robots-Tag noindex, no sitemap ----------
-test('22: noindex build: robots.txt allows crawling, every path sends X-Robots-Tag: noindex, no sitemap', () => {
-  assert.equal(read('robots.txt'), 'User-agent: *\nAllow: /\n');
-  const block = read('_headers').match(/^\/\*\n((?: {2}.+\n)+)/m)[1];
-  assert.match(block, /^ {2}X-Robots-Tag: noindex$/m);
-  assert.deepEqual(readdirSync(dist).filter((f) => /sitemap/.test(f)), []);
-  for (const f of htmlIn(dist)) assert.match(readFileSync(f, 'utf8'), /<meta name="robots" content="noindex,nofollow">/, f);
+test('22: the build under test: noindex allows crawling, sends X-Robots-Tag: noindex and has no sitemap; public advertises the sitemap', () => {
+  if (!BUILD.indexable) {
+    assert.equal(read('robots.txt'), 'User-agent: *\nAllow: /\n');
+    const block = read('_headers').match(/^\/\*\n((?: {2}.+\n)+)/m)[1];
+    assert.match(block, /^ {2}X-Robots-Tag: noindex$/m);
+    assert.deepEqual(readdirSync(dist).filter((f) => /sitemap/.test(f)), []);
+    for (const f of htmlIn(dist)) assert.match(readFileSync(f, 'utf8'), /<meta name="robots" content="noindex,nofollow">/, f);
+  } else {
+    // The public build of this tree: the same expectations as the separately built public output below.
+    assert.equal(read('robots.txt'), `User-agent: *\nAllow: /\n\n${SITEMAP_LINE}\n`);
+    assert.doesNotMatch(read('_headers'), /X-Robots-Tag/);
+    assert.deepEqual(readdirSync(dist).filter((f) => /sitemap/.test(f)).sort(), ['sitemap-0.xml', 'sitemap-index.xml']);
+    assert.match(read('index.html'), /<meta name="robots" content="index,follow,max-image-preview:large">/);
+    for (const f of htmlIn(dist)) assert.match(readFileSync(f, 'utf8'), /<meta name="robots" content="(noindex,nofollow|index,follow,max-image-preview:large)">/, f);
+  }
 });
 
 test('22: public build is unchanged: robots advertises the sitemap, no X-Robots-Tag, the sitemap lists the real pages', () => {
@@ -89,7 +99,7 @@ test('16: noindex build and public build without an agency address: one Person n
     // shows (owner 2026-10-26): never on the noindex build with empty values, always on the public test build.
     assert.doesNotMatch(JSON.stringify(ld), /RealEstateAgent|"ORN"/);
     const ids = (ld.identifier ?? []).map((i) => [i.name, i.value]);
-    if (out === dist) assert.deepEqual(ids, []);
+    if (out === dist) assert.deepEqual(ids, PERSON_IDS, 'the build under test: none when noindex with empty values');
     else assert.deepEqual(ids, [['BRN', 'TEST-BRN'], ['UAE Media Council advertiser permit', 'TEST-PERMIT']]);
   }
 });
@@ -192,11 +202,11 @@ test('38: FAQ "How do I start working with you?" has the owner-approved answer, 
 });
 
 // ---------- 20, 23, 24, 25. Assets, newsletter timeout, ROI calculator, tap targets ----------
-test('20: Cormorant Garamond latin 400 normal and italic are preloaded, the same files the CSS uses; print logo is lazy', () => {
+test('20: Cormorant Garamond latin 600 normal and 400 italic are preloaded, the same files the CSS uses; print logo is lazy', () => {
   const h = read('index.html');
   const pre = [...h.matchAll(/<link rel="preload" href="([^"]+)" as="font" type="font\/woff2" crossorigin>/g)].map((m) => m[1]);
   assert.equal(pre.length, 2);
-  assert.ok(pre.some((p) => /cormorant-garamond-latin-400-normal/.test(p)) && pre.some((p) => /cormorant-garamond-latin-400-italic/.test(p)));
+  assert.ok(pre.some((p) => /cormorant-garamond-latin-600-normal/.test(p)) && pre.some((p) => /cormorant-garamond-latin-400-italic/.test(p)));
   for (const p of pre) assert.ok(existsSync(join(dist, p)), p);
   assert.match(h, /class="print-only print-head"[^>]*>\s*<img class="logo" src="\/logo-web-ink\.svg" alt="Sharjeel Hashmat" width="175" height="36" loading="lazy" decoding="async">/);
 });

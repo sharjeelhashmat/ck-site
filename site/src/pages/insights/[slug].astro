@@ -34,7 +34,7 @@ const propertyAnalysis = ['Would I Buy It?', 'Opportunity vs Risk'].includes(a.s
         if (b.ul) return <><ul>{b.ul.map((x: string) => <li>{x}</li>)}</ul>{cite(b).length > 0 && <p class="src">Sources: {cite(b).map((n) => <a href={`#src-${n}`}>[{n}]</a>)}</p>}</>;
         if (b.table) return (
           <>
-            <div class="table-scroll"><table>
+            <div class="table-scroll" tabindex="0"><table>
               <thead><tr>{b.table.head.map((h: string) => <th>{h}</th>)}</tr></thead>
               <tbody>{b.table.rows.map((r: string[]) => <tr>{r.map((c) => <td>{c}</td>)}</tr>)}</tbody>
             </table></div>
@@ -45,17 +45,17 @@ const propertyAnalysis = ['Would I Buy It?', 'Opportunity vs Risk'].includes(a.s
         return null;
       })}
       {propertyAnalysis && (
-        <div class="grid grid--pair" style="margin-top:2rem">
+        <div class="grid grid--pair" style="margin-top:var(--space-8)">
           <div><p class="kicker">Why it could work</p><ul>{a.couldWork.map((x: string) => <li>{x}</li>)}</ul></div>
           <div><p class="kicker">Why it could fail</p><ul>{a.couldFail.map((x: string) => <li>{x}</li>)}</ul></div>
         </div>
       )}
       <h2>Sources</h2>
-      <div class="table-scroll"><table>
+      <div class="table-scroll" tabindex="0"><table>
         <thead><tr><th>#</th><th>Source</th><th>Tier</th><th>Published</th><th>Verified</th></tr></thead>
         <tbody>{a.sources.map((s: any, i: number) => <tr id={`src-${i + 1}`}><td>{i + 1}</td><td><a href={s.url} rel="noopener" target="_blank">{s.name}</a></td><td>{s.tier}</td><td>{s.undated ? 'undated page' : s.publishedOn}</td><td>{s.verifiedOn}</td></tr>)}</tbody>
       </table></div>
-      <p class="fine" style="margin-top:2rem">General information, not financial, tax or legal advice. Reviewed by {a.reviewer}; review by {a.reviewBy}.</p>
+      <p class="fine" style="margin-top:var(--space-8)">General information, not financial, tax or legal advice. Reviewed by {a.reviewer}; review by {a.reviewBy}.</p>
       <NewsletterSignup source={`insights/${a.slug}`} variant="article" />
     </div>
   </section>

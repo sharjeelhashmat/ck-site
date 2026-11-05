@@ -107,20 +107,20 @@ const QUESTIONS = [
 
 <style>
   /* The About page rhythm: every H2 at the page H2 size with the same space above it; paragraphs at the normal size. */
-  .launches .lede { margin-top: 2rem; }
-  .nl-h2 { margin-top: 3rem; margin-bottom: 0; scroll-margin-top: 6rem; }
-  .nl-list { margin: 1rem 0 0; padding-left: 1.25rem; display: grid; gap: .5rem; }
-  .nl-ref { font-size: .7em; line-height: 0; margin-left: .15em; }
+  .launches .lede { margin-top: var(--space-8); }
+  .nl-h2 { margin-top: var(--space-12); margin-bottom: 0; scroll-margin-top: var(--space-24); }
+  .nl-list { margin: var(--space-4) 0 0; padding-left: var(--space-6); display: grid; gap: var(--space-2); }
+  .nl-ref { font-size: var(--fs-label); line-height: 0; letter-spacing: var(--ls-label); margin-left: var(--space-1); }
   .nl-ref a { color: var(--brass-deep); display: inline-flex; align-items: center; justify-content: center; min-width: 24px; min-height: 24px; }
   /* Not "nl-form": that class belongs to the newsletter signup (see NewsletterSignup.astro). */
-  .launch-form { margin-top: 1.5rem; }
-  .nl-sources { margin-top: 3rem; font-size: .85rem; color: var(--ink); }
+  .launch-form { margin-top: var(--space-6); }
+  .nl-sources { margin-top: var(--space-12); font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); color: var(--ink); }
   /* "Sources" is the fourth H2 for the outline, set in the small source text rather than the page H2 size. */
-  .nl-sources .nl-sources-title { font-family: var(--sans); font-size: .85rem; font-weight: 600; line-height: 1.4; color: var(--ink); margin: 0; }
-  .nl-sources ol { margin: .5rem 0 0; padding-left: 1.25rem; display: grid; gap: .25rem; }
-  .nl-sources li { scroll-margin-top: 6rem; }
-  .nl-sources p:last-child { margin-top: 1rem; font-size: .85rem; }
-  .launch-close { margin-top: 1.25rem; }
+  .nl-sources .nl-sources-title { font-family: var(--sans); font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); font-weight: 400; color: var(--ink); margin: 0; }
+  .nl-sources ol { margin: var(--space-2) 0 0; padding-left: var(--space-6); display: grid; gap: var(--space-1); }
+  .nl-sources li { scroll-margin-top: var(--space-24); }
+  .nl-sources p:last-child { margin-top: var(--space-4); font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); }
+  .launch-close { margin-top: var(--space-6); }
   .launch-close a { color: var(--brass-deep); }
 </style>
 

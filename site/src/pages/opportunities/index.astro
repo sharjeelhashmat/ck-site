@@ -13,7 +13,7 @@ const noindex = opportunities.length === 0;
       <h1 style="max-width:20ch">Selected, verified, <em>and dated.</em></h1>
       <p class="lede">An opportunity appears here only when every figure in it has a named source and a verification date.</p>
       {opportunities.length === 0 ? (
-        <div class="card empty" style="margin-top:2.5rem">
+        <div class="card empty" style="margin-top:var(--space-12)">
           <p>No opportunity has passed verification yet. In the meantime, see how I assess a property, or ask me directly.</p>
           <div class="actions" style="justify-content:center">
             <a class="btn" href="/investment-approach">The investment approach</a>
@@ -21,7 +21,7 @@ const noindex = opportunities.length === 0;
           </div>
         </div>
       ) : (
-        <div class="grid grid--2" style="margin-top:2.5rem">
+        <div class="grid grid--2" style="margin-top:var(--space-12)">
           {opportunities.map((o: any) => (
             <a class="card" href={`/opportunities/${o.slug}`}>
               <p class="kicker" style="margin:0">{o.location} · {o.propertyType}</p>

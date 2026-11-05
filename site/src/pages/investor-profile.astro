@@ -18,7 +18,7 @@ const wa = waLink("Hi Sharjeel, I'd like to discuss what would suit me.");
       <h1>Help me match <em>the right property.</em></h1>
       <p class="lede">Five short questions. They tell me what would suit you, so a recommendation fits you and not just a budget. You can skip this and I will still reply to your enquiry.</p>
 
-      <form class="card" id="profile-form" novalidate data-worker={SITE.workerUrl} style="margin-top:2rem">
+      <form class="card" id="profile-form" novalidate data-worker={SITE.workerUrl} style="margin-top:var(--space-8)">
         <div class="fields">
           <div class="field">
             <label for="p-objective">Main objective</label>
@@ -53,10 +53,10 @@ const wa = waLink("Hi Sharjeel, I'd like to discuss what would suit me.");
             <span class="err" id="p-hold-err" data-err="holding_period"></span>
           </div>
           <fieldset class="field full" style="border:0;padding:0;margin:0">
-            <legend style="font-size:.85rem;font-weight:600;margin-bottom:.5rem">Areas you prefer (optional)</legend>
-            <div style="display:grid;gap:.5rem;grid-template-columns:repeat(auto-fit,minmax(min(14rem,100%),1fr))">
+            <legend style="font-size:var(--fs-small);line-height:var(--lh-small);letter-spacing:var(--ls-small);font-weight:400;margin-bottom:var(--space-2)">Areas you prefer (optional)</legend>
+            <div style="display:grid;gap:var(--space-2);grid-template-columns:repeat(auto-fit,minmax(min(14rem,100%),1fr))">
               {[...PROFILE_AREAS, ...AREA_EXTRAS].map((a) => (
-                <label class="check" style="text-transform:none;letter-spacing:normal;font-size:.9rem;font-weight:400"><input type="checkbox" name="areas" value={a.value} aria-controls={a.value === 'other' ? 'p-other-wrap' : undefined} /><span>{a.label}</span></label>
+                <label class="check" style="text-transform:none;font-size:var(--fs-small);line-height:var(--lh-small);letter-spacing:var(--ls-small);font-weight:400"><input type="checkbox" name="areas" value={a.value} aria-controls={a.value === 'other' ? 'p-other-wrap' : undefined} /><span>{a.label}</span></label>
               ))}
             </div>
             <div class="field other-area" id="p-other-wrap" hidden>
@@ -83,24 +83,24 @@ const wa = waLink("Hi Sharjeel, I'd like to discuss what would suit me.");
 </Base>
 <style is:global>
   /* Investor profile form (Brand v3.1 tokens; ok and err pass AA on the white card). */
-  .other-area { margin-top: 1rem; }
-  .other-area .hint { font-size: .8rem; color: var(--ink); }
-  .profile-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1rem; margin-top: 1.5rem; }
+  .other-area { margin-top: var(--space-4); }
+  .other-area .hint { font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); color: var(--ink); }
+  .profile-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-4); margin-top: var(--space-6); }
   .profile-actions .btn { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
-  .profile-skip { font-size: .9rem; color: var(--ink); }
+  .profile-skip { font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); color: var(--ink); }
   @media (max-width: 40rem) {
     .profile-actions { flex-direction: column; align-items: stretch; }
     .profile-actions .btn { width: 100%; }
     .profile-skip { align-self: flex-start; }
   }
   #profile-status:empty { display: none; }
-  #profile-status { display: block; margin-top: .75rem; }
-  .profile-alert:not(:empty) { margin-top: 1rem; padding: .9rem 1rem; border-radius: var(--r-card); background: var(--paper); border: 1px solid var(--err); border-left-width: 3px; color: var(--err); font-size: .95rem; }
-  #profile-form .profile-alert p { margin: 0; font-size: .95rem; color: var(--err); }
+  #profile-status { display: block; margin-top: var(--space-3); }
+  .profile-alert:not(:empty) { margin-top: var(--space-4); padding: var(--space-4) var(--space-4); border-radius: var(--radius-lg); background: var(--paper); border: 1px solid var(--err); border-left-width: 3px; color: var(--err); font-size: var(--fs-body); line-height: var(--lh-body); letter-spacing: var(--ls-body); }
+  #profile-form .profile-alert p { margin: 0; font-size: var(--fs-body); line-height: var(--lh-body); letter-spacing: var(--ls-body); color: var(--err); }
   .profile-alert a { color: var(--err); }
-  #profile-form .profile-privacy { margin-top: 1rem; font-size: 14px; color: var(--ink); }
-  .profile-success { border-left: 3px solid var(--ok); scroll-margin-top: 6rem; }
-  .card.profile-success > p { margin: 0; color: var(--ok); font-size: 1.05rem; font-weight: 500; }
+  #profile-form .profile-privacy { margin-top: var(--space-4); font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); color: var(--ink); }
+  .profile-success { border-left: 3px solid var(--ok); scroll-margin-top: var(--space-24); }
+  .card.profile-success > p { margin: 0; color: var(--ok); font-size: var(--fs-body); line-height: var(--lh-body); letter-spacing: var(--ls-body); font-weight: 400; }
 </style>
 <script>
   import { MESSAGES, otherAreaState, profileProblems, sendProfile } from '../lib/profile-submit.mjs';

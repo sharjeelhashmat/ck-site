@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { GOLIVE_TEST } from './helpers/golive.mjs';
+import { BUILD, SITEMAP_LINE } from './helpers/build-mode.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const dist = join(root, 'dist');
@@ -32,17 +33,22 @@ test('page required by the approved lead-reply templates exists and the Worker s
   assert.match(pipeline, /\$\{c\.siteUrl\}\/investment-approach/);
 });
 
-test('every page has one title, one h1, is noindex in non-production builds, and so carries no canonical or og:url', () => {
+test('every page has one title, one h1, is noindex in non-production builds, and carries canonical and og:url only when indexed', () => {
   // Canonical URLs (www, no .html) on the public build: tests/audit-fixes.test.mjs (audit B3).
   for (const f of htmlFiles) {
     const h = readFileSync(f, 'utf8');
     assert.equal((h.match(/<title>/g) ?? []).length, 1, f);
     assert.equal((h.match(/<h1[ >]/g) ?? []).length, 1, `${f}: h1 count`);
-    assert.doesNotMatch(h, /rel="canonical"|property="og:url"/, f);
-    assert.match(h, /<meta name="robots" content="noindex,nofollow">/, f);
+    const indexed = /<meta name="robots" content="index,follow,max-image-preview:large">/.test(h);
+    if (!BUILD.indexable) assert.ok(!indexed && /<meta name="robots" content="noindex,nofollow">/.test(h), `${f}: noindex`);
+    else assert.ok(indexed || /<meta name="robots" content="noindex,nofollow">/.test(h), `${f}: robots`);
+    // Canonical and og:url exactly on the indexed pages (none on a noindex build).
+    assert.equal(/rel="canonical"/.test(h), indexed, `${f}: canonical`);
+    assert.equal(/property="og:url"/.test(h), indexed, `${f}: og:url`);
   }
+  if (BUILD.indexable) assert.match(read('index.html'), /<meta name="robots" content="index,follow,max-image-preview:large">/);
   // Crawlers may read the pages (and so the noindex); no sitemap in a noindex build (audit item 22).
-  assert.equal(read('robots.txt'), 'User-agent: *\nAllow: /\n');
+  assert.equal(read('robots.txt'), BUILD.indexable ? `User-agent: *\nAllow: /\n\n${SITEMAP_LINE}\n` : 'User-agent: *\nAllow: /\n');
 });
 
 test('owner decisions hold: no Gmail, no "Investment Advisor", no Firebase, no "broker" word, no trademark symbol', () => {
@@ -59,8 +65,8 @@ test('owner decisions hold: no Gmail, no "Investment Advisor", no Firebase, no "
 });
 
 // The sitemap exists only in a public build: tests/audit-pr2.test.mjs builds one and checks what it lists.
-test('a noindex build has no sitemap at all (audit item 22)', () => {
-  assert.deepEqual(readdirSync(dist).filter((f) => /sitemap/.test(f)), []);
+test('a noindex build has no sitemap at all, a public build has the index and one sitemap (audit item 22)', () => {
+  assert.deepEqual(readdirSync(dist).filter((f) => /sitemap/.test(f)).sort(), BUILD.indexable ? ['sitemap-0.xml', 'sitemap-index.xml'] : []);
 });
 
 test('form field values are a subset of what the Worker accepts', () => {
@@ -199,11 +205,15 @@ test('floating actions on every page: WhatsApp link uses the site number, scroll
   }
 });
 
-test('print: every page carries the print-only mark header and a contact footer, with no agency line while the agency is unconfirmed', () => {
+test('print: every page carries the print-only mark header and a contact footer, with the agency line only once the agency is confirmed', () => {
+  const contact = '<p>+971 55 541 4468 · hello@sharjeelhashmat.com · sharjeelhashmat.com</p>';
+  const foot = `${contact}${BUILD.affiliation ? `<p>${BUILD.affiliation}</p>` : ''}</div>`;
   for (const f of htmlFiles) {
     const h = readFileSync(f, 'utf8');
     assert.match(h, /class="print-only print-head"[^>]*>\s*<img class="logo" src="\/logo-web-ink\.svg" alt="Sharjeel Hashmat"/, `${f}: print header with logo`);
-    assert.match(h, /class="print-only print-foot"[^>]*>\s*<p>\+971 55 541 4468 · hello@sharjeelhashmat\.com · sharjeelhashmat\.com<\/p>\s*<\/div>/, `${f}: print footer`);
+    const m = h.match(/class="print-only print-foot"[^>]*>\s*([\s\S]*?<\/div>)/);
+    assert.ok(m, `${f}: print footer`);
+    assert.equal(m[1].replace(/>\s+</g, '><'), foot, `${f}: print footer`);
   }
 });
 
@@ -218,13 +228,18 @@ test('built site names no previous agency and never shows "BRN pending"', () => 
   }
 });
 
-test('with the agency (GOLIVE.agencyName) empty, no page renders a "Working with" line', () => {
+test('with the agency (GOLIVE.agencyName) empty, no page renders a "Working with" line; with it, every page does', () => {
   const golive = readFileSync(join(root, 'src/lib/golive.ts'), 'utf8');
   assert.match(golive, /^\s*agencyName: '',/m, 'GOLIVE.agencyName must stay empty until the owner confirms the agency');
   for (const f of htmlFiles) {
     const h = readFileSync(f, 'utf8');
-    assert.doesNotMatch(h, /Working with/, `${f}: agency line must be hidden`);
-    assert.doesNotMatch(h, /<p class="disclosure">/, `${f}: empty footer disclosure`);
-    assert.doesNotMatch(h, /"name":"BRN"/, `${f}: BRN in structured data`);
+    if (!BUILD.affiliation) {
+      assert.doesNotMatch(h, /Working with/, `${f}: agency line must be hidden`);
+      assert.doesNotMatch(h, /<p class="disclosure">/, `${f}: empty footer disclosure`);
+      assert.doesNotMatch(h, /"name":"BRN"/, `${f}: BRN in structured data`);
+    } else {
+      assert.ok(h.includes(`<p class="disclosure">${BUILD.affiliation}`), `${f}: footer agency line`);
+      assert.ok(h.includes(`"name":"BRN","value":"${BUILD.golive.brokerBrn}"`), `${f}: BRN in structured data`);
+    }
   }
 });

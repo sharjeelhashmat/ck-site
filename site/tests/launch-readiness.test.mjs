@@ -20,7 +20,7 @@ function seeded(edit, opts = {}) {
     cpSync(dist, d, { recursive: true });
     const file = (f) => join(d, f);
     edit({ dir: d, read: (f) => readFileSync(file(f), 'utf8'), write: (f, s) => writeFileSync(file(f), s), file });
-    return fails(checkReadiness(d, { indexable: false, ...opts }));
+    return fails(checkReadiness(d, { indexable, ...opts }));
   } finally {
     rmSync(d, { recursive: true, force: true });
   }
@@ -40,7 +40,7 @@ test('the real build passes every rule (Privacy retention is a warning until PRI
 });
 
 test('links: an <a> wrapping #lead-next fails', () => {
-  const from = '<p class="fine" id="lead-next" hidden style="margin-top:1rem"></p>';
+  const from = '<p class="fine" id="lead-next" hidden style="margin-top:var(--space-4)"></p>';
   assert.deepEqual(seeded(replaceIn('contact.html', from, `<a href="#x">${from}</a>`)), ['links']);
 });
 
