@@ -9,6 +9,7 @@ import {
   BOX_MAX, CONTACT_CHOICES, LIMIT_MESSAGES, MESSAGE_MAX, MESSAGES, REPLY_FALLBACK, composeMessage, lengthProblem, successText, validateLead,
 } from '../src/lib/lead-submit.mjs';
 import { MESSAGES as PROFILE_MESSAGES } from '../src/lib/profile-submit.mjs';
+import { BUILD } from './helpers/build-mode.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const dist = join(root, 'dist');
@@ -76,8 +77,8 @@ test('new launches: five H2s (Launch activity first, Part A); the content H2s us
   assert.deepEqual(h2.map((x) => x[1].match(/class="([^"]*)"/)?.[1]), ['nl-h2', 'nl-h2', 'nl-h2', 'nl-h2', 'nl-sources-title']);
   assert.match(h2[3][1], /\bid="ask"/);
   const css = src('src/pages/new-launches.astro');
-  assert.match(css, /\.nl-h2 \{ margin-top: 3rem; margin-bottom: 0;/, 'same spacing as the About H2s');
-  assert.match(src('src/pages/about.astro'), /\.about-h2 \{ margin-top: 3rem; margin-bottom: 0; \}/);
+  assert.match(css, /\.nl-h2 \{ margin-top: var\(--space-12\); margin-bottom: 0;/, 'same spacing as the About H2s');
+  assert.match(src('src/pages/about.astro'), /\.about-h2 \{ margin-top: var\(--space-12\); margin-bottom: 0; \}/);
 });
 
 test('new launches: the four sources link to the Dubai Legislation Portal, in a new tab', () => {
@@ -108,7 +109,8 @@ test('new launches: no empty card, no WhatsApp link, no images, no banned wordin
   assert.match(h, /<title>New Launches: Ask Before You Commit · Sharjeel Hashmat<\/title>/);
   const desc = 'Thinking about a Dubai off-plan launch? The facts every buyer should know, the questions worth asking, and a straight answer within 24 hours.';
   assert.ok(h.includes(`<meta name="description" content="${desc}">`));
-  assert.match(h, /<meta name="robots" content="noindex,nofollow">/);
+  // noindex until the agency, ORN, BRN and permit exist (and always on a noindex build); indexed on the public build with them.
+  assert.match(h, BUILD.indexable && BUILD.launchCards ? /<meta name="robots" content="index,follow,max-image-preview:large">/ : /<meta name="robots" content="noindex,nofollow">/);
   // Audit M2: noindex follows LAUNCH_CARDS_ALLOWED (tests/new-launches-indexing.test.mjs builds both modes).
   assert.match(src('src/pages/new-launches.astro'), /noindex=\{!LAUNCH_CARDS_ALLOWED\}>/);
   assert.match(src('src/pages/new-launches.astro'), /Compliance: this form and "Send my question" are a service call to action\./);
@@ -181,10 +183,10 @@ test('preferred contact: three required pill radios, none checked, next to the m
   assert.deepEqual(validateLead('general', { ...ok, choice: '' }, () => '+971501234567').problems, [['preferred_contact', 'Please choose how I should contact you.']]);
 });
 
-test('preferred contact: pill styling (pill radius, 44px, Ink border, Ink fill when selected, visible focus, radios kept)', () => {
+test('preferred contact: button-like options (button radius, 44px, Ink border, Ink fill when selected, visible focus, radios kept)', () => {
   const css = src('src/components/LeadForm.astro');
   assert.match(css, /\.pref \.pills \{ display: flex; flex-wrap: wrap;/, 'pills wrap on narrow screens');
-  assert.match(css, /\.pref \.pill span \{[^}]*min-height: 44px;[^}]*border: 1px solid var\(--ink\); border-radius: var\(--r-pill\); background: var\(--paper\); color: var\(--ink\);/);
+  assert.match(css, /\.pref \.pill span \{[^}]*min-height: 44px;[^}]*border: 1px solid var\(--ink\); border-radius: var\(--radius-md\); background: var\(--paper\); color: var\(--ink\);/);
   assert.match(css, /\.pref \.pill input:checked \+ span \{ background: var\(--ink\); color: var\(--ivory\); \}/);
   assert.match(css, /\.pref \.pill input:focus-visible \+ span \{ outline: 3px solid/);
   const rule = css.match(/\.pref \.pill input \{([^}]*)\}/)[1];

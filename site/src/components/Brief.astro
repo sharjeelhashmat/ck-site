@@ -25,13 +25,13 @@ const fit = o.investorFit;
     <span>Last verified {o.lastVerified}</span>
     <span>Review by {o.reviewBy}</span>
   </div>
-  <p class="meta" style="margin-top:.5rem">Permit {o.compliance.permitNumber}{AFFILIATION_LINE && ` · ${AFFILIATION_LINE}`}</p>
+  <p class="meta" style="margin-top:var(--space-2)">Permit {o.compliance.permitNumber}{AFFILIATION_LINE && ` · ${AFFILIATION_LINE}`}</p>
 
   <h2 id="summary">1. Executive summary</h2>
   <p><span class={verdictClass}>{o.verdict}</span></p>
   <p>{o.verdictNote}</p>
   {fit && <p class="src">Suits: {fit.objective} · {fit.budgetBand} · {fit.timeline} · {fit.riskTolerance} risk tolerance.</p>}
-  <div class="table-scroll">
+  <div class="table-scroll" tabindex="0">
     <table>
       <thead><tr><th>Factor</th><th>Rating</th><th>Why</th></tr></thead>
       <tbody>
@@ -47,7 +47,7 @@ const fit = o.investorFit;
 
   <h2 id="numbers">3. Acquisition numbers</h2>
   {numbers.length ? (
-    <div class="table-scroll"><table>
+    <div class="table-scroll" tabindex="0"><table>
       <thead><tr><th>Item</th><th>Figure</th><th>Source</th><th>Verified</th></tr></thead>
       <tbody>{numbers.map((c) => <tr><td>{c.label}</td><td>{c.value}</td><td><a href={c.sourceUrl} rel="noopener" target="_blank">{c.sourceName}</a></td><td>{c.verifiedOn}</td></tr>)}</tbody>
     </table></div>
@@ -55,7 +55,7 @@ const fit = o.investorFit;
 
   <h2 id="income">4. Rental economics and net yield</h2>
   {income.length ? (
-    <div class="table-scroll"><table>
+    <div class="table-scroll" tabindex="0"><table>
       <thead><tr><th>Item</th><th>Figure</th><th>Source</th><th>Verified</th></tr></thead>
       <tbody>{income.map((c) => <tr><td>{c.label}</td><td>{c.value}</td><td><a href={c.sourceUrl} rel="noopener" target="_blank">{c.sourceName}</a></td><td>{c.verifiedOn}</td></tr>)}</tbody>
     </table></div>
@@ -63,7 +63,7 @@ const fit = o.investorFit;
 
   <h2 id="evidence">5. Market evidence and comparables</h2>
   {comps.length ? (
-    <div class="table-scroll"><table>
+    <div class="table-scroll" tabindex="0"><table>
       <thead><tr><th>Comparable</th><th>Figure</th><th>Source</th><th>Verified</th></tr></thead>
       <tbody>{comps.map((c) => <tr><td>{c.label}</td><td>{c.value}</td><td><a href={c.sourceUrl} rel="noopener" target="_blank">{c.sourceName}</a></td><td>{c.verifiedOn}</td></tr>)}</tbody>
     </table></div>
@@ -72,7 +72,7 @@ const fit = o.investorFit;
   <h2 id="supply">6. Supply and demand</h2>
   <p>{o.factors.supply.note}</p>
   {supply.length > 0 && (
-    <div class="table-scroll"><table>
+    <div class="table-scroll" tabindex="0"><table>
       <thead><tr><th>Item</th><th>Figure</th><th>Source</th><th>Verified</th></tr></thead>
       <tbody>{supply.map((c) => <tr><td>{c.label}</td><td>{c.value}</td><td><a href={c.sourceUrl} rel="noopener" target="_blank">{c.sourceName}</a></td><td>{c.verifiedOn}</td></tr>)}</tbody>
     </table></div>
@@ -95,7 +95,7 @@ const fit = o.investorFit;
   <ul>{o.changeMyView.map((r: string) => <li>{r}</li>)}</ul>
 
   <h2 id="fit">11. Investor fit</h2>
-  <div class="table-scroll"><table>
+  <div class="table-scroll" tabindex="0"><table>
     <tbody>
       <tr><th>Objective</th><td>{fit.objective}</td></tr>
       <tr><th>Budget band</th><td>{fit.budgetBand}</td></tr>
@@ -105,7 +105,7 @@ const fit = o.investorFit;
   </table></div>
 
   <h2 id="sources">12. Sources and freshness</h2>
-  <div class="table-scroll"><table>
+  <div class="table-scroll" tabindex="0"><table>
     <thead><tr><th>Claim</th><th>Source</th><th>Type</th><th>Published</th><th>Verified</th></tr></thead>
     <tbody>
       {allClaims.map((c) => (
@@ -113,5 +113,5 @@ const fit = o.investorFit;
       ))}
     </tbody>
   </table></div>
-  <p class="fine" style="margin-top:2rem">This Brief is a personal, professional opinion at a point in time. It is not financial, tax or legal advice, and not a guarantee of actual performance. Figures are as sourced above on the dates shown.</p>
+  <p class="fine" style="margin-top:var(--space-8)">This Brief is a personal, professional opinion at a point in time. It is not financial, tax or legal advice, and not a guarantee of actual performance. Figures are as sourced above on the dates shown.</p>
 </article>

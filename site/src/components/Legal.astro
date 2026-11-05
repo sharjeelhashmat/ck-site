@@ -5,7 +5,7 @@ const { title, updated, sections } = Astro.props;
 ---
 <section class="section">
   <div class="narrow prose">
-    <h1 style="font-size:clamp(2rem,4vw,2.75rem)">{title}</h1>
+    <h1 style="font-size:clamp(var(--fs-heading),1.25rem + 2vw,var(--fs-display-lg));line-height:clamp(var(--lh-heading),1.75rem + 2vw,var(--lh-display-lg))">{title}</h1>
     <p class="small">Last updated: {updated}</p>
     {sections.map((s) => (
       <section>

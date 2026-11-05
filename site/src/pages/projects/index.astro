@@ -14,11 +14,11 @@ const noindex = !projectsLive;
       <h1>Infrastructure tracker</h1>
       <p class="lede">This page records official announcements only. It does not predict prices or values.</p>
       {projects.length === 0 ? (
-        <div class="card empty" style="margin-top:2.5rem">
+        <div class="card empty" style="margin-top:var(--space-12)">
           <p>No project is being tracked yet.</p>
         </div>
       ) : (
-        <div class="grid grid--2" style="margin-top:2.5rem">
+        <div class="grid grid--2" style="margin-top:var(--space-12)">
           {projects.map((p: any) => (
             <a class="card" href={`/projects/${p.slug}`}>
               <p class="kicker" style="margin:0">{p.emirate} · {p.category}</p>
@@ -29,7 +29,7 @@ const noindex = !projectsLive;
           ))}
         </div>
       )}
-      <p class="fine" style="margin-top:2rem">General information, not financial, tax or legal advice.</p>
+      <p class="fine" style="margin-top:var(--space-8)">General information, not financial, tax or legal advice.</p>
     </div>
   </section>
 </Base>

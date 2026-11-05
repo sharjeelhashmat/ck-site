@@ -10,7 +10,7 @@ import { SITE, AFFILIATION_LINE } from '../lib/site';
     <div class="narrow about">
       <p class="eyebrow">About</p>
       <h1>{SITE.name}</h1>
-      <p class="kicker" style="margin-top:.5rem">{SITE.title} · UAE</p>
+      <p class="kicker" style="margin-top:var(--space-2)">{SITE.title} · UAE</p>
 
       <p class="lede about-lead">Numbers first. Straight answers. No pitch.</p>
       <p>I work with buyers, investors, sellers and international clients across the UAE, on ready properties, off-plan launches, and the secondary market.</p>
@@ -32,7 +32,7 @@ import { SITE, AFFILIATION_LINE } from '../lib/site';
       <h2 class="about-h2">What you can expect</h2>
       <p>You deal with me directly, from the first conversation to handover. Straight answers, including the ones you'd rather not hear. No inflated promises. No wasted time.</p>
 
-      {AFFILIATION_LINE && <p class="fine" style="margin-top:2.5rem">{AFFILIATION_LINE}</p>}
+      {AFFILIATION_LINE && <p class="fine" style="margin-top:var(--space-12)">{AFFILIATION_LINE}</p>}
       <p class="lede about-close">Serious about UAE property? Let's talk. Still deciding? I'll tell you exactly where you stand.</p>
       <div class="actions"><a class="btn" href="/contact">Get in touch</a></div>
     </div>
@@ -42,11 +42,11 @@ import { SITE, AFFILIATION_LINE } from '../lib/site';
 <style>
   /* One rhythm for the whole page: every H2 at the page H2 size with the same space above it; paragraphs keep the
      site's normal size and spacing. */
-  .about .lede { margin-top: 2rem; }
-  /* The lead line is the serif display line from the approved preview (owner-approved 2026-10-10): 32px at 1280px,
-     24px floor on small screens. The closing line keeps the plain .lede style. */
-  .about .about-lead { font-family: var(--serif); font-weight: 400; font-size: clamp(1.5rem, 1.2rem + 1.5vw, 2rem); line-height: 1.2; color: var(--ink); }
-  .about-h2 { margin-top: 3rem; margin-bottom: 0; }
-  .about-checks { margin: 1rem 0 0; padding-left: 1.25rem; display: grid; gap: .5rem; }
-  .about .about-close { margin-top: 3rem; }
+  .about .lede { margin-top: var(--space-8); }
+  /* The lead line is a tagline: the Cormorant Italic tagline style (Rules 1c v5.8). The closing line keeps the plain
+     .lede style. */
+  .about .about-lead { font-family: var(--serif); font-style: italic; font-weight: 400; font-size: var(--fs-tagline); line-height: var(--lh-tagline); letter-spacing: 0; color: var(--ink); }
+  .about-h2 { margin-top: var(--space-12); margin-bottom: 0; }
+  .about-checks { margin: var(--space-4) 0 0; padding-left: var(--space-6); display: grid; gap: var(--space-2); }
+  .about .about-close { margin-top: var(--space-12); }
 </style>

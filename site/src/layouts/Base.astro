@@ -1,6 +1,6 @@
 ---
 import '../styles/global.css';
-import serifNormal from '@fontsource/cormorant-garamond/files/cormorant-garamond-latin-400-normal.woff2?url';
+import serifSemibold from '@fontsource/cormorant-garamond/files/cormorant-garamond-latin-600-normal.woff2?url';
 import serifItalic from '@fontsource/cormorant-garamond/files/cormorant-garamond-latin-400-italic.woff2?url';
 import Nav from '../components/Nav.astro';
 import FloatingActions from '../components/FloatingActions.astro';
@@ -54,7 +54,7 @@ const OG_IMAGE_ALT = `${SITE.name}, ${SITE.title} · UAE`;
     <link rel="icon" type="image/png" sizes="32x32" href="/icon-32.png" />
     <link rel="icon" type="image/png" sizes="48x48" href="/icon-48.png" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <link rel="preload" href={serifNormal} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={serifSemibold} as="font" type="font/woff2" crossorigin />
     <link rel="preload" href={serifItalic} as="font" type="font/woff2" crossorigin />
     <meta property="og:type" content={article ? 'article' : 'website'} />
     <meta property="og:site_name" content={SITE.name} />

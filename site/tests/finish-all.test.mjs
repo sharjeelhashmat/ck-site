@@ -9,6 +9,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GOLIVE_TEST } from './helpers/golive.mjs';
+import { BUILD, PERSON_IDS } from './helpers/build-mode.mjs';
 import {
   checkAdrecAreas, checkLaunchReviews, dubaiRows, formatChange, fmtDate, fmtMonth, isHalfYear, periodLabel, priorPeriodId, rankByChange,
   renderChange, renderGuideCard, renderLaunchPanel, renderTop, renderYtd,
@@ -34,14 +35,25 @@ test('B: golive.ts ships with every value empty or false', () => {
   for (const k of ['abuDhabiLicensed', 'indexing']) assert.match(g, new RegExp(`\\b${k}: false,`), k);
 });
 
-test('B: with GOLIVE empty, no page shows an agency, ORN, BRN, card or permit line, and every page is noindex', () => {
+test('B: the build under test shows its go-live values and nothing else: none with GOLIVE empty (and every page noindex)', () => {
+  const permit = BUILD.golive.advertiserPermitNo;
+  const disclosure = BUILD.affiliation ? `${BUILD.affiliation}${permit ? ` · UAE Media Council advertiser permit ${permit}` : ''}` : '';
   for (const f of htmlFiles) {
     const h = read(f.slice(dist.length + 1));
-    assert.doesNotMatch(h, /Working with|RERA card|\bORN\b|\bBRN\b|advertiser permit|<p class="disclosure">/, f);
-    assert.doesNotMatch(h, /"identifier"|"worksFor"/, `${f}: JSON-LD`);
-    assert.match(h, /<meta name="robots" content="noindex,nofollow">/, f);
+    assert.doesNotMatch(h, /RERA card/, f);
+    assert.doesNotMatch(h, /"worksFor"/, `${f}: JSON-LD (no agency address in either test mode)`);
+    if (!BUILD.affiliation) {
+      assert.doesNotMatch(h, /Working with|\bORN\b|\bBRN\b|advertiser permit|<p class="disclosure">/, f);
+      assert.doesNotMatch(h, /"identifier"/, `${f}: JSON-LD`);
+    } else {
+      assert.ok(h.includes(`<p class="disclosure">${disclosure}</p>`), `${f}: footer disclosure`);
+      const ld = JSON.parse(h.match(/<script type="application\/ld\+json">(.*?)<\/script>/s)[1]);
+      const person = ld['@graph'] ? ld['@graph'].find((n) => n['@type'] === 'Person') : ld;
+      assert.deepEqual((person.identifier ?? []).map((i) => [i.name, i.value]), PERSON_IDS, `${f}: JSON-LD identifiers`);
+    }
+    if (!BUILD.indexable) assert.match(h, /<meta name="robots" content="noindex,nofollow">/, f);
   }
-  assert.match(read('robots.txt'), /^User-agent: \*\nAllow: \/\n$/);
+  assert.match(read('robots.txt'), BUILD.indexable ? /^User-agent: \*\nAllow: \/\n\nSitemap: https:\/\/www\.sharjeelhashmat\.com\/sitemap-index\.xml\n$/ : /^User-agent: \*\nAllow: \/\n$/);
 });
 
 test('B: a full GOLIVE public build shows each value where it belongs; GOLIVE without the deploy switch stays noindex', () => {

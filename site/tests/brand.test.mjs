@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { inflateSync } from 'node:zlib';
+import { PERSON_IDS } from './helpers/build-mode.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const dist = join(root, 'dist');
@@ -35,8 +36,11 @@ test('JSON-LD: a Person with jobTitle "Property Consultant · UAE" on every page
     assert.equal(person.jobTitle, 'Property Consultant · UAE', f);
     assert.equal(person.url, 'https://www.sharjeelhashmat.com/', f);
     assert.deepEqual(person.sameAs, ['https://www.instagram.com/sharjeelhashmat', 'https://www.linkedin.com/in/sharjeel-hashmat-16944322'], f);
-    // Go-live values empty: no agency node anywhere.
-    assert.doesNotMatch(m[1], /RealEstateAgent|"ORN"|"BRN"/, f);
+    // No agency address in either test mode: no agency node, so no ORN. The BRN and permit only as this build's
+    // go-live values put them on the Person (none with the committed empty values).
+    assert.doesNotMatch(m[1], /RealEstateAgent|"ORN"/, f);
+    assert.deepEqual((person.identifier ?? []).map((i) => [i.name, i.value]), PERSON_IDS, f);
+    if (!PERSON_IDS.length) assert.doesNotMatch(m[1], /"BRN"/, f);
   }
 });
 
@@ -253,17 +257,17 @@ test('menu focus: the built header script handles Escape, Tab, inert and aria-ex
   assert.doesNotMatch(h.replace(/<script[\s\S]*?<\/script>/g, ''), /\sinert(=|\s|>)/, 'nothing is inert in the served markup');
 });
 
-// Rounded edges everywhere (owner-approved 2026-10-10).
+// Corners (Rules 1c v5.8): the five --radius-* tokens and 0 only; no pill-shaped button. The full rule set, the token
+// values and --radius-full's three uses are in tests/design-rules.test.mjs.
 const builtCss = () => readdirSync(join(dist, '_astro')).filter((f) => f.endsWith('.css')).map((f) => readFileSync(join(dist, '_astro', f), 'utf8')).join('\n');
 
-test('radius tokens exist, and no other border-radius is used anywhere in site/src (only the tokens, 4px and 50%)', () => {
-  assert.match(css, /--r-pill: 999px;/);
-  assert.match(css, /--r-field: 10px;/);
-  assert.match(css, /--r-card: 14px;/);
+test('radius tokens exist, and no other border-radius is used anywhere in site/src (only the five tokens and 0)', () => {
+  for (const [n, v] of [['sm', '8px'], ['md', '12px'], ['lg', '16px'], ['xl', '24px'], ['full', '9999px']]) assert.match(css, new RegExp(`--radius-${n}: ${v};`));
+  assert.doesNotMatch(css, /--r-(pill|field|card)\b/, 'the old tokens are gone');
   for (const f of walk(join(root, 'src')).filter((p) => /\.(astro|css|mjs|ts)$/.test(p))) {
     for (const m of readFileSync(f, 'utf8').matchAll(/border(?:-[a-z]+)*-radius\s*:\s*([^;}"]+)/g)) {
       const v = m[1].trim();
-      assert.match(v, /^(?:(?:var\(--r-(?:pill|field|card)\)|4px|50%|0)(?:\s+|$))+$/, `${f}: border-radius ${v}`);
+      assert.match(v, /^(?:(?:var\(--radius-(?:sm|md|lg|xl|full)\)|0)(?:\s+|$))+$/, `${f}: border-radius ${v}`);
     }
   }
 });
@@ -272,16 +276,23 @@ test('built CSS: buttons, fields, the country-code box, cards and checkboxes res
   const c = builtCss();
   const rule = (sel) => [...c.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter(([, s]) => s.split(',').map((x) => x.trim()).includes(sel)).map(([, , b]) => b).join(';');
   const radius = (sel) => (rule(sel).match(/border-radius:([^;]+)/) ?? [])[1]?.trim();
-  assert.equal(radius('.btn'), 'var(--r-pill)', '.btn (a.btn, button.btn, .btn--ghost)');
-  assert.equal(radius('.skip'), 'var(--r-pill)', 'skip link');
-  for (const sel of ['.field input', '.field select', '.field textarea']) assert.equal(radius(sel), 'var(--r-field)', sel);
-  assert.equal(radius('.cc-display'), 'var(--r-field)', 'country-code box');
-  assert.equal(radius('.field .cc-control select'), 'var(--r-field)', 'country-code select');
-  assert.equal(radius('.card'), 'var(--r-card)', '.card');
-  assert.equal(radius('.card.way'), 'var(--r-card)', 'four ways cards');
+  assert.equal(radius('.btn'), 'var(--radius-md)', '.btn (a.btn, button.btn, .btn--ghost)');
+  assert.equal(radius('.skip'), 'var(--radius-md)', 'skip link');
+  for (const sel of ['.site-nav .nav-seg', '.site-nav .nav-seg a', '.site-nav .nav-pills a', '.site-nav .nav-wa', '.menu-btn', '.mk-pill']) assert.equal(radius(sel), 'var(--radius-md)', sel);
+  for (const sel of ['.field input', '.field select', '.field textarea']) assert.equal(radius(sel), 'var(--radius-sm)', sel);
+  assert.equal(radius('.cc-display'), 'var(--radius-sm)', 'country-code box');
+  assert.equal(radius('.field .cc-control select'), 'var(--radius-sm)', 'country-code select');
+  for (const sel of ['.verdict', '.badge', '.mk-chip']) assert.equal(radius(sel), 'var(--radius-sm)', sel);
+  assert.equal(radius('.card'), 'var(--radius-lg)', '.card');
+  assert.equal(radius('.card.way'), 'var(--radius-lg)', 'four ways cards');
+  assert.equal(radius('.stale-banner'), 'var(--radius-lg)', 'stale banner');
   assert.match(rule('.card.way'), /overflow:hidden/, 'Brass bar clipped to the rounded corner');
-  assert.equal(radius(".check input[type=checkbox]"), '4px', 'checkboxes');
-  assert.equal(radius('.steps li'), 'var(--r-card)', 'sell process steps');
+  assert.equal(radius(".check input[type=checkbox]"), 'var(--radius-sm)', 'checkboxes');
+  assert.equal(radius('.steps li'), 'var(--radius-sm)', 'sell process steps (tags)');
+  // --radius-full only on the floating WhatsApp button; the back-to-top button is a button (md).
+  assert.equal(radius('.fab--wa'), 'var(--radius-full)', 'WhatsApp button stays round');
+  assert.equal(radius('.fab--top'), 'var(--radius-md)', 'back to top');
+  assert.doesNotMatch(c, /--r-(pill|field|card)\b|border-radius:(999px|50%)/, 'no pill or circle radius left in the built CSS');
 });
 
 // Minimal PNG reader (8-bit RGBA, non-interlaced) so the icon checks run in CI without image libraries.

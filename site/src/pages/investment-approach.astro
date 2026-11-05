@@ -13,7 +13,7 @@ import { FIVE_CHECKS } from '../lib/checks';
       <p>I work for you: not a developer, not a sales target. If a listing isn't right for you, I'll say so, even if it costs me the deal. Every recommendation goes through the same five checks, not a headline stat.</p>
 
       <h2>The five checks</h2>
-      <ol style="margin-top:1.5rem">
+      <ol style="margin-top:var(--space-6)">
         {FIVE_CHECKS.map((c) => <li><strong>{c.name}{c.sep}</strong> {c.text}</li>)}
       </ol>
 
@@ -23,14 +23,14 @@ import { FIVE_CHECKS } from '../lib/checks';
       <h2>Why this approach</h2>
       <p>In UAE real estate since 2018, with a decade of experience across banking sales and senior management behind me, I read the cash flow before the brochure. That is the discipline behind every brief.</p>
 
-      <div class="card" style="margin-top:2rem">
+      <div class="card" style="margin-top:var(--space-8)">
         <h3 style="color:var(--navy)">The Compass Key Brief</h3>
         <p class="small">Send me any UAE property and I'll run the numbers: price, returns, risk, exit, my view. You can also run your own numbers on the <a href="/invest">ROI Calculator</a>.</p>
       </div>
 
       <div class="actions"><a href="/contact" class="btn">Get the numbers on a property</a></div>
 
-      <p class="fine" style="margin-top:2rem">Figures are sourced and dated. This is property analysis, not financial advice.</p>
+      <p class="fine" style="margin-top:var(--space-8)">Figures are sourced and dated. This is property analysis, not financial advice.</p>
     </div>
   </section>
 </Base>

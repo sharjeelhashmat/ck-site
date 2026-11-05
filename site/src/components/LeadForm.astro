@@ -145,9 +145,9 @@ const countries = [
 
   <div class="hp" aria-hidden="true"><label>Website <input type="text" name="company_website" tabindex="-1" autocomplete="off" /></label></div>
 
-  <div style="display:grid;gap:.75rem;margin-top:1.25rem">
+  <div style="display:grid;gap:var(--space-3);margin-top:var(--space-6)">
     <label class="check"><input type="checkbox" id="f-consent" name="consent_contact" required aria-describedby="f-consent-err" /><span>I agree that {SITE.name} may contact me about my enquiry using the details above. <a href="/privacy">Privacy</a></span></label>
-    <span class="err" id="f-consent-err" data-err="consent_contact" style="color:var(--err);font-size:.8rem"></span>
+    <span class="err" id="f-consent-err" data-err="consent_contact" style="color:var(--err);font-size:var(--fs-small);line-height:var(--lh-small);letter-spacing:var(--ls-small)"></span>
     <label class="check"><input type="checkbox" name="consent_nurture" /><span>Send me the occasional market note. I can unsubscribe at any time. (Optional)</span></label>
   </div>
 
@@ -162,30 +162,30 @@ const countries = [
   {/* A hidden element, not a <template>: the built HTML of a <template> ending in a link repeated that link after it,
       unclosed, so the next lines sat inside an email link (audit item 36). The script copies its content. */}
   <div id="lead-alert-tpl" hidden><p>Your message could not be sent. Please try again, or contact me directly on <a href={waLink("Hi Sharjeel, I'd like to discuss UAE real estate.")} target="_blank" rel="noopener">WhatsApp</a> or at <a href={`mailto:${SITE.email}`}>{SITE.email}</a>.</p></div>
-  {PROFILE_ENABLED && <p class="fine" id="lead-next" hidden style="margin-top:1rem"></p>}
+  {PROFILE_ENABLED && <p class="fine" id="lead-next" hidden style="margin-top:var(--space-4)"></p>}
   {/* Launch mode keeps no WhatsApp link outside the failure alert (owner decision 2026-10-10, tests/enquiry-forms.test.mjs);
      there, the alert below (also shown when the security check cannot load) is the WhatsApp route. */}
-  {!launch && <p class="fine" style="margin-top:1rem">Prefer WhatsApp? <a href={waLink("Hi Sharjeel, I'd like to discuss UAE real estate.")} target="_blank" rel="noopener">Message me directly</a> or call {SITE.phoneDisplay}.</p>}
+  {!launch && <p class="fine" style="margin-top:var(--space-4)">Prefer WhatsApp? <a href={waLink("Hi Sharjeel, I'd like to discuss UAE real estate.")} target="_blank" rel="noopener">Message me directly</a> or call {SITE.phoneDisplay}.</p>}
 </form>
 
 <style is:global>
   /* Submit outcomes (existing tokens; ok and err pass AA on the white card). */
-  .lead-err { display: block; color: var(--err); font-size: .875rem; margin-top: .5rem; }
+  .lead-err { display: block; color: var(--err); font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); margin-top: var(--space-2); }
   .lead-err:empty { display: none; }
-  .lead-alert:not(:empty) { margin-top: 1rem; padding: .9rem 1rem; border-radius: var(--r-card); background: var(--paper); border: 1px solid var(--err); border-left-width: 3px; color: var(--err); font-size: .95rem; }
+  .lead-alert:not(:empty) { margin-top: var(--space-4); padding: var(--space-4) var(--space-4); border-radius: var(--radius-lg); background: var(--paper); border: 1px solid var(--err); border-left-width: 3px; color: var(--err); font-size: var(--fs-body); line-height: var(--lh-body); letter-spacing: var(--ls-body); }
   .lead-alert p { margin: 0; }
   .lead-alert a { color: var(--err); }
   /* scroll-margin keeps the panel clear of the fixed header when focus moves to it. */
-  .lead-success { border-left: 3px solid var(--ok); scroll-margin-top: 6rem; }
-  .lead-success > p:first-child { margin: 0; color: var(--ok); font-size: 1.05rem; font-weight: 500; }
-  /* Preferred contact: three pill radios. The native radios stay in the page (visually hidden, still focusable and
-     announced); the pill shows the state. Ink on white, selected Ink with Ivory text, the site's focus ring. */
+  .lead-success { border-left: 3px solid var(--ok); scroll-margin-top: var(--space-24); }
+  .lead-success > p:first-child { margin: 0; color: var(--ok); font-size: var(--fs-body); line-height: var(--lh-body); letter-spacing: var(--ls-body); font-weight: 400; }
+  /* Preferred contact: three button-like radios. The native radios stay in the page (visually hidden, still focusable and
+     announced); the button shows the state. Ink on white, selected Ink with Ivory text, the site's focus ring. */
   .pref { border: 0; padding: 0; margin: 0; min-width: 0; }
-  .pref legend { padding: 0; margin-bottom: .4rem; }
-  .pref .pills { display: flex; flex-wrap: wrap; gap: .5rem; }
-  .pref .pill { position: relative; display: inline-flex; text-transform: none; letter-spacing: normal; font-size: .95rem; font-weight: 500; color: var(--ink); }
+  .pref legend { padding: 0; margin-bottom: var(--space-2); }
+  .pref .pills { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  .pref .pill { position: relative; display: inline-flex; text-transform: none; font-size: var(--fs-body); line-height: var(--lh-body); letter-spacing: var(--ls-body); font-weight: 400; color: var(--ink); }
   .pref .pill input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; opacity: 0; cursor: pointer; }
-  .pref .pill span { display: inline-flex; align-items: center; min-height: 44px; padding: 0 1.15rem; border: 1px solid var(--ink); border-radius: var(--r-pill); background: var(--paper); color: var(--ink); transition: background .15s, color .15s; }
+  .pref .pill span { display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--space-4); border: 1px solid var(--ink); border-radius: var(--radius-md); background: var(--paper); color: var(--ink); transition: background .15s, color .15s; }
   .pref .pill input:checked + span { background: var(--ink); color: var(--ivory); }
   .pref .pill input:focus-visible + span { outline: 3px solid var(--navy); outline-offset: 3px; }
   /* Invalid fields (audit H13): the existing error colour on the control's own border. */

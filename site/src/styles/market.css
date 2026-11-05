@@ -1,101 +1,105 @@
 /* Market figures: /areas, the area guides and the /new-launches "Launch activity" panel. Rules 1c tokens only (see
    global.css :root). Brass is a line or bar, never text on light; brass-coloured text is Brass Deep. Small text on light is
-   Ink. Rises are Ink, falls are Brass Deep. Every box is rounded with the shared radius tokens. */
+   Ink. Rises are Ink, falls are Brass Deep. Every box is rounded with the shared radius tokens. Figures are Inter 500 (stat or data style, Rules 1c v5.8). */
 
-.mk-h2 { font-size: clamp(1.6rem, 3vw, 2.25rem); margin: 0; }
-.mk-block { margin-top: 3rem; }
-.mk-block > .mk-h2 + * { margin-top: 1.25rem; }
-.mk-src { font-size: .8rem; color: var(--ink); margin-top: .9rem; line-height: 1.55; }
+.mk-h2 { margin: 0; }
+.mk-block { margin-top: var(--space-12); }
+.mk-block > .mk-h2 + * { margin-top: var(--space-6); }
+.mk-src { font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); color: var(--ink); margin-top: var(--space-4); }
 .mk-src a { color: var(--brass-deep); }
-.mk-label { display: block; font-size: .8rem; color: var(--ink); line-height: 1.35; margin: .2rem 0 0; }
+.mk-label { display: block; font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); color: var(--ink); margin: var(--space-1) 0 0; }
 .mk-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .mk-rise { color: var(--ink); }
 .mk-fall { color: var(--brass-deep); }
 .mk-flat, .mk-none { color: var(--ink); }
-.mk-change { font-weight: 600; font-variant-numeric: tabular-nums; }
+.mk-change { font-weight: 500; font-variant-numeric: tabular-nums; }
 
-/* Cormorant's default old-style figures read as letters (11.1 looks like II.I): lining figures for every number. */
-.mk-h2, .mk-area, .mk-value, .mk-tile-value, .mk-lead, .mk-guide h3 { font-variant-numeric: lining-nums; }
+/* Cormorant's default old-style figures read as letters (11.1 looks like II.I): lining figures in every serif heading.
+   The figures themselves are Inter, lining and tabular. */
+.mk-h2, .mk-area, .mk-guide h3 { font-variant-numeric: lining-nums; }
+.mk-value, .mk-tile-value, .mk-lead, .mk-rank { font-variant-numeric: lining-nums tabular-nums; }
 
 /* Emirate switch: sticky directly under the fixed header (its height is measured into --mk-header). */
-.mk-switch-bar { position: sticky; top: var(--mk-header, 4.25rem); z-index: 20; background: var(--ivory); margin-top: 2rem; padding: .75rem 0; border-bottom: 1px solid var(--line); }
-.mk-switch-row { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem 1rem; }
-.mk-switch-label { font-size: .875rem; font-weight: 500; color: var(--ink); }
-.mk-pills { display: flex; gap: .5rem; }
+.mk-switch-bar { position: sticky; top: var(--mk-header, 4rem); z-index: 20; background: var(--ivory); margin-top: var(--space-8); padding: var(--space-3) 0; border-bottom: 1px solid var(--line); }
+.mk-switch-row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3) var(--space-4); }
+.mk-switch-label { font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); font-weight: 400; color: var(--ink); }
+.mk-pills { display: flex; gap: var(--space-2); }
 .mk-pill {
-  min-height: 44px; padding: 0 1.25rem; border-radius: var(--r-pill); border: 1px solid var(--ink); background: var(--paper); color: var(--ink);
-  font: 500 .95rem/1 var(--sans); cursor: pointer;
+  min-height: 44px; padding: 0 var(--space-6); border-radius: var(--radius-md); border: 1px solid var(--ink); background: var(--paper); color: var(--ink);
+  font-family: var(--sans); font-weight: 400; font-size: var(--fs-body); line-height: var(--lh-body); letter-spacing: var(--ls-body); cursor: pointer;
 }
 .mk-pill[aria-checked='true'] { background: var(--ink); color: var(--ivory); }
 .mk-pill:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
 
 /* Year to date tiles */
-.mk-tiles { display: grid; gap: 1rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
-.mk-tile { background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-card); padding: 1.25rem 1.25rem 1.1rem; }
-.mk-tile-value { font-family: var(--serif); font-size: clamp(1.6rem, 3vw, 2.25rem); line-height: 1.1; margin: 0; color: var(--ink); }
-.mk-tile-label { font-size: .875rem; color: var(--ink); margin: .35rem 0 0; }
-@media (max-width: 40rem) { .mk-tiles { grid-template-columns: 1fr; } }
+.mk-tiles { display: grid; gap: var(--space-4); grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.mk-tile { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-6) var(--space-6) var(--space-4); }
+.mk-tile-value { font-family: var(--sans); font-weight: 500; font-size: var(--fs-stat); line-height: var(--lh-stat); letter-spacing: var(--ls-stat); margin: 0; color: var(--ink); }
+.mk-tile-label { font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); color: var(--ink); margin: var(--space-1) 0 0; }
+/* One column below 60rem: three 48px figures side by side need about 960px. */
+@media (max-width: 60rem) { .mk-tiles { grid-template-columns: 1fr; } }
 
 /* Period chip and the half-year note */
 .mk-chip {
-  display: inline-block; margin: 0; padding: .4rem .85rem; border-radius: var(--r-pill); background: var(--brass-tint); color: var(--brass-deep);
-  font-size: .72rem; font-weight: 600; letter-spacing: .12em; text-transform: uppercase;
+  display: inline-block; margin: 0; padding: var(--space-2) var(--space-3); border-radius: var(--radius-sm); background: var(--brass-tint); color: var(--brass-deep);
+  font-size: var(--fs-label); line-height: var(--lh-label); letter-spacing: var(--ls-label); font-weight: 400; text-transform: uppercase;
 }
-.mk-note { margin: .9rem 0 0; padding: .8rem 1rem; border-radius: var(--r-field); background: var(--band); border: 1px solid var(--line); font-size: .875rem; color: var(--ink); max-width: 46rem; }
+.mk-note { margin: var(--space-4) 0 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--band); border: 1px solid var(--line); font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); color: var(--ink); max-width: 46rem; }
 
 /* Top area cards: 4 columns, 2 at 900px and below (phone included) */
-.mk-cards { display: grid; gap: 1rem; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 1.25rem; }
-@media (max-width: 900px) { .mk-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; } }
-.mk-card { display: flex; flex-direction: column; min-width: 0; background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-card); padding: 1.1rem; }
-.mk-rank { margin: 0; font-size: .8rem; font-weight: 600; color: var(--ink); }
-.mk-area { font-size: 1.3rem; margin-top: .35rem; overflow-wrap: anywhere; }
-.mk-value { font-family: var(--serif); font-size: clamp(1.45rem, 2.4vw, 2rem); line-height: 1.1; margin: .75rem 0 0; color: var(--ink); white-space: nowrap; }
-.mk-card .mk-value { margin-top: auto; padding-top: .75rem; }
-.mk-bar { height: 6px; border-radius: var(--r-pill); background: var(--band); margin-top: .6rem; overflow: hidden; }
-.mk-bar span { display: block; height: 100%; border-radius: var(--r-pill); background: var(--gold); }
-.mk-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .25rem .75rem; margin: .6rem 0 0; font-size: .85rem; color: var(--ink); }
-@media (max-width: 30rem) { .mk-card { padding: .9rem; } .mk-area { font-size: 1.1rem; } }
+.mk-cards { display: grid; gap: var(--space-4); grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: var(--space-6); }
+@media (max-width: 900px) { .mk-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); } }
+.mk-card { display: flex; flex-direction: column; min-width: 0; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-4); }
+.mk-rank { margin: 0; font-size: var(--fs-data); line-height: var(--lh-data); letter-spacing: var(--ls-data); font-weight: 500; color: var(--ink); }
+.mk-area { font-size: var(--fs-heading); line-height: var(--lh-heading); letter-spacing: 0; margin-top: var(--space-1); overflow-wrap: anywhere; }
+.mk-value { font-family: var(--sans); font-weight: 500; font-size: var(--fs-stat); line-height: var(--lh-stat); letter-spacing: var(--ls-stat); margin: var(--space-3) 0 0; color: var(--ink); }
+/* Two cards a row down to 320px: the figure uses the data style there (a 48px figure does not fit). */
+.mk-card .mk-value { font-size: var(--fs-data); line-height: var(--lh-data); letter-spacing: var(--ls-data); margin-top: auto; padding-top: var(--space-3); }
+.mk-bar { height: 6px; border-radius: var(--radius-sm); background: var(--band); margin-top: var(--space-2); overflow: hidden; }
+.mk-bar span { display: block; height: 100%; border-radius: var(--radius-sm); background: var(--gold); }
+.mk-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-1) var(--space-3); margin: var(--space-2) 0 0; font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); color: var(--ink); }
+@media (max-width: 30rem) { .mk-card { padding: var(--space-4); } }
 
 /* Change table: the card scrolls sideways, never the page */
-.mk-table-card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-card); overflow: hidden; }
+.mk-table-card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; }
 .mk-table-scroll { overflow-x: auto; }
-.mk-table { width: 100%; border-collapse: collapse; font-size: .95rem; min-width: 30rem; }
-.mk-table th, .mk-table td { padding: .7rem 1rem; border-bottom: 1px solid var(--line); vertical-align: top; text-align: left; }
-.mk-table th { font-size: .7rem; letter-spacing: .12em; text-transform: uppercase; font-weight: 600; color: var(--ink); }
+.mk-table { width: 100%; border-collapse: collapse; font-size: var(--fs-data); line-height: var(--lh-data); letter-spacing: var(--ls-data); font-weight: 500; min-width: 30rem; }
+.mk-table th, .mk-table td { padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--line); vertical-align: top; text-align: left; }
+.mk-table th { font-size: var(--fs-label); line-height: var(--lh-label); letter-spacing: var(--ls-label); text-transform: uppercase; font-weight: 400; color: var(--ink); }
 .mk-table th.mk-num, .mk-table td.mk-num { text-align: right; }
 .mk-table tbody tr:last-child td { border-bottom: 0; }
 .mk-tarea { font-weight: 500; }
 
-.mk-ask { margin-top: 3rem; font-size: 1.125rem; color: var(--ink); }
+.mk-ask { margin-top: var(--space-12); font-size: var(--fs-body); line-height: var(--lh-body); letter-spacing: var(--ls-body); color: var(--ink); }
 .mk-ask a { color: var(--brass-deep); }
 
 /* Area guides list */
-.mk-guides { margin-top: 3.5rem; }
-.mk-guide-grid { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 1.25rem; }
+.mk-guides { margin-top: var(--space-16); }
+.mk-guide-grid { display: grid; gap: var(--space-4); grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: var(--space-6); }
 @media (max-width: 40rem) { .mk-guide-grid { grid-template-columns: 1fr; } }
-.mk-guide h3 { font-size: 1.5rem; }
+.mk-guide h3 { font-size: var(--fs-heading); line-height: var(--lh-heading); letter-spacing: 0; }
 
 /* Area guide page: live figures card */
-.mk-guide-card { margin-top: 2rem; background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-card); padding: 1.4rem 1.5rem; }
-.mk-guide-card .mk-value { font-size: clamp(1.9rem, 4vw, 2.5rem); }
+.mk-guide-card { margin-top: var(--space-8); background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-6) var(--space-6); }
 
 /* /new-launches: Launch activity */
-.mk-launch-grid { display: grid; gap: 1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 1.25rem; }
+.mk-launch-grid { display: grid; gap: var(--space-4); grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: var(--space-6); }
 .mk-launch-grid--one { grid-template-columns: 1fr; }
 @media (max-width: 40rem) { .mk-launch-grid { grid-template-columns: 1fr; } }
-.mk-launch { background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-card); padding: 1.4rem 1.5rem; min-width: 0; }
-.mk-launch h3 { font-size: 1.5rem; }
-.mk-lead { font-family: var(--serif); font-size: 1.5rem; line-height: 1.2; margin: .6rem 0 0; color: var(--ink); }
-.mk-sub { margin: 1rem 0 0; font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; font-weight: 600; color: var(--ink); }
-.mk-list { list-style: none; margin: .4rem 0 0; padding: 0; }
-.mk-list li { display: flex; justify-content: space-between; gap: 1rem; padding: .45rem 0; border-bottom: 1px solid var(--line); font-size: .95rem; }
+.mk-launch { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-6) var(--space-6); min-width: 0; }
+.mk-launch h3 { font-size: var(--fs-heading); line-height: var(--lh-heading); letter-spacing: 0; }
+.mk-lead { font-family: var(--sans); font-weight: 500; font-size: var(--fs-data); line-height: var(--lh-data); letter-spacing: var(--ls-data); margin: var(--space-2) 0 0; color: var(--ink); }
+.mk-sub { margin: var(--space-4) 0 0; font-size: var(--fs-label); line-height: var(--lh-label); letter-spacing: var(--ls-label); text-transform: uppercase; font-weight: 400; color: var(--ink); }
+.mk-list { list-style: none; margin: var(--space-2) 0 0; padding: 0; }
+.mk-list li { display: flex; justify-content: space-between; gap: var(--space-4); padding: var(--space-2) 0; border-bottom: 1px solid var(--line); font-size: var(--fs-body); line-height: var(--lh-body); letter-spacing: var(--ls-body); }
 .mk-list li > span:first-child { min-width: 0; overflow-wrap: anywhere; }
-.mk-list .mk-label { display: inline; margin-left: .35rem; }
-.mk-line { margin: .6rem 0 0; font-size: 1rem; color: var(--ink); }
+.mk-list .mk-label { display: inline; margin-left: var(--space-1); }
+.mk-line { margin: var(--space-2) 0 0; font-size: var(--fs-body); line-height: var(--lh-body); letter-spacing: var(--ls-body); color: var(--ink); }
 
 /* Launches I'm watching (hidden until the agency, ORN, BRN and permits exist) */
-.lw-grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr)); margin-top: 1.25rem; }
-.lw-card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--r-card); padding: 1.25rem; }
-.lw-card h3 { font-size: 1.4rem; }
-.lw-permit { display: flex; gap: .75rem; align-items: center; margin-top: 1rem; font-size: .8rem; color: var(--ink); }
-.lw-permit img { width: 72px; height: 72px; border-radius: 4px; }
+.lw-grid { display: grid; gap: var(--space-4); grid-template-columns: repeat(auto-fit, minmax(min(16rem, 100%), 1fr)); margin-top: var(--space-6); }
+.lw-card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-6); }
+.lw-card h3 { font-size: var(--fs-heading); line-height: var(--lh-heading); letter-spacing: 0; }
+.lw-permit { display: flex; gap: var(--space-3); align-items: center; margin-top: var(--space-4); font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); color: var(--ink); }
+/* The permit QR keeps square-ish corners (--radius-sm): a larger radius would clip its finder patterns. */
+.lw-permit img { width: 72px; height: 72px; border-radius: var(--radius-sm); }

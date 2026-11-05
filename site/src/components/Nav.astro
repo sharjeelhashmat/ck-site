@@ -5,7 +5,7 @@ const path = Astro.url.pathname.replace(/\.html$/, '').replace(/\/$/, '') || '/'
 const wa = waLink("Hi Sharjeel, I'm interested in UAE real estate.");
 const current = (href: string) => (path === href || path.startsWith(href + '/') ? 'page' : undefined);
 // One <nav> serves desktop and mobile (the mobile menu is the same element shown as a panel), so each page carries
-// exactly one aria-current link. Groups: segmented Buy | Invest | Sell, outlined pills, plain links, WhatsApp.
+// exactly one aria-current link. Groups: segmented Buy | Invest | Sell, outlined links (.nav-pills), plain links, WhatsApp.
 const pick = (hrefs: string[]) => NAV_LINKS.filter((l) => hrefs.includes(l.href));
 const segment = pick(['/buy', '/invest', '/sell']);
 const pills = pick(['/areas', '/new-launches', '/insights']);

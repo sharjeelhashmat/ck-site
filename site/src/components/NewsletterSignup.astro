@@ -26,23 +26,23 @@ const id = `nl-${variant}`;
 
 <style>
   .nl { max-width: 34rem; }
-  .nl--article { max-width: none; margin-top: 3rem; padding: 1.75rem; border-radius: var(--r-card); background: var(--paper); border: 1px solid var(--line); border-top: 2px solid var(--gold); }
-  .nl--footer { padding-bottom: 1.5rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--line); }
+  .nl--article { max-width: none; margin-top: var(--space-12); padding: var(--space-8); border-radius: var(--radius-lg); background: var(--paper); border: 1px solid var(--line); border-top: 2px solid var(--gold); }
+  .nl--footer { padding-bottom: var(--space-6); margin-bottom: var(--space-6); border-bottom: 1px solid var(--line); }
   .nl .kicker { margin: 0; }
-  .nl-lede { margin-top: .4rem; font-size: .95rem; color: var(--muted); }
-  .nl-form { margin-top: .9rem; }
+  .nl-lede { margin-top: var(--space-2); font-size: var(--fs-body); line-height: var(--lh-body); letter-spacing: var(--ls-body); color: var(--muted); }
+  .nl-form { margin-top: var(--space-4); }
   .nl-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-  .nl-row { display: flex; flex-wrap: wrap; gap: .6rem; }
+  .nl-row { display: flex; flex-wrap: wrap; gap: var(--space-2); }
   .nl-row input {
-    flex: 1 1 14rem; min-width: 0; font: 400 1rem var(--sans); color: var(--ink); background: var(--paper);
-    border: 1px solid var(--sky); border-radius: var(--r-field); padding: .75rem .8rem;
+    flex: 1 1 14rem; min-width: 0; font-family: var(--sans); font-weight: 400; font-size: var(--fs-body); line-height: var(--lh-body); letter-spacing: var(--ls-body); color: var(--ink); background: var(--paper);
+    border: 1px solid var(--sky); border-radius: var(--radius-sm); padding: var(--space-3) var(--space-3);
   }
   .nl-row input:focus { border-color: var(--navy); outline: 3px solid color-mix(in srgb, var(--navy) 25%, transparent); outline-offset: 0; }
   .nl-row .btn { flex: none; }
-  .nl-form .status { margin-top: .6rem; min-height: 1.2em; font-size: .9rem; }
+  .nl-form .status { margin-top: var(--space-2); min-height: 1.2em; font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); }
   .nl-form .status:empty { display: none; }
-  .nl-form .fine { margin-top: .6rem; }
-  .nl-done { margin-top: .9rem; font-size: 1rem; }
+  .nl-form .fine { margin-top: var(--space-2); }
+  .nl-done { margin-top: var(--space-4); font-size: var(--fs-body); line-height: var(--lh-body); letter-spacing: var(--ls-body); }
   /* Footer variant sits on Ink (Brand v3.1): Slate Light text, white input with a Brass border, Brass focus ring. */
   .nl--footer { border-bottom-color: color-mix(in srgb, var(--slate-light) 35%, transparent); }
   .nl--footer .nl-lede { color: var(--slate-light); }

@@ -16,12 +16,12 @@ const noindex = !insightsLive;
       <h1>Market updates, investment and <em>area guides.</em></h1>
       <p class="lede">Property decisions should be based on more than headlines.</p>
       {list.length === 0 ? (
-        <div class="card empty" style="margin-top:2.5rem">
+        <div class="card empty" style="margin-top:var(--space-12)">
           <p>The first Insights articles are being written. Check back soon, or ask Sharjeel directly in the meantime.</p>
           <div class="actions" style="justify-content:center"><a class="btn btn--ghost" href={waLink('Hi Sharjeel, do you have any market insights you can share?')} target="_blank" rel="noopener">Ask Sharjeel →</a></div>
         </div>
       ) : (
-        <div class="grid" style="margin-top:2.5rem">
+        <div class="grid" style="margin-top:var(--space-12)">
           {list.map((a: any) => (
             <a class="card" href={`/insights/${a.slug}`}>
               <p class="kicker" style="margin:0">{a.series} · {a.geography}</p>
@@ -32,7 +32,7 @@ const noindex = !insightsLive;
           ))}
         </div>
       )}
-      {projectsLive && <p class="src" style="margin-top:2.5rem"><a href="/projects">Infrastructure tracker</a></p>}
+      {projectsLive && <p class="src" style="margin-top:var(--space-12)"><a href="/projects">Infrastructure tracker</a></p>}
     </div>
   </section>
 </Base>
