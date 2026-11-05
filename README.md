@@ -61,8 +61,8 @@ Workers Free: 100,000 requests/day, 10 ms CPU per invocation (I/O wait not count
 ## Release (owner steps; DNS, credentials and billing are hard stops for the system)
 
 1. Worker secrets in the Cloudflare dashboard: `TURNSTILE_SECRET`, `RESEND_API_KEY`, `UNSUB_SECRET` (32+ random bytes), `ALERT_EMAIL`, optional `SCORING_JSON`. Repo secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`.
-2. Staging: Actions > deploy-site > Run workflow with `public` off. The `production` environment approval is the publishing gate.
-3. Public: fill in `site/src/lib/golive.ts` (merged through a PR), then run deploy-site with `public` on and approve `production`: one dispatch.
+2. Staging: Actions > deploy-staging (Worker `ck-site-staging`, always noindex). deploy-site always needs `public` ticked: `ck-site-web` is the live site, and an unticked run is refused before anything is built (workflow-guard R18). The `production` environment approval is the publishing gate.
+3. Public: fill in `site/src/lib/golive.ts` (merged through a PR), then run deploy-site with `public` ticked (always) and approve `production`: one dispatch.
 4. Cutover: custom domains on Worker `ck-site-web`, Turnstile widget hostnames (`sharjeelhashmat.com`, `www.sharjeelhashmat.com`, `ck-site-staging.sharjeelhashmat.workers.dev`; the Worker also checks the hostname and action, see Turnstile), submit `sitemap-index.xml` in Search Console, turn on branch protection on `phase2-site`, the branch every deploy runs from (require PR, require the four CI checks, require Code Owner review), decide the legacy Firestore leads.
 5. Verify: a real enquiry and a real investor profile end to end, then check the D1 rows. Then take the old Vercel site out of maintenance.
 6. Before every rebuild run `npm run freshness` in `site/` and re-check undated DLD fee pages.

@@ -37,6 +37,12 @@
 // keyword (the checks themselves live in .github/scripts/readiness.mjs, whose test asserts every statement is a SELECT);
 // wrangler is otherwise allowed only as --version; no step summary and no artifact upload (public logs).
 //
+// Live site (owner decision 2026-11-05, "refuse unticked"): ck-site-web serves www.sharjeelhashmat.com, so deploy-site.yml
+// must refuse a run whose "public" input is not true before anything is built (R18). The refusal is a step with no if: and
+// no continue-on-error that takes ${{ inputs.public }} through env: (R15) and runs
+// `if [ "$VAR" != "true" ]; then ... exit <non-zero> ... fi`; in every job that builds the site it comes before the first
+// build step, and at least one job has it.
+//
 // Rules (see RULES below). R0 covers scope (.github/actions/, workflow files outside .github/workflows/) and YAML
 // parsing (any parse error or warning, alias explosion). Rules for deploy/deploy-site/rollback key off the file name
 // stem, case-insensitive, so deploy.yaml and Deploy.yml get the same rules as deploy.yml.
@@ -70,6 +76,7 @@ export const RULES = {
   R15: 'no ${{ github.event.* / github.head_ref / inputs.* }} inside run:',
   R16: 'deploy-staging.yml: non-indexable build, ck-site-staging only',
   R17: 'readiness.yml: read-only SELECTs, no step summary, no artifact',
+  R18: 'deploy-site.yml: refuse an unticked public input before the build',
 };
 
 const SECRET_RE = /\$\{\{[\s\S]*?\bsecrets\b[\s\S]*?\}\}/i;
@@ -116,6 +123,14 @@ const STAGING_WORKER = 'ck-site-staging';
 const BUILD_RE = /\b(npm run build|astro build)\b/;
 const INDEXABLE_SET_RE = /\bPUBLIC_INDEXABLE\s*=(?!\s*false(\s|$))/;
 const isFalse = (v) => v === 'false' || v === false;
+const PUBLIC_INPUT_RE = /^\$\{\{\s*inputs\.public\s*\}\}$/;
+
+/** R18: a step that fails the job when the public input is not true. */
+function isPublicRefusal(step) {
+  if (!isObj(step) || typeof step.run !== 'string' || 'if' in step || 'continue-on-error' in step) return false;
+  const vars = isObj(step.env) ? Object.keys(step.env).filter((k) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(k) && PUBLIC_INPUT_RE.test(String(step.env[k]).trim())) : [];
+  return vars.some((v) => new RegExp(`(^|\\n)\\s*if \\[ "\\$(${v}|\\{${v}\\})" != "?true"? \\]; then\\n[\\s\\S]*?^\\s*exit [1-9][0-9]*\\s*$[\\s\\S]*?^\\s*fi\\b`, 'm').test(step.run));
+}
 const MARKET_SYNC_D1 = 'npx --no-install wrangler d1 execute ck-leads --remote --file market-sync.sql';
 const MARKET_SYNC_VERSION_RE = /(^|[\s(=])npx --no-install wrangler --version$/;
 const WRANGLER_CMD_RE = /(^|[^\w.\-])wrangler(?=\s|$|[;&|)<>])/i;
@@ -540,6 +555,21 @@ export function analyse(fileName, src) {
     add('R17', null, `readiness jobs must be exactly ${READINESS_JOB}; found ${Object.keys(jobs ?? {}).join(', ')}`, ['jobs']);
   }
 
+  // R18 (workflow level): the live site is never deployed noindex.
+  if (stem === 'deploy-site') {
+    let found = false;
+    for (const [id, job] of Object.entries(jobs ?? {})) {
+      const steps = isObj(job) && Array.isArray(job.steps) ? job.steps : [];
+      const refusal = steps.findIndex(isPublicRefusal);
+      const build = steps.findIndex((st) => isObj(st) && BUILD_RE.test(String(st.run ?? '')));
+      if (refusal >= 0) found = true;
+      if (build >= 0 && (refusal < 0 || refusal > build)) {
+        add('R18', id, 'a job that builds the site must first refuse an unticked public input: a step with env VAR: ${{ inputs.public }} and `if [ "$VAR" != "true" ]; then ... exit 1 ... fi`, before the build step', ['jobs', id, 'steps', build]);
+      }
+    }
+    if (!found) add('R18', null, 'deploy-site.yml must refuse an unticked public input (step with env VAR: ${{ inputs.public }} and `if [ "$VAR" != "true" ]; then ... exit 1 ... fi`)', ['jobs']);
+  }
+
   // R11 (workflow level)
   if (stem === 'rollback') {
     const ids = Object.keys(jobs ?? {}).sort();
@@ -585,7 +615,7 @@ function scope(root) {
 function rowsFor(file, violations) {
   const stem = stemOf(path.basename(file));
   const applicable = Object.keys(RULES).filter((r) =>
-    (r !== 'R1' || DEPLOY_STEMS.has(stem)) && (r !== 'R9' || stem in CONCURRENCY || stem === 'rollback') && (r !== 'R11' || stem === 'rollback') && (r !== 'R16' || stem === STAGING) && (r !== 'R17' || stem === READINESS));
+    (r !== 'R1' || DEPLOY_STEMS.has(stem)) && (r !== 'R9' || stem in CONCURRENCY || stem === 'rollback') && (r !== 'R11' || stem === 'rollback') && (r !== 'R16' || stem === STAGING) && (r !== 'R17' || stem === READINESS) && (r !== 'R18' || stem === 'deploy-site'));
   const rows = [];
   for (const r of applicable) {
     const hits = violations.filter((x) => x.rule === r);
