@@ -16,11 +16,17 @@ import { fileURLToPath } from 'node:url';
 import { GOLIVE } from '../../src/lib/golive.ts';
 
 const g = { ...GOLIVE };
+const indexable = Boolean(g.indexing) && process.env.PUBLIC_INDEXABLE === 'true';
+// ANALYTICS_TOKEN (site.ts): the Cloudflare Web Analytics token, only on an indexable build and only when well formed. The
+// deploy-site build passes it as PUBLIC_CF_ANALYTICS_TOKEN (repo variable CF_ANALYTICS_TOKEN).
+const cfToken = (process.env.PUBLIC_CF_ANALYTICS_TOKEN ?? '').trim();
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 
 export const BUILD = Object.freeze({
   // SITE.indexable (site.ts)
-  indexable: Boolean(g.indexing) && process.env.PUBLIC_INDEXABLE === 'true',
+  indexable,
+  // ANALYTICS_TOKEN (site.ts): '' when the build has no Cloudflare Web Analytics beacon
+  analyticsToken: indexable && /^[A-Za-z0-9]{16,64}$/.test(cfToken) ? cfToken : '',
   // AFFILIATION_LINE (site.ts, affiliation.mjs): "Working with <agency> · ORN <orn> · BRN <brn>"
   affiliation: g.agencyName && g.agencyOrn && g.brokerBrn ? `Working with ${g.agencyName} · ORN ${g.agencyOrn} · BRN ${g.brokerBrn}` : '',
   // LAUNCH_CARDS_ALLOWED (golive.ts)

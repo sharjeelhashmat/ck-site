@@ -80,7 +80,15 @@ test('18: connect-src is exactly the data-worker origins found in the built page
   // Turnstile (challenges.cloudflare.com) only with lead capture: soft launch has no Turnstile widget on any page.
   const ts = (lead) => (lead ? ' https:\\/\\/challenges\\.cloudflare\\.com' : '');
   const csp = read('_headers').match(/Content-Security-Policy: (.*)/)[1];
-  assert.match(csp, new RegExp(`connect-src 'self' https:\\/\\/ck-lead-worker\\.sharjeelhashmat\\.workers\\.dev${ts(BUILD.leadCapture)};`));
+  // Cloudflare Web Analytics (a public build with PUBLIC_CF_ANALYTICS_TOKEN, as deploy-site builds it): the beacon's origins
+  // follow the data-worker origins, connect-src https://cloudflareinsights.com and script-src https://static.cloudflareinsights.com.
+  const cf = BUILD.analyticsToken ? ' https:\\/\\/cloudflareinsights\\.com' : '';
+  if (BUILD.analyticsToken) {
+    assert.match(csp, new RegExp(`connect-src 'self' https:\\/\\/ck-lead-worker\\.sharjeelhashmat\\.workers\\.dev${ts(BUILD.leadCapture)}${cf};`));
+    assert.match(csp, /script-src 'self'( 'sha256-[A-Za-z0-9+/=]+')+ https:\/\/static\.cloudflareinsights\.com;/);
+  } else {
+    assert.match(csp, new RegExp(`connect-src 'self' https:\\/\\/ck-lead-worker\\.sharjeelhashmat\\.workers\\.dev${ts(BUILD.leadCapture)};`));
+  }
   if (!BUILD.leadCapture) assert.doesNotMatch(csp, /challenges\.cloudflare\.com/, 'soft launch: no Turnstile origin anywhere in the CSP');
   const leadCsp = readLead('_headers').match(/Content-Security-Policy: (.*)/)[1];
   assert.match(leadCsp, /connect-src 'self' https:\/\/ck-lead-worker\.sharjeelhashmat\.workers\.dev https:\/\/challenges\.cloudflare\.com;/);
@@ -89,7 +97,9 @@ test('18: connect-src is exactly the data-worker origins found in the built page
   // Another Worker URL at build time moves the CSP with it.
   const out = build({ PUBLIC_WORKER_URL: 'https://other-worker.example.workers.dev' });
   const other = readFileSync(join(out, '_headers'), 'utf8').match(/Content-Security-Policy: (.*)/)[1];
-  assert.match(other, new RegExp(`connect-src 'self' https:\\/\\/other-worker\\.example\\.workers\\.dev${ts(BUILD.leadCapture)};`));
+  // The build inherits this run's environment, so it carries the beacon exactly when this build does.
+  if (BUILD.analyticsToken) assert.match(other, new RegExp(`connect-src 'self' https:\\/\\/other-worker\\.example\\.workers\\.dev${ts(BUILD.leadCapture)}${cf};`));
+  else assert.match(other, new RegExp(`connect-src 'self' https:\\/\\/other-worker\\.example\\.workers\\.dev${ts(BUILD.leadCapture)};`));
   assert.doesNotMatch(other, /ck-lead-worker/);
 });
 
