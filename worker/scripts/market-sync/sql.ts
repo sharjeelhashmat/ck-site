@@ -5,7 +5,7 @@
 // Every /market/* response body is precomputed here into market_cache (migration 0005), in the same import as the data,
 // with the same functions the Worker uses live (src/market-core.ts), so a request reads one row.
 import { DLD_SINCE, type AdrecYtd, type AreaMonth, type MonthTotal, type ProjectsStats } from './dld.ts';
-import { areaBodies, areasBody, cacheKey, completePeriods, launchesAbuDhabi, launchesDubai, priorPeriod, type AreaSums, type Period } from '../../src/market-core.ts';
+import { areaBodies, areasBody, cacheKey, completePeriods, launchesAbuDhabi, launchesDubai, priorPeriod, YTD_ALIAS, ytdPeriod, type AreaSums, type Period } from '../../src/market-core.ts';
 
 export interface BuildInput {
   runId: string;
@@ -54,19 +54,27 @@ function sumsFor(rows: AreaMonth[], p: Period): AreaSums[] {
   return [...by.values()];
 }
 
-/** [key, body] for /market/areas and /market/area/<area_en> in every period complete in this run's data. */
+/**
+ * [key, body] for /market/areas and /market/area/<area_en> in every period complete in this run's data, plus the
+ * latest Dubai year to date under the "ytd" keys (its body names the explicit period, e.g. 2026-YTD10). The year to date
+ * is cached only when its prior-year months are inside the data too, so a change is never computed against missing months.
+ */
 export function cacheRows(d: { asOf: string; areaMonths: AreaMonth[]; monthTotals: MonthTotal[] }): [string, string][] {
   const out: [string, string][] = [];
   const totals = d.monthTotals.map((t) => ({ month: t.month, trans_group: t.trans_group, value: r2(t.value) }));
-  for (const p of completePeriods(DLD_SINCE.slice(0, 7), d.asOf)) {
+  const since = DLD_SINCE.slice(0, 7);
+  const add = (key: string, p: Period) => {
     const prior = priorPeriod(p);
     const current = sumsFor(d.areaMonths, p);
     const priorSums = sumsFor(d.areaMonths, prior);
     const body = areasBody(p, current, priorSums, totals, d.asOf);
-    if (!body) continue;
-    out.push([cacheKey.areas(p.id), JSON.stringify(body)]);
-    for (const [area, b] of areaBodies(p, current, priorSums, d.asOf)) out.push([cacheKey.area(p.id, area), JSON.stringify(b)]);
-  }
+    if (!body) return;
+    out.push([cacheKey.areas(key), JSON.stringify(body)]);
+    for (const [area, b] of areaBodies(p, current, priorSums, d.asOf)) out.push([cacheKey.area(key, area), JSON.stringify(b)]);
+  };
+  for (const p of completePeriods(since, d.asOf)) add(p.id, p);
+  const ytd = ytdPeriod(d.asOf);
+  if (priorPeriod(ytd).firstMonth >= since) add(YTD_ALIAS, ytd);
   return out;
 }
 

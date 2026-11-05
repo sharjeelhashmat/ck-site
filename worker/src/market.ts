@@ -2,13 +2,16 @@
 // (worker/scripts/market-sync); this file only reads from D1. No raw rows, no project or developer names.
 //   GET /market/launches                     Dubai project activity (DLD) and Abu Dhabi year to date (ADREC)
 //   GET /market/areas?period=2026-H1         Dubai year to date + top 8 areas by residential sales value
-//   GET /market/area/<area_en>?period=...    the same figures for one DLD area (area guide pages)
+//   GET /market/areas?period=ytd             the same for the latest Dubai year to date (1 Jan to the last complete month
+//                                            of the data, against the same months of the prior year); the body names it
+//                                            (period 2026-YTD10, first_month 2026-01, last_month 2026-10)
+//   GET /market/area/<area_en>?period=...    the same figures for one DLD area (area guide pages; also period=ytd)
 //   GET /market/status                       last successful DLD and ADREC sync (the workflow's weekly gate reads it)
 // Quota protection (Workers Free: D1 reads are capped per day): the sync precomputes every response body into
 // market_cache in the same atomic import, so a request reads one row; live computation runs only when that row is
 // missing. On top, a per-isolate memo answers repeated 200s for 10 minutes without touching D1.
 import {
-  areaBodies, areasBody, cacheKey, launchesAbuDhabi, launchesDubai, parsePeriod, priorPeriod,
+  areaBodies, areasBody, cacheKey, launchesAbuDhabi, launchesDubai, parsePeriod, priorPeriod, YTD_ALIAS, ytdPeriod,
   type AdrecPayload, type AreaSums, type MarketResult, type Period, type ProjectsPayload, type TotalsRow,
 } from './market-core';
 import { safeError } from './log';
@@ -61,7 +64,19 @@ async function cached(db: D1Database, key: string): Promise<string | null> {
 
 type Served = { status: number; body: unknown } | { status: 200; text: string };
 
+/** The latest Dubai year to date in the data, or null when nothing has been synced. */
+async function latestYtd(db: D1Database): Promise<Period | null> {
+  const asOf = await latestAsOf(db);
+  return asOf ? ytdPeriod(asOf) : null;
+}
+
 export async function marketAreas(db: D1Database, periodId: string | null): Promise<Served> {
+  if (periodId === YTD_ALIAS) {
+    const hit = await cached(db, cacheKey.areas(YTD_ALIAS));
+    if (hit !== null) return { status: 200, text: hit };
+    const p = await latestYtd(db);
+    return p ? liveAreas(db, p) : { status: 404, body: { ok: false, error: 'period_not_available' } };
+  }
   const p = parsePeriod(periodId);
   if (!p) return { status: 400, body: { ok: false, error: 'invalid_period' } };
   const hit = await cached(db, cacheKey.areas(p.id));
@@ -69,6 +84,14 @@ export async function marketAreas(db: D1Database, periodId: string | null): Prom
 }
 
 export async function marketArea(db: D1Database, areaEn: string, periodId: string | null): Promise<Served> {
+  if (periodId === YTD_ALIAS) {
+    if (!areaEn || areaEn.length > 120) return { status: 404, body: { ok: false, error: 'not_found' } };
+    const hit = await cached(db, cacheKey.area(YTD_ALIAS, areaEn));
+    if (hit !== null) return { status: 200, text: hit };
+    if ((await cached(db, cacheKey.areas(YTD_ALIAS))) !== null) return { status: 404, body: { ok: false, error: 'not_found' } };
+    const p = await latestYtd(db);
+    return p ? liveArea(db, areaEn, p) : { status: 404, body: { ok: false, error: 'period_not_available' } };
+  }
   const p = parsePeriod(periodId);
   if (!p) return { status: 400, body: { ok: false, error: 'invalid_period' } };
   if (!areaEn || areaEn.length > 120) return { status: 404, body: { ok: false, error: 'not_found' } };
@@ -129,10 +152,10 @@ export function clearMarketMemo() {
 /** The memo key for a request, or null when the input does not validate (those requests are never memoised). */
 function memoKey(pathname: string, period: string | null, area: string | null): string | null {
   if (pathname === '/market/launches') return cacheKey.launches;
-  const p = parsePeriod(period);
-  if (!p) return null;
-  if (pathname === '/market/areas') return cacheKey.areas(p.id);
-  if (area !== null && area !== '' && area.length <= 120) return cacheKey.area(p.id, area);
+  const id = period === YTD_ALIAS ? YTD_ALIAS : parsePeriod(period)?.id;
+  if (!id) return null;
+  if (pathname === '/market/areas') return cacheKey.areas(id);
+  if (area !== null && area !== '' && area.length <= 120) return cacheKey.area(id, area);
   return null;
 }
 

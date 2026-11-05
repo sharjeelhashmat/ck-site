@@ -15,25 +15,55 @@ export const EMIRATES = { dubai: 'Dubai', abu_dhabi: 'Abu Dhabi' };
 /** @param {string} s */
 export const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-/** "2026-H1" -> {year, span} or null. @param {string} id */
+/**
+ * "2026-H1" -> {year, span, first: 1, last: 6}; the Dubai year to date "2026-YTD10" -> {year, span: 'YTD', first: 1, last: 10};
+ * anything else null. @param {string} id
+ */
 export function parsePeriod(id) {
-  const m = /^(\d{4})-(H1|H2|Q1|Q2|Q3|Q4)$/.exec(id ?? '');
-  return m ? { year: Number(m[1]), span: m[2] } : null;
+  const m = /^(\d{4})-(H1|H2|Q1|Q2|Q3|Q4|YTD(0[1-9]|1[0-2]))$/.exec(id ?? '');
+  if (!m) return null;
+  if (m[3]) return { year: Number(m[1]), span: 'YTD', first: 1, last: Number(m[3]) };
+  const [first, last] = SPANS[m[2]];
+  return { year: Number(m[1]), span: m[2], first, last };
 }
 
-/** "2026-H1" -> "Jan to Jun 2026"; "2026-Q3" -> "Jul to Sep 2026". @param {string} id */
+/** @param {string} id */
+export const isYtd = (id) => parsePeriod(id)?.span === 'YTD';
+
+/** "2026-H1" -> "Jan to Jun 2026"; "2026-Q3" -> "Jul to Sep 2026"; "2026-YTD10" -> "Jan to Oct 2026"; "2026-YTD01" -> "Jan 2026". @param {string} id */
 export function periodLabel(id) {
   const p = parsePeriod(id);
   if (!p) throw new Error(`bad period ${id}`);
-  const [a, b] = SPANS[p.span];
-  return `${MONTHS[a - 1]} to ${MONTHS[b - 1]} ${p.year}`;
+  return p.first === p.last ? `${MONTHS[p.first - 1]} ${p.year}` : `${MONTHS[p.first - 1]} to ${MONTHS[p.last - 1]} ${p.year}`;
 }
 
-/** The same span one year earlier. @param {string} id */
+/** The same span one year earlier (a year to date: the same months). @param {string} id */
 export function priorPeriodId(id) {
   const p = parsePeriod(id);
   if (!p) throw new Error(`bad period ${id}`);
-  return `${p.year - 1}-${p.span}`;
+  return `${p.year - 1}-${id.slice(5)}`;
+}
+
+const ym = (year, month) => `${year}-${String(month).padStart(2, '0')}`;
+
+/**
+ * The period a /market/areas or /market/area body was computed for, or '' when it cannot be trusted: its id must parse,
+ * and the months the body names (first_month, last_month, prior_first_month, prior_last_month) must be exactly the id's.
+ * A year to date must name them; a half or quarter from an older Worker may omit all four. The label on the page is built
+ * from this id, so it always matches the months served.
+ * @param {any} body
+ */
+export function servedPeriod(body) {
+  const id = body?.period;
+  const p = parsePeriod(id);
+  if (!p) return '';
+  const want = { first_month: ym(p.year, p.first), last_month: ym(p.year, p.last), prior_first_month: ym(p.year - 1, p.first), prior_last_month: ym(p.year - 1, p.last) };
+  const keys = Object.keys(want);
+  const named = keys.filter((k) => body[k] !== undefined);
+  if (!named.length && p.span !== 'YTD') return id;
+  if (named.length !== keys.length || keys.some((k) => body[k] !== want[k])) return '';
+  if (body.prior_period !== undefined && body.prior_period !== priorPeriodId(id)) return '';
+  return id;
 }
 
 /** The name ADREC gives the report: "2026-H1" -> "H1 2026", "2026-Q3" -> "Q3 2026". @param {string} id */
@@ -139,9 +169,11 @@ export function renderTop(emirate, d) {
   const label = periodLabel(d.period);
   const prior = periodLabel(priorPeriodId(d.period));
   const top = Math.max(...areas.map((a) => a.value_bn));
-  const note = isHalfYear(d.period)
-    ? `<p class="mk-note">Both emirates show ${esc(label)}: the latest period ADREC publishes by area, so Dubai and Abu Dhabi stay comparable. Both move to a newer period together as soon as ADREC publishes it.</p>`
-    : '';
+  // One sentence per emirate, naming its own period (owner decision 2026-11-05): Dubai shows its latest year to date
+  // from DLD, Abu Dhabi ADREC's latest by-area period. The two never claim to share a period.
+  const note = emirate === 'dubai'
+    ? (isYtd(d.period) ? `<p class="mk-note">Dubai: ${esc(label)} against the same months of ${esc(String(parsePeriod(d.period).year - 1))}, from DLD open data, updated weekly.</p>` : '')
+    : `<p class="mk-note">Abu Dhabi: ${esc(label)}, the latest period ADREC publishes by area.</p>`;
   const cards = areas.map((a) => {
     const c = formatChange(a);
     return `<article class="mk-card">

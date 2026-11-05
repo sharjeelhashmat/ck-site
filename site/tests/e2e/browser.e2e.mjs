@@ -32,7 +32,7 @@ const top8 = [
   ['Hadaeq Sheikh Mohammed Bin Rashid', 'Dubai Hills Estate', 8.51, 4.7, -14], ['Wadi Al Safa 3', 'Majan', 8.31, 4.5, 33], ['Business Bay', null, 8.04, 4.4, -41],
   ['Marsa Dubai', 'Dubai Marina, Dubai Harbour', 7.08, 3.9, -58], ['Wadi Al Safa 5', 'Dubailand Residence Complex', 6.99, 3.8, -40],
 ].map(([area_en, label, value_bn, share_pct, change_pct], i) => ({ rank: i + 1, area_en, label, value_bn, share_pct, change_pct, prior_zero: false, offplan_pct: 50 }));
-const AREAS = { period: '2026-H1', prior_period: '2025-H1', dubai: { ytd: { sales_bn: 391.7, total_bn: 591.6, mortgages_bn: 154.7, as_of: '2026-10-09' }, top8, total_res_bn: 182.9, as_of: '2026-10-09' } };
+const AREAS = { period: '2026-YTD09', prior_period: '2025-YTD09', first_month: '2026-01', last_month: '2026-09', prior_first_month: '2025-01', prior_last_month: '2025-09', dubai: { ytd: { sales_bn: 391.7, total_bn: 591.6, mortgages_bn: 154.7, as_of: '2026-10-09' }, top8, total_res_bn: 182.9, as_of: '2026-10-09' } };
 const LAUNCHES = {
   // The Dubai as_of is today: the card hides data more than 120 days old.
   dubai: { new_projects_90d: 41, top_areas_90d: [{ area_en: 'Al Yelayiss 1', label: null, count: 6 }, { area_en: 'Palm Deira', label: 'Dubai Islands', count: 5 }, { area_en: 'Madinat Al Mataar', label: 'Dubai South', count: 4 }, { area_en: 'Wadi Al Safa 3', label: 'Majan', count: 4 }, { area_en: 'Business Bay', label: null, count: 3 }], active_projects: 612, as_of: new Date().toISOString().slice(0, 10), source_label: 'x', source_url: 'https://data.dubai/en/l/467654' },
@@ -127,7 +127,7 @@ for (const width of [1280, 360]) {
   });
 
   await check(`guide pages @${width}: Dubai card from the Worker, hidden on failure; no side scroll`, async () => {
-    const hills = { period: '2026-H1', prior_period: '2025-H1', area: top8[3], total_res_bn: 182.9, as_of: '2026-10-09' };
+    const hills = { period: '2026-YTD09', prior_period: '2025-YTD09', first_month: '2026-01', last_month: '2026-09', prior_first_month: '2025-01', prior_last_month: '2025-09', area: top8[3], total_res_bn: 182.9, as_of: '2026-10-09' };
     const p = await page(width, { area: hills });
     await p.goto(`${base}/areas/dubai-hills`);
     await p.waitForSelector('#guide-figures:not([hidden])');
