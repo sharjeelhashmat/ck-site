@@ -1,4 +1,5 @@
-// Brand v3.0 (Notion 1c v5.0, 2026-10-10): Ink/Ivory/Brass tokens, "Property Consultant" title, Navigator logo, icons, share image.
+// Brand v3.0 (Notion 1c v5.0, 2026-10-10): "Property Consultant" title, Navigator logo, icons, share image. Colours: Rules 1c
+// v6.0 (owner "EXECUTE v2 colours, background C", 2026-11-05): Deep Navy, Night, Sky, Mist, Ivory, Slate.
 // Run after `npm run build`.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -16,7 +17,11 @@ const htmlFiles = walk(dist).filter((f) => f.endsWith('.html'));
 const textFiles = walk(dist).filter((f) => /\.(html|txt|xml|js|json|css)$/.test(f));
 const css = readFileSync(join(root, 'src/styles/global.css'), 'utf8');
 
-const RETIRED = ['#0C3B6E', '#071E38', '#5B9BD5', '#C8922A', '#E8B44A', '#A8CBEC', '#F0F0F0', '#F7F5F0', '#E9C987', '#D8E2EE'];
+// Retired by Rules 1c v6.0: Ink, Brass, Brass Deep, Slate (v5) and Slate Light, and the v5 tints Line and Brass tint. Written in
+// two parts so that a search of site/ for a retired colour finds nothing, this file included. Ivory #F3F0E7 is kept.
+const RETIRED = [['#1425', '2F'], ['#C6A2', '72'], ['#7E60', '34'], ['#6279', '82'], ['#8FA3', 'AB'], ['#CFD2', 'CE'], ['#ECE4', 'D5']].map(([a, b]) => a + b);
+// The v6.0 palette (lower case, as in global.css).
+const PALETTE = { navy: '#0c3b6e', night: '#071e38', sky: '#5b9bd5', mist: '#eef4fb', ivory: '#f3f0e7', slate: '#6b7a90' };
 
 test('title: no "Real Estate Consultant" anywhere in the build, and "Property Consultant" is shown', () => {
   for (const f of textFiles) assert.doesNotMatch(readFileSync(f, 'utf8'), /real estate consultant/i, f);
@@ -44,7 +49,7 @@ test('JSON-LD: a Person with jobTitle "Property Consultant · UAE" on every page
   }
 });
 
-test('icons: no favicon.svg; ico, 32, 48 and apple-touch links; theme-color is Ink', () => {
+test('icons: no favicon.svg; ico, 32, 48 and apple-touch links; theme-color is Night (the header colour)', () => {
   assert.equal(existsSync(join(dist, 'favicon.svg')), false, 'favicon.svg is gone');
   for (const p of ['favicon.ico', 'icon-32.png', 'icon-48.png', 'apple-touch-icon.png']) assert.ok(existsSync(join(dist, p)), p);
   for (const f of htmlFiles) {
@@ -54,7 +59,7 @@ test('icons: no favicon.svg; ico, 32, 48 and apple-touch links; theme-color is I
     assert.match(h, /<link rel="icon" type="image\/png" sizes="32x32" href="\/icon-32\.png">/, `${f}: 32`);
     assert.match(h, /<link rel="icon" type="image\/png" sizes="48x48" href="\/icon-48\.png">/, `${f}: 48`);
     assert.match(h, /<link rel="apple-touch-icon" href="\/apple-touch-icon\.png">/, `${f}: apple-touch`);
-    assert.match(h, /<meta name="theme-color" content="#14252F">/, `${f}: theme-color`);
+    assert.match(h, /<meta name="theme-color" content="#071E38">/, `${f}: theme-color`);
   }
 });
 
@@ -99,22 +104,74 @@ test('share image: /og.png at 1200x630, declared in og and twitter tags', () => 
   }
 });
 
-test('tokens: no retired hex in global.css or anywhere in the build; palette values are the v3.0 ones', () => {
+// Every text file under site/ except node_modules, the build output, docs/ (history and screenshot folders) and caches.
+const SKIP_DIRS = new Set(['node_modules', 'dist', 'docs', '.astro', 'lhci', '.lighthouseci']);
+const walkSite = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? (SKIP_DIRS.has(e.name) ? [] : walkSite(join(d, e.name))) : [join(d, e.name)]));
+const siteTextFiles = () => walkSite(root)
+  .filter((f) => /\.(astro|css|ts|mts|mjs|js|cjs|json|jsonc|svg|html|txt|md|xml|webmanifest)$|[\\/]_(headers|redirects)$/.test(f));
+
+test('tokens: no retired colour anywhere in site/ (outside docs/) or in the build; palette values are the v6.0 ones', () => {
+  const files = siteTextFiles();
+  assert.ok(files.some((f) => f.endsWith('global.css')) && files.some((f) => f.endsWith('logo-web-ink.svg')), 'the scan covers src/ and public/');
   for (const hex of RETIRED) {
-    assert.doesNotMatch(css, new RegExp(hex, 'i'), `global.css: ${hex}`);
-    for (const f of textFiles) assert.doesNotMatch(readFileSync(f, 'utf8'), new RegExp(hex + '(?![0-9a-f])', 'i'), `${f}: ${hex}`);
+    const re = new RegExp(hex + '(?![0-9a-f])', 'i');
+    for (const f of [...files, ...textFiles]) assert.doesNotMatch(readFileSync(f, 'utf8'), re, `${f}: ${hex}`);
   }
-  for (const [name, value] of [['ink', '#14252f'], ['ivory', '#f3f0e7'], ['gold', '#c6a272'], ['brass-deep', '#7e6034'], ['sky', '#627982'], ['slate-light', '#8fa3ab']]) {
-    assert.match(css, new RegExp(`--${name}: ${value};`), `--${name}`);
+  for (const [name, value] of Object.entries(PALETTE)) assert.match(css, new RegExp(`--${name}: ${value};`), `--${name}`);
+  // Tokens are named by role; the v5 names (which now mislead) are gone everywhere in src/.
+  for (const f of files.filter((x) => /[\\/]src[\\/]/.test(x))) {
+    // A use (var(--x)) or a definition (--x:); class names such as way--ink are not tokens.
+    assert.doesNotMatch(readFileSync(f, 'utf8'), /var\(\s*--(ink|gold|brass-deep|slate-light|muted|navy-deep|brass-tint|cloud)\s*[,)]|(^|[\s;{])--(ink|gold|brass-deep|slate-light|muted|navy-deep|brass-tint|cloud)\s*:/m, `${f}: retired token name`);
   }
 });
 
-// Brand v3.1 adds Ink surfaces (header, hero, Ink cards, footer); Brass text is allowed only inside them.
-const INK_SURFACE = /^(\.band--navy|\.hero|\.site-nav|\.site-footer|(\.card)?\.way--ink)\b/;
-test('Brass is text only on Ink: every `color: var(--gold)` rule is scoped to an Ink surface', () => {
-  const rules = [...css.matchAll(/([^{}]+)\{([^}]*)\}/g)].filter(([, , body]) => /(^|[;\s])color:\s*var\(--gold\)/.test(body));
-  assert.ok(rules.length > 0);
-  for (const [, sel] of rules) for (const s of sel.split(',')) assert.match(s.trim(), INK_SURFACE, `Brass text outside an Ink surface: ${s.trim()}`);
+// Night surfaces: header, hero, the Night "four ways" cards, the dark band, the footer and the footer newsletter.
+// Sky is text only inside them (2.6:1 on Ivory; 5.67:1 on Night).
+const NIGHT_SURFACE = /^(\.band--navy|\.hero|\.site-nav|\.site-footer|(\.card)?\.way--ink|\.nl--footer)\b/;
+const styleSources = () => [
+  ['global.css', css],
+  ['market.css', readFileSync(join(root, 'src/styles/market.css'), 'utf8')],
+  ...walk(join(root, 'src')).filter((f) => f.endsWith('.astro')).map((f) => [f, (readFileSync(f, 'utf8').match(/<style[^>]*>[\s\S]*?<\/style>/g) ?? []).join('\n')]),
+];
+test('Sky is text only on Night: every `color: var(--sky)` rule is scoped to a Night surface, and no inline style sets it', () => {
+  let n = 0;
+  for (const [file, text] of styleSources()) {
+    for (const [, sel, body] of text.replace(/\/\*[\s\S]*?\*\//g, '').matchAll(/([^{}]+)\{([^}]*)\}/g)) {
+      if (!/(^|[;\s])color:\s*var\(--sky\)/.test(body)) continue;
+      n++;
+      for (const s of sel.split(',')) assert.match(s.trim(), NIGHT_SURFACE, `${file}: Sky text outside a Night surface: ${s.trim()}`);
+    }
+  }
+  assert.ok(n > 0);
+  for (const f of walk(join(root, 'src')).filter((p) => /\.(astro|mjs|ts)$/.test(p))) {
+    assert.doesNotMatch(readFileSync(f, 'utf8'), /style="[^"]*(?<![-\w])color:\s*var\(--sky\)/, `${f}: inline Sky text`);
+  }
+});
+
+// WCAG 2.x contrast from the token values in global.css (Rules 1c v6.0 pairs).
+const hexOf = (name) => css.match(new RegExp(`--${name}: (#[0-9a-f]{6});`))[1];
+const lum = (hex) => {
+  const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((x) => (x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+};
+const contrast = (a, b) => { const [x, y] = [lum(hexOf(a)), lum(hexOf(b))].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
+test('contrast: Night on Ivory 14.7, Deep Navy on Ivory 9.9, Mist on Night 15.2, Sky on Night 5.67; Sky and Slate below 4.5 on Ivory', () => {
+  const r = (a, b, d = 1) => Number(contrast(a, b).toFixed(d));
+  assert.equal(r('night', 'ivory'), 14.7);
+  assert.equal(r('navy', 'ivory'), 9.9);
+  assert.equal(r('mist', 'night'), 15.2);
+  assert.equal(r('sky', 'night', 2), 5.67);
+  // Why Sky is never text on Ivory and Slate only at 24px+ or 19px bold.
+  assert.equal(r('sky', 'ivory'), 2.6);
+  assert.equal(r('slate', 'ivory'), 3.8);
+  // Pairs the site uses beyond those: white cards, buttons on light and on Night.
+  for (const [a, b] of [['night', 'paper'], ['navy', 'paper'], ['mist', 'navy'], ['night', 'sky'], ['navy', 'sky-tint'], ['night', 'band']]) {
+    assert.ok(contrast(a, b) >= 4.5, `${a} on ${b}: ${contrast(a, b).toFixed(2)}`);
+  }
+  // Deep Navy is not a button colour on Night (1.5:1): on Night the primary button is the Sky accent.
+  assert.ok(contrast('navy', 'night') < 3);
+  assert.match(css, /\.hero \.btn, \.band--navy \.btn, \.site-footer \.btn \{ background: var\(--sky\); border-color: var\(--sky\); color: var\(--night\); \}/);
+  assert.match(css, /\.btn \{[^}]*border: 1\.5px solid var\(--navy\); background: var\(--navy\); color: var\(--mist\);/);
 });
 
 test('no hex colour outside the token block: global.css, components, layouts and pages', () => {
@@ -123,7 +180,7 @@ test('no hex colour outside the token block: global.css, components, layouts and
   // In components and pages a hex colour can only appear in a style declaration or an SVG paint attribute.
   const colour = /(?:color|background|border|outline|fill|stroke|shadow)[^;{}"]*#[0-9a-f]{3,8}\b|(?:fill|stroke|stop-color)="#[0-9a-f]{3,8}"/i;
   for (const f of walk(join(root, 'src')).filter((p) => /\.astro$/.test(p))) {
-    const t = readFileSync(f, 'utf8').replace('<meta name="theme-color" content="#14252F" />', '');
+    const t = readFileSync(f, 'utf8').replace('<meta name="theme-color" content="#071E38" />', '');
     assert.doesNotMatch(t, colour, `${f}: hex colour`);
   }
 });
@@ -219,20 +276,22 @@ test('footer social row: exactly LinkedIn, Instagram, Facebook, opening safely i
 // The tab icons are the Brand Package v3.0 squares with rounded corners (owner-approved 2026-10-10): the corners were
 // masked out with the approved method (8x supersampled rounded rectangle, radius 22%), artwork unchanged.
 // apple-touch-icon.png stays the original square (iOS rounds it itself).
-test('brand assets are the approved Brand Package v3.0 files (tab icons with the approved rounded corners), byte for byte', () => {
+// Colours v2 (Rules 1c v6.0): the same artwork recoloured. SVGs: hex values swapped. PNG and ICO: one affine colour map fitted
+// exactly on Ink to Night, Ivory to Mist, Brass to Sky, Slate to Slate (alpha and pixels' positions unchanged).
+test('brand assets are the approved Brand Package files in the v6.0 colours (tab icons with the approved rounded corners), byte for byte', () => {
   const approved = {
-    'apple-touch-icon.png': '265c8d943885ae0fd28082939a7e38dddb23fdf25fe551cfb399799864b9c1a1',
-    'favicon.ico': 'fb42ac20ead8a95d81002f7209c50ed3fe348b55a91f81eb8856948bb080efdd',
-    'icon-192.png': 'e4b20e1e81459ba853862ba685b96d7f05aabc0b4aad400944c33aea723743fc',
-    'icon-32.png': '0c5505bc277091398a236931a61ab933f62c9f6458aec8c17769b5fc9b6301d6',
-    'icon-48.png': 'b4ed4eb5f2bfa22875cab5cefbc08062a1f68f12a38b8c9c8f7d3075e76ce562',
-    'icon-512.png': 'd71ab9b4bf05000fe6ad2f93770b2d42148ce1e2d6b1494746a4c31934061911',
-    'logo-horizontal-ink.svg': 'f7f4530cc2bfc7b16c828ba4aec0dec03a02e1303d12469bed849a86662b0b55',
-    'logo-horizontal-ivory.svg': '2162b5c1c6c33bedd447d7cb83a833deb8f91392cbb8e763a0ba64f2526a06b0',
-    'logo-web-ink.svg': '01ef41f695d2c78a74b6d269d898c8dc5ee66efb020919b96fc9b86cdb0bc78d',
-    'logo-web-ivory.svg': '54d4b338fedb6694cf9b4558bdb95e030a7a17f7c234037b9b9bb56f4fb61fc5',
-    // Recompressed (audit item 20): 256-colour palette PNG, 1200x630, 89 KB (was 279 KB).
-    'og.png': 'acdaa43dc06e13756331ab9bd42e0bf54950897b32b04d4582d89d16f56b9b86',
+    'apple-touch-icon.png': 'f40bd7886ee4eb3cafe076ae300adc75adde6e03405a869052fd07357fe3814b',
+    'favicon.ico': 'ff6709adcc0980a1c7f4f9c4bd027b9d091bf033de7cf678de90669151ad2afd',
+    'icon-192.png': '0be2bd5d21cd1f7d1cd975d7d43e79d94d6851582b2d3680e76e6b963d9b1fc1',
+    'icon-32.png': 'b0e489daeb2cb1161f8e730b942bf44a4b08d318e3130a390daabc657b1af656',
+    'icon-48.png': '1e6b2c11b58300a82b6b7a08dda0b367458fc9f6858a358a380affb82726960f',
+    'icon-512.png': 'd84a15f372421d319152ad26dfaccbaf5c991011eb5fdd56879f72d815e9e930',
+    'logo-horizontal-ink.svg': '6155d471b74cfb1ad58bc983e6750e77b7a6f7ecb022cda66383568fbd0b29ec',
+    'logo-horizontal-ivory.svg': '1b75eaa562c3dda6cae1869d3051e366875b9a2f532834c8e2e2a29c37b68f1f',
+    'logo-web-ink.svg': '480c3b5e912b7c5e5ae531f9e1ecccfae343627786d07d8ce1bdd6346f34dae1',
+    'logo-web-ivory.svg': '6dc98d81e4f20822e0897be9062bc3d67f971ba733058beddcff650e9a975bd6',
+    // 256-colour palette PNG, 1200x630, about 88 KB (audit item 20); recoloured palette entry by palette entry.
+    'og.png': '813e559b33044e03c7c2e424e1f064b4ddfb3c8055add3df7f4ad4032b598f9a',
   };
   for (const [file, sha] of Object.entries(approved)) {
     for (const dir of [join(root, 'public'), dist]) {
@@ -306,7 +365,7 @@ test('built CSS: buttons, fields, the country-code box, cards and checkboxes res
   assert.equal(radius('.card'), 'var(--radius-lg)', '.card');
   assert.equal(radius('.card.way'), 'var(--radius-lg)', 'four ways cards');
   assert.equal(radius('.stale-banner'), 'var(--radius-lg)', 'stale banner');
-  assert.match(rule('.card.way'), /overflow:hidden/, 'Brass bar clipped to the rounded corner');
+  assert.match(rule('.card.way'), /overflow:hidden/, 'Sky bar clipped to the rounded corner');
   assert.equal(radius(".check input[type=checkbox]"), 'var(--radius-sm)', 'checkboxes');
   assert.equal(radius('.steps li'), 'var(--radius-sm)', 'sell process steps (tags)');
   // --radius-full only on the floating WhatsApp button; the back-to-top button is a button (md).

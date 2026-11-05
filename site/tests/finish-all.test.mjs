@@ -215,7 +215,7 @@ test('E: Dubai top 8 cards from the expected output: rank, name + label, AED x.x
   assert.match(html, /<span style="width:63%"><\/span>/); // 6.99 / 11.07
 });
 
-test('E: change table ranks by change (≈N× above percentages), rises Ink, falls Brass Deep; Dubai has no n/p note', () => {
+test('E: change table ranks by change (≈N× above percentages), rises Night, falls Deep Navy; Dubai has no n/p note', () => {
   const html = renderChange('dubai', { period: '2026-H1', areas: dubaiRows(EXPECTED_DUBAI) });
   const order = [...html.matchAll(/<span class="mk-tarea">([^<]+)<\/span>/g)].map((m) => m[1]);
   assert.deepEqual(order, ['Al Yelayiss 1', 'Palm Deira', 'Wadi Al Safa 3', 'Madinat Al Mataar', 'Hadaeq Sheikh Mohammed Bin Rashid', 'Wadi Al Safa 5', 'Business Bay', 'Marsa Dubai']);
@@ -223,8 +223,8 @@ test('E: change table ranks by change (≈N× above percentages), rises Ink, fal
   assert.doesNotMatch(html, /not published/);
   assert.match(text(html), /Source: Dubai Land Department, Real Estate Transactions open data via Data\.Dubai \(Open Data Licence\)\. Residential sales value\. Area names as registered by DLD\./);
   const css = src('src/styles/market.css');
-  assert.match(css, /\.mk-rise \{ color: var\(--ink\); \}/);
-  assert.match(css, /\.mk-fall \{ color: var\(--brass-deep\); \}/);
+  assert.match(css, /\.mk-rise \{ color: var\(--night\); \}/);
+  assert.match(css, /\.mk-fall \{ color: var\(--navy\); \}/);
 });
 
 test('E: Abu Dhabi: ≈N× text ranks first, n/p areas are left out with the note, source line names the report', () => {
@@ -328,10 +328,12 @@ test('E: adrec-areas.json holds exactly the figures confirmed in ADREC\'s own H1
   assert.match(text(main('areas/zayed-city.html')), /AED 1\.9bn residential sales value, Jan to Jun 2026 2\.7% of Abu Dhabi's total change n\/p/);
 });
 
-test('E: Rules 1c only: no #B3261E, no green, no Slate text on light in the market styles', () => {
+test('E: Rules 1c only: no #B3261E, no green, no Slate or Sky text on light in the market styles', () => {
   const css = src('src/styles/market.css');
   assert.doesNotMatch(css, /#[0-9a-f]{3,8}\b/i, 'tokens only');
-  assert.doesNotMatch(css, /var\(--(sky|ok|wa|err)\)|green/i);
+  assert.doesNotMatch(css, /var\(--(slate|ok|wa|err)\)|green/i);
+  // Sky (v6.0) is a bar or line here, never text: the market panels are on Ivory and white.
+  assert.doesNotMatch(css, /(^|[;\s{])color:\s*var\(--sky\)/);
   for (const f of walk(dist).filter((p) => /\.(html|css|js)$/.test(p))) {
     const t = readFileSync(f, 'utf8');
     assert.doesNotMatch(t, /#b3261e/i, f);

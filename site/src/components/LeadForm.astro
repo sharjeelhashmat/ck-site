@@ -179,14 +179,14 @@ const countries = [
   .lead-success { border-left: 3px solid var(--ok); scroll-margin-top: var(--space-24); }
   .lead-success > p:first-child { margin: 0; color: var(--ok); font-size: var(--fs-body); line-height: var(--lh-body); letter-spacing: var(--ls-body); font-weight: 400; }
   /* Preferred contact: three button-like radios. The native radios stay in the page (visually hidden, still focusable and
-     announced); the button shows the state. Ink on white, selected Ink with Ivory text, the site's focus ring. */
+     announced); the button shows the state. Night on white, selected Night with Mist text, the site's focus ring. */
   .pref { border: 0; padding: 0; margin: 0; min-width: 0; }
   .pref legend { padding: 0; margin-bottom: var(--space-2); }
   .pref .pills { display: flex; flex-wrap: wrap; gap: var(--space-2); }
-  .pref .pill { position: relative; display: inline-flex; text-transform: none; font-size: var(--fs-body); line-height: var(--lh-body); letter-spacing: var(--ls-body); font-weight: 400; color: var(--ink); }
+  .pref .pill { position: relative; display: inline-flex; text-transform: none; font-size: var(--fs-body); line-height: var(--lh-body); letter-spacing: var(--ls-body); font-weight: 400; color: var(--night); }
   .pref .pill input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; opacity: 0; cursor: pointer; }
-  .pref .pill span { display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--space-4); border: 1px solid var(--ink); border-radius: var(--radius-md); background: var(--paper); color: var(--ink); transition: background .15s, color .15s; }
-  .pref .pill input:checked + span { background: var(--ink); color: var(--ivory); }
+  .pref .pill span { display: inline-flex; align-items: center; min-height: 44px; padding: 0 var(--space-4); border: 1px solid var(--night); border-radius: var(--radius-md); background: var(--paper); color: var(--night); transition: background .15s, color .15s; }
+  .pref .pill input:checked + span { background: var(--night); color: var(--mist); }
   .pref .pill input:focus-visible + span { outline: 3px solid var(--navy); outline-offset: 3px; }
   /* Invalid fields (audit H13): the existing error colour on the control's own border. */
   .pref .pill input[aria-invalid='true'] + span { border-color: var(--err); }
