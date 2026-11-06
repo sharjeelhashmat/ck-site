@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  checkClaim, checkOpportunity, checkArticle, insightsLive, areaSnapshotState,
+  checkClaim, checkOpportunity, checkArticle, insightsLive, areaSnapshotState, inlineSegments,
   FACTORS, FRESHNESS_DAYS, INSIGHTS_MIN, VERDICTS,
 } from '../src/lib/intel.mjs';
 
@@ -307,6 +307,30 @@ test('build: figure markers link to the numbered Sources table', () => {
   const page = html(r.out, 'insights/a.html');
   assert.match(page, /<sup class="cite"><a href="#src-1" aria-label="Source 1">\[1\]<\/a><\/sup>/);
   assert.match(page, /<tr id="src-1"><td>1<\/td>/);
+});
+
+test('articles: inline **bold** and [text](/internal/path) only; any other markup fails the check', () => {
+  assert.deepEqual(inlineSegments('**Lead.** Rest, see [the piece](/insights/x).'), [
+    { text: 'Lead.', bold: true }, { text: ' Rest, see ' }, { text: 'the piece', href: '/insights/x' }, { text: '.' },
+  ]);
+  assert.deepEqual(inlineSegments('plain'), [{ text: 'plain' }]);
+  const with_ = (s) => checkArticle(validArticle('a', { body: [{ h: 'H' }, { p: s }, { ul: ['ok', s] }] }), TODAY).errors;
+  assert.deepEqual(with_('**Lead.** then [a link](/insights/b).'), []);
+  for (const bad of ['an [external link](https://example.com)', 'a **stray bold', '[x](javascript:alert(1))']) {
+    assert.ok(with_(bad).some((e) => /markup other than/.test(e)), bad);
+  }
+});
+
+test('build: inline bold and internal links render as elements, never as raw markup', () => {
+  const data = mkdtempSync(join(tmpdir(), 'ck-intel-data-'));
+  const art = (slug) => validArticle(slug, { body: [{ h: 'H' }, { p: 'See [the other piece](/insights/b).' }, { ul: ['**Lead.** Rest <b>x</b>'] }], sources: [src(1, 'official')] });
+  writeData(data, { articles: [art('a'), art('b'), art('c')] });
+  const r = build(data);
+  assert.equal(r.status, 0, r.log);
+  const page = html(r.out, 'insights/a.html');
+  assert.match(page, /<p>See <a href="\/insights\/b">the other piece<\/a>\.<\/p>/);
+  assert.match(page, /<li><strong>Lead\.<\/strong> Rest &lt;b&gt;x&lt;\/b&gt;<\/li>/);
+  assert.doesNotMatch(page, /\*\*|\]\(/);
 });
 
 test('build: a default build (no INTEL_DATA_DIR) emits a page for every published shipped article', () => {

@@ -1,0 +1,203 @@
+{
+  "status": "published",
+  "author": "Sharjeel Hashmat",
+  "reviewer": "Sharjeel Hashmat",
+  "publishedOn": "2026-11-05",
+  "updatedOn": "2026-11-05",
+  "geography": "Dubai",
+  "slug": "dubai-2026-so-far-official-numbers",
+  "series": "Sharjeel's Market View",
+  "title": "Dubai 2026 so far: what the official numbers show",
+  "description": "Dubai residential sales value rose 11% in Q1 2026, then fell 33% in Q2 and 46% in Q3 against 2025. Here is where the money still went, from the Dubai Land Department's own records.",
+  "metaDescription": "Dubai residential sales value rose 11% in Q1 2026, then fell 33% in Q2 and 46% in Q3 against 2025.",
+  "topic": "Quarterly market update",
+  "confidence": "High",
+  "reviewBy": "2027-02-05",
+  "body": [
+    {
+      "h": "The numbers"
+    },
+    {
+      "p": "Dubai residential sales were worth AED 251.3 billion from January to September 2026, down 25% from AED 335.8 billion in the same nine months of 2025. The year started stronger than 2025 and then turned.",
+      "src": [
+        1
+      ]
+    },
+    {
+      "table": {
+        "head": [
+          "Quarter",
+          "2025 (AED bn)",
+          "2026 (AED bn)",
+          "Change"
+        ],
+        "rows": [
+          [
+            "Q1 (Jan to Mar)",
+            "96.5",
+            "107.5",
+            "+11%"
+          ],
+          [
+            "Q2 (Apr to Jun)",
+            "112.5",
+            "75.4",
+            "−33%"
+          ],
+          [
+            "Q3 (Jul to Sep)",
+            "126.7",
+            "68.4",
+            "−46%"
+          ],
+          [
+            "Jan to Sep",
+            "335.8",
+            "251.3",
+            "−25%"
+          ]
+        ]
+      },
+      "src": [
+        1
+      ]
+    },
+    {
+      "p": "These are residential sales only: homes sold, by registration date, across every Dubai area. Mortgages, gifts, land and commercial deals are excluded.",
+      "src": [
+        1
+      ]
+    },
+    {
+      "h": "Q3 was 9% below Q2"
+    },
+    {
+      "p": "The sharpest drop against last year came in Q3, but against the quarter before it the fall slowed: AED 68.4 billion in Q3 against AED 75.4 billion in Q2. Part of the gap with 2025 is that 2025 itself kept rising through Q3. Press reports link the change to regional uncertainty since late February 2026 (press-reported, not in the official data).",
+      "src": [
+        1,
+        2
+      ]
+    },
+    {
+      "h": "Where the money went in Q3"
+    },
+    {
+      "p": "The eight areas with the most residential sales value in Q3 2026, with the change against Q3 2025 and the share sold off plan:"
+    },
+    {
+      "table": {
+        "head": [
+          "DLD area (common name)",
+          "Q3 2026 (AED bn)",
+          "Change vs Q3 2025",
+          "Off-plan share of sales"
+        ],
+        "rows": [
+          [
+            "Madinat Al Mataar (Dubai South)",
+            "5.97",
+            "+32%",
+            "97%"
+          ],
+          [
+            "Wadi Al Safa 4 (City of Arabia)",
+            "4.32",
+            "+50%",
+            "97%"
+          ],
+          [
+            "Jabal Ali First (Jumeirah Lake Towers)",
+            "2.75",
+            "−38%",
+            "67%"
+          ],
+          [
+            "Marsa Dubai (Dubai Marina, Dubai Harbour)",
+            "2.66",
+            "−53%",
+            "13%"
+          ],
+          [
+            "Al Barsha South Fourth (Jumeirah Village Circle)",
+            "2.59",
+            "−56%",
+            "48%"
+          ],
+          [
+            "Business Bay",
+            "2.47",
+            "−74%",
+            "38%"
+          ],
+          [
+            "Al Yufrah 1",
+            "2.32",
+            "−1%",
+            "81%"
+          ],
+          [
+            "Wadi Al Safa 5 (Dubailand Residence Complex)",
+            "2.31",
+            "−39%",
+            "76%"
+          ]
+        ]
+      },
+      "src": [
+        1
+      ]
+    },
+    {
+      "p": "The two areas that grew are both almost entirely off-plan master plans. The established, mostly resale districts in the list all fell by more than a third."
+    },
+    {
+      "h": "What these numbers do not tell you"
+    },
+    {
+      "ul": [
+        "**Value is not price.** Value is the number of deals times their size. A 46% fall in value does not mean prices fell 46%; it can come from fewer deals, smaller deals, or both.",
+        "**Registrations can arrive late.** These figures are as the records stood on 30 October 2026. Late registrations can still add to recent months.",
+        "**One quarter is one data point.** Nothing here predicts the next quarter."
+      ],
+      "src": [
+        1
+      ]
+    },
+    {
+      "h": "What to do with this"
+    },
+    {
+      "ul": [
+        "Price a unit on recent transactions in its own building and unit type, not on a citywide total.",
+        "In an off-plan area, check the project's escrow status and the developer's delivery record before the headline growth.",
+        "In a resale area with falling value, ask how many comparable units sold and at what price per square foot."
+      ]
+    },
+    {
+      "h": "Confidence"
+    },
+    {
+      "p": "High for the figures: every number is computed from the Dubai Land Department's transaction records. The cause of the slowdown is press-reported only and is not stated as fact."
+    }
+  ],
+  "sources": [
+    {
+      "name": "Dubai Land Department, Real Estate Transactions open data via Data.Dubai (Open Data Licence): residential sales by registration date, 1 January 2025 to 30 October 2026, aggregated by Sharjeel Hashmat",
+      "tier": 1,
+      "url": "https://data.dubai/en/l/470061",
+      "verifiedOn": "2026-11-05",
+      "undated": true
+    },
+    {
+      "name": "The National: Dubai home sale transactions fall in third quarter (context on the cause only, press-reported)",
+      "tier": 3,
+      "url": "https://www.thenationalnews.com/business/property/2026/10/07/dubai-home-sale-transactions-fall-in-third-quarter-due-to-regional-uncertainty/",
+      "verifiedOn": "2026-11-05",
+      "publishedOn": "2026-10-07"
+    }
+  ],
+  "draftNotes": [
+    "Figure check 2026-11-06 against the site's D1 aggregates (Worker /market/areas, as_of 2026-10-30, DLD sync 2026-11-03): residential sales value 2025 Q1 96.52, Q2 112.51, Q3 126.72, Jan to Sep 335.75; 2026 Q1 107.54, Q2 75.37, Q3 68.38, Jan to Sep 251.29 (AED bn). Every figure in both tables matches after rounding.",
+    "Off-plan share is by number of sales (off-plan sales over all residential sales in the area), the same measure /areas shows. Madinat Al Mataar reads 96.5% at one decimal, shown as 97%."
+  ]
+}

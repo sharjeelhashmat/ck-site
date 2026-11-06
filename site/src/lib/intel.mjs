@@ -136,6 +136,24 @@ function blockText(b) {
   return '';
 }
 
+// Inline markup in article paragraphs and list items (owner approval 2026-11-05): **bold** and [text](/internal/path).
+// Nothing else is parsed, a link can only point inside the site, and the page renders the segments as elements (no HTML).
+const INLINE_RE = /\*\*([^*]+)\*\*|\[([^\]]+)\]\((\/[a-z0-9/-]*)\)/g;
+/** @param {string} s @returns {{text: string, bold?: true, href?: string}[]} */
+export function inlineSegments(s) {
+  const out = [];
+  let last = 0;
+  for (const m of String(s).matchAll(INLINE_RE)) {
+    if (m.index > last) out.push({ text: s.slice(last, m.index) });
+    out.push(m[1] !== undefined ? { text: m[1], bold: true } : { text: m[2], href: m[3] });
+    last = m.index + m[0].length;
+  }
+  if (last < s.length) out.push({ text: s.slice(last) });
+  return out;
+}
+/** Markup left over once the supported forms are read: a stray "**", or a link that is not an internal path. */
+const strayMarkup = (s) => /\*\*|\]\(/.test(inlineSegments(s).filter((x) => !x.bold && !x.href).map((x) => x.text).join(''));
+
 export function checkArticle(a, today) {
   const errors = [];
   const need = (cond, msg) => { if (!cond) errors.push(msg); };
@@ -161,6 +179,9 @@ export function checkArticle(a, today) {
   // must name the sources it comes from (src: [1, 2], 1-based positions in sources), and at least one of them must be tier 1
   // or 2, so a tier 3 source alone can never carry a headline number. A made-up worked example is marked illustration: true.
   (a.body ?? []).forEach((blk, i) => {
+    for (const s of [...(typeof blk?.p === 'string' ? [blk.p] : []), ...(Array.isArray(blk?.ul) ? blk.ul : [])]) {
+      if (strayMarkup(s)) errors.push(`body block ${i + 1}: markup other than **bold** or [text](/internal/path)`);
+    }
     const text = blockText(blk);
     if (!blk || blk.illustration === true || !FIGURE_RE.test(text)) return;
     const where = `body block ${i + 1}`;
