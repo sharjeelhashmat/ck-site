@@ -1,6 +1,7 @@
 // Investment Intelligence System v1.0: schema, validation and freshness rules.
 // Plain ESM with JSDoc so the Astro build, the freshness script and node:test all share one source of truth.
 // Design decisions 1-7 approved by the owner 2026-09-21 (see docs/INTELLIGENCE_SYSTEM.md).
+import { checkChartSpec, isComparisonTable } from './chart.mjs';
 
 export const FACTORS = [
   { key: 'location', label: 'Location', question: 'Where is the asset and what is changing around it?' },
@@ -182,6 +183,12 @@ export function checkArticle(a, today) {
     for (const s of [...(typeof blk?.p === 'string' ? [blk.p] : []), ...(Array.isArray(blk?.ul) ? blk.ul : [])]) {
       if (strayMarkup(s)) errors.push(`body block ${i + 1}: markup other than **bold** or [text](/internal/path)`);
     }
+    // Comparison charts (Rules 1c v6.6): a table that compares (a "Change" or "vs" column) declares its chart, and a
+    // declared chart must match the table (lib/chart.mjs checkChartSpec). The chart repeats the table's values exactly.
+    if (blk?.table) {
+      if (blk.chart !== undefined) errors.push(...checkChartSpec(blk.table, blk.chart).map((x) => `body block ${i + 1}: ${x}`));
+      else if (blk.illustration !== true && isComparisonTable(blk.table)) errors.push(`body block ${i + 1}: a comparison table needs a chart (add chart: {...}, Rules 1c v6.6)`);
+    } else if (blk?.chart !== undefined) errors.push(`body block ${i + 1}: chart is only allowed on a table`);
     const text = blockText(blk);
     if (!blk || blk.illustration === true || !FIGURE_RE.test(text)) return;
     const where = `body block ${i + 1}`;

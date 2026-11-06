@@ -349,6 +349,17 @@ form.card { padding: var(--space-8); }
 .table-scroll { overflow-x: auto; }
 .cite { font-size: var(--fs-label); line-height: var(--lh-label); letter-spacing: var(--ls-label); margin-left: var(--space-1); } .cite a, .src a { color: var(--navy); }
 .src a + a { margin-left: var(--space-2); }
+/* Comparison charts (lib/chart.mjs, Rules 1c v6.6): paired bars on a white card. Earlier period Slate, later period Ink;
+   change text Ink for a rise, Brass Deep for a fall. Inter only: labels 400, figures 500. */
+.cmp { margin: var(--space-4) 0 0; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-4); }
+.cmp-svg { display: block; width: 100%; overflow: visible; }
+.cmp-svg text { font-family: var(--sans); font-weight: 400; font-size: var(--fs-small); fill: var(--ink); }
+.cmp-svg .cmp-value, .cmp-svg .cmp-change { font-weight: 500; font-variant-numeric: lining-nums tabular-nums; }
+.cmp-svg .cmp-fall { fill: var(--brass-deep); }
+.cmp-earlier { fill: var(--sky); }
+.cmp-later { fill: var(--ink); }
+.cmp-src { font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); color: var(--ink); margin: var(--space-3) 0 0; }
+.cmp-src a { color: var(--navy); text-underline-offset: 3px; }
 @media print {
   .site-nav, footer, .skip, .actions, .noprint { display: none !important; }
   body { background: var(--paper); }

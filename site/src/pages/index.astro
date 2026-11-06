@@ -70,14 +70,14 @@ const WAYS: Record<string, { n: string; label: string; icon: string }> = {
     </div>
   </section>
 
+  {/* Centred like its neighbours (owner decision 2026-11-06): the same .narrow column as "Numbers, not headlines", so the
+      paragraph has the same maximum width; the eyebrow takes a rule on both sides like every centred eyebrow. */}
   <section class="section">
-    <div class="wrap split">
-      <div>
-        <p class="eyebrow">For international clients</p>
-        <h2>Buying in the UAE <em>from abroad.</em></h2>
-        <p>You don't need to be in the UAE to make a well-informed property decision. Briefing, virtual shortlist, remote viewings, due diligence, negotiation, transaction coordination and handover, all managed on your behalf.</p>
-        {LEAD_CAPTURE && <div class="actions"><a class="btn btn--ghost" href="/contact?intent=abroad">Start the conversation →</a></div>}
-      </div>
+    <div class="narrow center">
+      <p class="eyebrow both">For international clients</p>
+      <h2>Buying in the UAE <em>from abroad.</em></h2>
+      <p>You don't need to be in the UAE to make a well-informed property decision. Briefing, virtual shortlist, remote viewings, due diligence, negotiation, transaction coordination and handover, all managed on your behalf.</p>
+      {LEAD_CAPTURE && <div class="actions"><a class="btn btn--ghost" href="/contact?intent=abroad">Start the conversation →</a></div>}
     </div>
   </section>
 

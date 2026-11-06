@@ -23,6 +23,8 @@ export interface AdrecArea {
   rank: number;
   area: string;
   value_bn: number;
+  // The same period a year earlier, only where ADREC publishes it (drawn as a comparison chart).
+  prior_value_bn?: number;
   share_pct: number;
   change_pct?: number | null;
   change_text?: string;
