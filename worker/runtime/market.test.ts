@@ -69,7 +69,7 @@ describe('GET /market/areas', () => {
     expect(b.dubai.as_of).toBe('2026-10-09');
     expect(b.dubai.total_res_bn).toBe(0.95); // 954M
     expect(b.dubai.top8.map((a) => a.area_en)).toEqual(['Alpha', 'Delta', 'Beta', 'Gamma', 'Area01', 'Area02', 'Area03', 'Area04']);
-    expect(b.dubai.top8[0]).toEqual({ rank: 1, area_en: 'Alpha', label: null, value_bn: 0.3, share_pct: 31.4, change_pct: 100, prior_zero: false, offplan_pct: 50 });
+    expect(b.dubai.top8[0]).toEqual({ rank: 1, area_en: 'Alpha', label: null, value_bn: 0.3, share_pct: 31.4, change_pct: 100, prior_zero: false, offplan_pct: 50, prior_value_bn: 0.15 });
     // +400% is passed as a number; the site turns anything at or above +200% into "≈N×" (here ≈5×).
     expect(b.dubai.top8[1]).toMatchObject({ area_en: 'Delta', change_pct: 400, prior_zero: false });
     expect(b.dubai.top8[2]).toMatchObject({ area_en: 'Beta', change_pct: -25 });
@@ -108,6 +108,49 @@ describe('GET /market/areas', () => {
     for (const k of ['first_month', 'last_month', 'prior_first_month', 'prior_last_month']) delete body[k];
     const text = JSON.stringify(body);
     for (const leak of ['res_sales_count', 'res_offplan_count', 'Synthetic Master', 'instance_date', 'actual_worth', '2026-01']) expect(text).not.toContain(leak);
+  });
+
+  it('prior_value_bn: the D1 prior-period aggregate, rounded as value_bn; null when the prior value is 0 or missing', async () => {
+    await seed();
+    const priorSum = async (area: string, first: string, last: string) => {
+      const r = await cf.DB.prepare('SELECT SUM(res_sales_value) AS v FROM dld_area_month WHERE area_en = ?1 AND month >= ?2 AND month <= ?3')
+        .bind(area, first, last).first<{ v: number | null }>();
+      return Number(r?.v ?? 0);
+    };
+    const expected = (v: number) => (v > 0 ? Math.round((v / 1e9) * 100) / 100 : null);
+    type Row = { area_en: string; value_bn: number; change_pct: number | null; prior_zero: boolean; prior_value_bn: number | null };
+    let nulls = 0;
+    let values = 0;
+    for (const period of ['2026-H1', '2026-Q3', 'ytd']) {
+      clearMarketMemo();
+      const b = (await (await get(`/market/areas?period=${period}`)).json()) as { prior_first_month: string; prior_last_month: string; dubai: { top8: Row[] } };
+      expect(b.dubai.top8.length, period).toBeGreaterThan(0);
+      for (const a of b.dubai.top8) {
+        const want = expected(await priorSum(a.area_en, b.prior_first_month, b.prior_last_month));
+        expect(a.prior_value_bn, `${period} ${a.area_en}`).toBe(want);
+        expect(a.prior_value_bn === null, `${period} ${a.area_en}`).toBe(a.prior_zero);
+        if (a.prior_value_bn === null) nulls++;
+        else values++;
+        // The same figure on the area guide endpoint.
+        const one = (await (await get(`/market/area/${encodeURIComponent(a.area_en)}?period=${period}`)).json()) as { area: Row };
+        expect(one.area.prior_value_bn, `${period} area ${a.area_en}`).toBe(want);
+      }
+    }
+    expect(nulls).toBeGreaterThan(0);
+    expect(values).toBeGreaterThan(0);
+    // Gamma has no sales a year earlier (prior missing): null, with change_pct null and prior_zero true.
+    clearMarketMemo();
+    const g = (await (await get('/market/area/Gamma?period=2026-H1')).json()) as { area: Row };
+    expect(g.area).toMatchObject({ prior_value_bn: null, change_pct: null, prior_zero: true });
+    const a9 = (await (await get('/market/area/Area09?period=2026-H1')).json()) as { area: Row };
+    expect(a9.area.prior_value_bn).toBe(a9.area.value_bn); // change 0%
+    // A prior row that is present but 0 (computed live, with the cache cleared): null as well.
+    await cf.DB.exec("INSERT INTO dld_area_month (area_en, month, res_sales_value, res_sales_count, res_offplan_count) VALUES ('Gamma', '2025-03', 0, 0, 0)");
+    await cf.DB.exec('DELETE FROM market_cache');
+    clearMarketMemo();
+    expect(await priorSum('Gamma', '2025-01', '2025-06')).toBe(0);
+    const g0 = (await (await get('/market/area/Gamma?period=2026-H1')).json()) as { area: Row };
+    expect(g0.area).toMatchObject({ prior_value_bn: null, change_pct: null, prior_zero: true });
   });
 });
 

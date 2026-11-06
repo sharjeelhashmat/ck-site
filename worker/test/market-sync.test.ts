@@ -527,6 +527,30 @@ describe('market_cache in the sync import (B1)', () => {
     expect(early.some(([k]) => k === 'areas:ytd' || k.startsWith('area:ytd:'))).toBe(false);
   });
 
+  it('the next successful DLD write replaces every areas and area body, so bodies cached before prior_value_bn gain it', () => {
+    const d = db();
+    d.exec(sqlFor(aggregate(), { runId: 'old' }));
+    // Bodies as an earlier Worker version cached them: no prior_value_bn anywhere.
+    const strip = (body: string) => {
+      const b = JSON.parse(body);
+      for (const a of b.dubai?.top8 ?? []) delete a.prior_value_bn;
+      if (b.area) delete b.area.prior_value_bn;
+      return JSON.stringify(b);
+    };
+    const rows = d.prepare("SELECT key, body FROM market_cache WHERE key LIKE 'areas:%' OR key LIKE 'area:%'").all() as { key: string; body: string }[];
+    expect(rows.length).toBeGreaterThan(0);
+    const upd = d.prepare('UPDATE market_cache SET body = ? WHERE key = ?');
+    for (const r of rows) upd.run(strip(r.body), r.key);
+    expect((d.prepare("SELECT COUNT(*) AS n FROM market_cache WHERE body LIKE '%prior_value_bn%'").get() as { n: number }).n).toBe(0);
+    d.exec(sqlFor(aggregate(), { runId: 'new' }));
+    const after = d.prepare("SELECT key, body FROM market_cache WHERE key LIKE 'areas:%' OR key LIKE 'area:%' ORDER BY key").all() as { key: string; body: string }[];
+    expect(after.map((r) => r.key)).toEqual(rows.map((r) => r.key).sort());
+    for (const r of after) {
+      const b = JSON.parse(r.body);
+      for (const a of r.key.startsWith('areas:') ? b.dubai.top8 : [b.area]) expect(a, r.key).toHaveProperty('prior_value_bn');
+    }
+  });
+
   it('launches: written only when this run read both sources; the ADREC as_of comes from the stored row', () => {
     const d = db();
     d.exec(sqlFor(aggregate(), { runId: 'r1', projects: PROJ, adrec: ADREC, finishedAt: '2026-10-09T02:30:00.000Z' }));

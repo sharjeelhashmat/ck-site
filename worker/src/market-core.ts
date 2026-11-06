@@ -99,12 +99,14 @@ export interface AreaFigure {
   change_pct: number | null;
   prior_zero: boolean;
   offplan_pct: number;
+  /** The same area's value in the prior period (AED bn, rounded as value_bn); null when that value is 0 or missing. */
+  prior_value_bn: number | null;
 }
 
 const round = (x: number, d: number) => Math.round(x * 10 ** d) / 10 ** d;
 export const bn = (aed: number) => round(aed / 1e9, 2);
 
-/** Ranks every area with sales in the period (value desc, ties by name) and computes share and change. */
+/** Ranks every area with sales in the period (value desc, ties by name) and computes share, change and the prior value. */
 export function rankAreas(current: AreaSums[], prior: AreaSums[]): { areas: AreaFigure[]; total: number } {
   const total = current.reduce((s, a) => s + a.value, 0);
   const priorBy = new Map(prior.map((a) => [a.area_en, a.value]));
@@ -122,6 +124,7 @@ export function rankAreas(current: AreaSums[], prior: AreaSums[]): { areas: Area
         change_pct: p > 0 ? round((a.value / p - 1) * 100, 1) : null,
         prior_zero: !(p > 0),
         offplan_pct: a.count > 0 ? round((a.offplan / a.count) * 100, 1) : 0,
+        prior_value_bn: p > 0 ? bn(p) : null,
       };
     });
   return { areas, total };

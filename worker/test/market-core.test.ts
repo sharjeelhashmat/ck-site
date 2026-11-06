@@ -1,6 +1,6 @@
 // Period parsing for the /market endpoints (audit item 9), and the Dubai year to date.
 import { describe, expect, it } from 'vitest';
-import { areaBodies, areasBody, lastCompleteMonth, parsePeriod, priorPeriod, YTD_ALIAS, ytdPeriod } from '../src/market-core';
+import { areaBodies, areasBody, bn, lastCompleteMonth, parsePeriod, priorPeriod, rankAreas, YTD_ALIAS, ytdPeriod } from '../src/market-core';
 
 describe('parsePeriod', () => {
   it('accepts halves and quarters in the years 2000 to 2100', () => {
@@ -55,5 +55,53 @@ describe('Dubai year to date (period=ytd)', () => {
       .toEqual(['2026-YTD10', '2025-YTD10', '2026-01', '2026-10', '2025-01', '2025-10']);
     const h1 = areaBodies(parsePeriod('2026-H1')!, cur, prior, '2026-11-02').get('Alpha') as Record<string, unknown>;
     expect([h1.period, h1.first_month, h1.last_month, h1.prior_first_month, h1.prior_last_month]).toEqual(['2026-H1', '2026-01', '2026-06', '2025-01', '2025-06']);
+  });
+});
+
+describe('prior_value_bn (paired-bar charts: the same area in the prior period)', () => {
+  const sums = (area_en: string, value: number) => ({ area_en, value, count: 10, offplan: 5 });
+
+  it('is the prior aggregate in AED bn, rounded exactly as value_bn; null when the prior value is 0 or missing', () => {
+    const { areas } = rankAreas(
+      [sums('Alpha', 3_456_789_012), sums('Beta', 1_234_567_890), sums('Gamma', 987_654_321), sums('Delta', 50_000_000)],
+      [sums('Alpha', 2_345_678_901), sums('Beta', 0), sums('Delta', 7_000_000)],
+    );
+    const by = new Map(areas.map((a) => [a.area_en, a]));
+    expect(by.get('Alpha')).toMatchObject({ value_bn: 3.46, prior_value_bn: 2.35, prior_zero: false });
+    expect(by.get('Alpha')!.prior_value_bn).toBe(bn(2_345_678_901));
+    expect(by.get('Beta')).toMatchObject({ prior_value_bn: null, change_pct: null, prior_zero: true }); // prior 0
+    expect(by.get('Gamma')).toMatchObject({ prior_value_bn: null, change_pct: null, prior_zero: true }); // prior missing
+    expect(by.get('Delta')).toMatchObject({ value_bn: 0.05, prior_value_bn: 0.01, prior_zero: false });
+    // Null exactly when change_pct is null and prior_zero is true, for every row.
+    for (const a of areas) expect(a.prior_value_bn === null).toBe(a.change_pct === null && a.prior_zero);
+  });
+
+  it('value_bn / prior_value_bn agrees with change_pct within rounding', () => {
+    const current: { area_en: string; value: number; count: number; offplan: number }[] = [];
+    const prior: typeof current = [];
+    // Deterministic spread of values from 0.2 to 40 AED bn, rising and falling.
+    for (let i = 0; i < 40; i++) {
+      current.push(sums(`A${i}`, 2e8 + ((i * 7919) % 40) * 1e9 + i * 12_345_678));
+      prior.push(sums(`A${i}`, 2e8 + ((i * 104729) % 40) * 1e9 + i * 98_765_432));
+    }
+    for (const a of rankAreas(current, prior).areas) {
+      expect(a.prior_value_bn).not.toBeNull();
+      const ratioPct = (a.value_bn / a.prior_value_bn! - 1) * 100;
+      // value_bn and prior_value_bn are each within 0.005 bn of the exact values; change_pct is within 0.05 points.
+      const v = a.value_bn, pv = a.prior_value_bn!;
+      const bound = (((v + 0.005) / (pv - 0.005)) - (v - 0.005) / (pv + 0.005)) * 100 / 2 + 0.05;
+      expect(Math.abs(ratioPct - a.change_pct!), a.area_en).toBeLessThanOrEqual(bound);
+    }
+  });
+
+  it('appears in top8 of the areas body and in area of every area body; existing fields unchanged', () => {
+    const cur = [sums('Alpha', 2e9), sums('Beta', 1e9)];
+    const prior = [sums('Alpha', 1e9)];
+    const body = areasBody(parsePeriod('2026-H1')!, cur, prior, [], '2026-11-02') as { dubai: { top8: Record<string, unknown>[] } };
+    expect(body.dubai.top8[0]).toEqual({ rank: 1, area_en: 'Alpha', label: null, value_bn: 2, share_pct: 66.7, change_pct: 100, prior_zero: false, offplan_pct: 50, prior_value_bn: 1 });
+    expect(body.dubai.top8[1]).toMatchObject({ area_en: 'Beta', prior_value_bn: null, change_pct: null, prior_zero: true });
+    const bodies = areaBodies(parsePeriod('2026-YTD10')!, cur, prior, '2026-11-02');
+    expect((bodies.get('Alpha') as { area: Record<string, unknown> }).area.prior_value_bn).toBe(1);
+    expect((bodies.get('Beta') as { area: Record<string, unknown> }).area.prior_value_bn).toBeNull();
   });
 });
