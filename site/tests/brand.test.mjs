@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { inflateSync } from 'node:zlib';
 import { BUILD, PERSON_IDS, leadCaptureDist } from './helpers/build-mode.mjs';
+import { stripScripts } from '../scripts/html-text.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const dist = join(root, 'dist');
@@ -195,7 +196,7 @@ test('four ways cards: number, label, aria-hidden icon and the unchanged descrip
     assert.match(body, /<svg class="way-icon" viewBox="0 0 32 32"[^>]*aria-hidden="true"/, `${i}: icon`);
     assert.match(body, new RegExp(`<p class="way-label">${label}</p>`), `${i}: label`);
     const text = body.match(/<p class="way-text">(.*?)<\/p>/s)[1];
-    assert.equal(text, blurb(i).replace(/&#39;/g, '&#39;'), `${i}: description unchanged`);
+    assert.equal(text, blurb(i), `${i}: description unchanged`);
   }
 });
 
@@ -274,7 +275,7 @@ test('menu focus: the built header script handles Escape, Tab, inert and aria-ex
   for (const needle of ['Escape', 'inert', 'aria-expanded', 'min-width: 75rem']) assert.ok(js.includes(needle), needle);
   assert.match(h, /<button class="menu-btn" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="site-menu" id="menu-btn">/);
   assert.ok(h.indexOf('id="menu-btn"') < h.indexOf('id="site-menu"'), 'the button precedes the menu');
-  assert.doesNotMatch(h.replace(/<script[\s\S]*?<\/script>/g, ''), /\sinert(=|\s|>)/, 'nothing is inert in the served markup');
+  assert.doesNotMatch(stripScripts(h), /\sinert(=|\s|>)/, 'nothing is inert in the served markup');
 });
 
 // Corners (Rules 1c v5.8): the five --radius-* tokens and 0 only; no pill-shaped button. The full rule set, the token

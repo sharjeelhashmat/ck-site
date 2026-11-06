@@ -10,6 +10,7 @@ import vm from 'node:vm';
 import { toE164, dialCodes } from '../src/lib/phone.mjs';
 import { attributionFields } from '../src/lib/attribution.mjs';
 import { BUILD, leadCaptureDist } from './helpers/build-mode.mjs';
+import { stripTags } from '../scripts/html-text.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const siteDist = join(root, 'dist');
@@ -216,7 +217,7 @@ test('feedback: the form page carries the alert region, its WhatsApp + email tem
     const tpl = h.match(/<div id="lead-alert-tpl" hidden>([\s\S]*?)<\/div>/)?.[1] ?? '';
     assert.match(tpl, /<a href="https:\/\/wa\.me\/[^"]+" target="_blank" rel="noopener">WhatsApp<\/a>/, `${f}: WhatsApp link`);
     assert.match(tpl, /<a href="mailto:hello@sharjeelhashmat\.com">hello@sharjeelhashmat\.com<\/a>/, `${f}: email link`);
-    assert.equal(tpl.replace(/<[^>]+>/g, ''), MESSAGES.failure, `${f}: template text matches the failure message`);
+    assert.equal(stripTags(tpl), MESSAGES.failure, `${f}: template text matches the failure message`);
     assert.match(h, /<span class="err lead-err" id="lead-turnstile-err" data-err="turnstile" role="alert"><\/span>/, `${f}: verification message slot`);
   }
 });

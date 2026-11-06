@@ -56,6 +56,8 @@ async function page(width, { areas = AREAS, launches = LAUNCHES, area = null, bl
   await p.route(`${WORKER}/lead`, (r) => json(r, lead[1], lead[0]));
   return p;
 }
+// Lower-cased hostname of a request URL ('' when it does not parse): hosts are compared exactly, never as a substring.
+const hostOf = (u) => { try { return new URL(u).hostname.toLowerCase(); } catch { return ''; } };
 const check = async (name, fn) => { try { await fn(); results.push(['PASS', name]); } catch (e) { results.push(['FAIL', name, e.message]); } };
 // Lead capture (golive.ts LEAD_CAPTURE): the enquiry, profile and newsletter forms exist only then. A soft-launch build
 // (softLaunch true) has none, so their checks are reported as SKIP; run this file on a build made with
@@ -307,7 +309,7 @@ await leadCheck('/contact: Turnstile and libphonenumber load on demand, not with
   p.on('request', (r) => { if (r.resourceType() === 'script') scripts.push(r.url()); });
   await p.goto(`${base}/contact`);
   await p.waitForTimeout(300);
-  assert.ok(!scripts.some((u) => u.includes('challenges.cloudflare.com')), 'Turnstile not loaded with the page');
+  assert.ok(!scripts.some((u) => hostOf(u) === 'challenges.cloudflare.com'), 'Turnstile not loaded with the page');
   assert.ok(!scripts.some((u) => /\/_astro\/phone\./.test(u)), 'phone library not loaded with the page');
   await p.focus('#f-name');
   await p.waitForFunction(() => !!window.turnstile);

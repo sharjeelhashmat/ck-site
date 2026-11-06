@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GOLIVE_TEST } from './helpers/golive.mjs';
 import { BUILD, PERSON_IDS, leadCaptureDist } from './helpers/build-mode.mjs';
+import { decodeEntities, stripScripts, stripStyles, stripTags } from '../scripts/html-text.mjs';
 import {
   checkAdrecAreas, checkLaunchReviews, dubaiRows, formatChange, fmtDate, fmtMonth, isHalfYear, isYtd, periodLabel, priorPeriodId, rankByChange,
   renderChange, renderGuideCard, renderLaunchPanel, renderTop, renderYtd, servedPeriod,
@@ -29,8 +30,8 @@ const LEAD = leadCaptureDist().dir;
 const readL = (p) => readFileSync(join(LEAD, p), 'utf8');
 const mainL = (p) => readL(p).match(/<main id="main">([\s\S]*?)<\/main>/)[1];
 const leadHtmlFiles = walk(LEAD).filter((f) => f.endsWith('.html'));
-const text = (h) => h.replace(/<script[\s\S]*?<\/script>/g, '').replace(/<style[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ')
-  .replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\s+/g, ' ').replace(/ ([,.;:)])/g, '$1');
+const text = (h) => decodeEntities(stripTags(stripStyles(stripScripts(h)), ' '))
+  .replace(/\s+/g, ' ').replace(/ ([,.;:)])/g, '$1');
 const GUIDES = JSON.parse(src('src/data/area-guides.json')).guides;
 const ADREC = JSON.parse(src('src/data/adrec-areas.json'));
 

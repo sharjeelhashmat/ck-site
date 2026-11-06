@@ -161,7 +161,7 @@ function print(rows) {
   console.log(w.map((n) => '-'.repeat(n)).join('-|-'));
   for (const c of cells) console.log(fmt(c));
   if (process.env.GITHUB_STEP_SUMMARY) {
-    const esc = (s) => s.replace(/\|/g, '\\|');
+    const esc = (s) => s.replace(/[\\|]/g, '\\$&');
     const md = ['## Migration lint', '', `| ${head.join(' | ')} |`, '|---|---|---|---|',
       ...cells.map((c) => `| ${c.map(esc).join(' | ')} |`), ''];
     fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, md.join('\n') + '\n');
