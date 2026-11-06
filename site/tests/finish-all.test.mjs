@@ -328,7 +328,8 @@ test('E: year-to-date tiles and source lines, one decimal; nothing renders witho
   const t = text(renderYtd('dubai', EXPECTED_DUBAI.dubai.ytd));
   assert.match(t, /2026 so far · Dubai AED 391\.7bn sales, 2026 to date AED 591\.6bn total transactions, 2026 to date AED 154\.7bn mortgages, 2026 to date/);
   assert.match(t, /Source: Dubai Land Department, Real Estate Transactions open data via Data\.Dubai \(Open Data Licence\), 1 Jan to 9 Oct 2026\./);
-  assert.match(renderYtd('dubai', EXPECTED_DUBAI.dubai.ytd), /href="https:\/\/data\.dubai\/en\/l\/470061"/);
+  // Named, never linked (owner decision 2026-11-06, "remove source links only").
+  assert.doesNotMatch(renderYtd('dubai', EXPECTED_DUBAI.dubai.ytd), /<a\b|href=/);
   const ad = text(renderYtd('abu_dhabi', { sales_bn: 86.1, total_bn: 117, mortgages_bn: 25.5, as_of: '2026-10-16', year: 2026 }));
   assert.match(ad, /2026 so far · Abu Dhabi AED 86\.1bn sales, 2026 to date AED 117\.0bn total transactions/);
   assert.match(ad, /Source: Abu Dhabi Real Estate Centre \(ADREC\), published year-to-date figures, as of 16 Oct 2026\./);
@@ -400,7 +401,8 @@ test('E: adrec-areas.json holds exactly the figures confirmed in ADREC\'s own H1
   assert.match(t, /1 Hudayriyat Island AED 19\.0bn ≈8× 2 Al Reem Island \+ Al Maryah Island AED 10\.5bn \+153% 3 Yas Island AED 7\.3bn \+91% 4 Saadiyat Island AED 13\.3bn \+63%/);
   assert.match(t, /ADREC did not publish a year-on-year change for 4 of the top areas \(n\/p = not published\)\./);
   assert.match(t, /Source: Abu Dhabi Real Estate Centre \(ADREC\), H1 2026 market report \(published 18 Aug 2026\)\. Residential sales value\./);
-  assert.match(panel, /href="https:\/\/adrec\.gov\.ae\/-\/media\/adrec\/market-reports\/marketreportslatest\/adrec-h1-2026-spread-3\.pdf"/);
+  // The report is named, never linked (owner decision 2026-11-06); source_url stays in the data file as the record.
+  assert.doesNotMatch(panel, /href="https:\/\/adrec\.gov\.ae/);
   // And on each Abu Dhabi guide page.
   assert.match(text(main('areas/saadiyat-island.html')), /Jan to Jun 2026 vs Jan to Jun 2025 AED 13\.3bn residential sales value, Jan to Jun 2026 18\.9% of Abu Dhabi's total \+63% Source: Abu Dhabi Real Estate Centre \(ADREC\), H1 2026 market report \(published 18 Aug 2026\)\./);
   assert.match(text(main('areas/zayed-city.html')), /AED 1\.9bn residential sales value, Jan to Jun 2026 2\.7% of Abu Dhabi's total change n\/p/);

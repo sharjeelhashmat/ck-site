@@ -18,6 +18,7 @@ const reviewProblems = checkLaunchReviews(reviews, GOLIVE);
 if (reviewProblems.length) throw new Error(`launch-reviews.json:\n- ${reviewProblems.join('\n- ')}`);
 const watching = LAUNCH_CARDS_ALLOWED ? (reviews as Review[]).slice(0, 5) : [];
 
+// The laws are named, never linked (owner decision 2026-11-06, "remove source links only"); href stays as the record.
 const SOURCES = [
   { label: 'Law No. 8 of 2007 (escrow accounts), Articles 7 and 9', href: 'https://dlp.dubai.gov.ae/Legislation%20Reference/2007/Law%20No.%20(8)%20of%202007.html' },
   { label: 'Law No. 13 of 2008 (Interim Real Property Register), Article 3', href: 'https://dlp.dubai.gov.ae/Legislation%20Reference/2008/Law%20No.%20(13)%20of%202008.html' },
@@ -103,7 +104,7 @@ const QUESTIONS = [
       <div class="nl-sources">
         <h2 class="nl-sources-title">Sources</h2>
         <ol>
-          {SOURCES.map((s, i) => <li id={`source-${i + 1}`}><a href={s.href} target="_blank" rel="noopener">{s.label}</a></li>)}
+          {SOURCES.map((s, i) => <li id={`source-${i + 1}`}>{s.label}</li>)}
         </ol>
         <p>General information on new launches in Dubai, citing the law as at October 2026. Not a recommendation of any project. Laws change, so check the current text on the Dubai Legislation Portal.</p>
       </div>

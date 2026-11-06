@@ -158,7 +158,9 @@ test('build: the area page renders "What\'s changing here" only where events nam
   assert.equal((marina.match(/Official date:/g) ?? []).length, 5, 'no "Official date" line when the source gives none');
   // Verified more than 180 days ago: "last checked" in muted text; otherwise "verified".
   assert.match(marina, /<span class="fine"[^>]*>last checked <span class="date"[^>]*>2026-03-01<\/span><\/span>/);
-  assert.match(marina, /Example Transport Authority<\/a> · verified <span class="date"[^>]*>2026-10-20<\/span>/);
+  // The source is named, never linked (owner decision 2026-11-06, "remove source links only").
+  assert.match(marina, /Source: Example Transport Authority · verified <span class="date"[^>]*>2026-10-20<\/span>/);
+  assert.doesNotMatch(marina, /href="https:\/\/example\.com\/news"/);
   assert.match(marina, /<a href="\/projects\/example-metro-line"[^>]*>Infrastructure tracker: Example Metro Line \(test fixture\)<\/a>/);
   assert.match(html(r.out, 'areas/palm-jumeirah.html'), /What(&#39;|')s changing here/);
   for (const slug of ['saadiyat-island', 'downtown-dubai']) assert.doesNotMatch(html(r.out, `areas/${slug}.html`), /changing here|class="changes"/, slug);

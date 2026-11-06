@@ -44,6 +44,10 @@ export const daysBetween = (fromIso, toIso) => {
 };
 export const todayIso = (now = new Date()) => now.toISOString().slice(0, 10);
 const nonEmpty = (v) => typeof v === 'string' && v.trim().length > 0;
+// Sources are named, never linked (owner decision 2026-11-06, "remove source links only"). A source URL (url, sourceUrl)
+// is still required and stored as the verification record, but no page renders it as an <a href>; the name a page shows
+// must not carry a URL or link markup of its own.
+export const LINKISH_RE = /https?:\/\/|www\.|<a\b|\]\(/i;
 const nonEmptyList = (v) => Array.isArray(v) && v.length > 0 && v.every(nonEmpty);
 
 /**
@@ -61,6 +65,7 @@ export function checkClaim(c, today) {
   if (!SOURCE_TYPES.includes(c.sourceType)) errors.push(`${where}: sourceType must be one of ${SOURCE_TYPES.join(', ')}`);
   if (!VERIFICATION.includes(c.verification)) errors.push(`${where}: verification must be one of ${VERIFICATION.join(', ')}`);
   if (nonEmpty(c.sourceUrl) && !/^https:\/\//.test(c.sourceUrl)) errors.push(`${where}: sourceUrl must be https`);
+  if (nonEmpty(c.sourceName) && LINKISH_RE.test(c.sourceName)) errors.push(`${where}: sourceName must be a name, not a URL or link (sources are never linked)`);
   for (const f of ['publishedOn', 'verifiedOn']) if (nonEmpty(c[f]) && !asDate(c[f])) errors.push(`${where}: ${f} must be YYYY-MM-DD`);
   let stale = false;
   if (!errors.length) {
@@ -173,6 +178,7 @@ export function checkArticle(a, today) {
     need(!nonEmpty(s.verifiedOn) || asDate(s.verifiedOn), `source ${s.name ?? '?'}: verifiedOn must be YYYY-MM-DD`);
     need([1, 2, 3].includes(s.tier), `source ${s.name ?? '?'}: tier must be 1, 2 or 3`);
     need(!nonEmpty(s.url) || /^https:\/\//.test(s.url), `source ${s.name ?? '?'}: url must be https`);
+    need(!nonEmpty(s.name) || !LINKISH_RE.test(s.name), `source ${s.name ?? '?'}: name must be a name, not a URL or link (sources are never linked)`);
   }
   // A number carried by tier 3 sources only cannot stand alone (source tiers, section 5).
   if ((a.sources ?? []).length && (a.sources ?? []).every((s) => s.tier === 3)) errors.push('sources are all tier 3: at least one tier 1 or 2 source is required for a headline number');

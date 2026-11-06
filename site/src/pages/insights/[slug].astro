@@ -13,6 +13,7 @@ export function getStaticPaths() {
 }
 const { a, insightsLive } = Astro.props;
 // Each figure-bearing block lists the sources it comes from; they show as [1] [2] links to the numbered Sources table below.
+// A source is named, never linked (owner decision 2026-11-06): s.url stays in the data as the verification record.
 const cite = (b: any) => (Array.isArray(b.src) ? b.src : []) as number[];
 const propertyAnalysis = ['Would I Buy It?', 'Opportunity vs Risk'].includes(a.series);
 ---
@@ -58,7 +59,7 @@ const propertyAnalysis = ['Would I Buy It?', 'Opportunity vs Risk'].includes(a.s
       <h2>Sources</h2>
       <div class="table-scroll" tabindex="0"><table>
         <thead><tr><th>#</th><th>Source</th><th>Tier</th><th>Published</th><th>Verified</th></tr></thead>
-        <tbody>{a.sources.map((s: any, i: number) => <tr id={`src-${i + 1}`}><td>{i + 1}</td><td><a href={s.url} rel="noopener" target="_blank">{s.name}</a></td><td>{s.tier}</td><td>{s.undated ? 'undated page' : s.publishedOn}</td><td>{s.verifiedOn}</td></tr>)}</tbody>
+        <tbody>{a.sources.map((s: any, i: number) => <tr id={`src-${i + 1}`}><td>{i + 1}</td><td>{s.name}</td><td>{s.tier}</td><td>{s.undated ? 'undated page' : s.publishedOn}</td><td>{s.verifiedOn}</td></tr>)}</tbody>
       </table></div>
       <p class="fine" style="margin-top:var(--space-8)">General information, not financial, tax or legal advice. Reviewed by {a.reviewer}; review by {a.reviewBy}.</p>
       {LEAD_CAPTURE && <NewsletterSignup source={`insights/${a.slug}`} variant="article" />}

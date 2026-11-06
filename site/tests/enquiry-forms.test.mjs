@@ -85,7 +85,8 @@ test('new launches: five H2s (Launch activity first, Part A); the content H2s us
   assert.match(src('src/pages/about.astro'), /\.about-h2 \{ margin-top: var\(--space-12\); margin-bottom: 0; \}/);
 });
 
-test('new launches: the four sources link to the Dubai Legislation Portal, in a new tab', () => {
+// Owner decision 2026-11-06 ("remove source links only"): the four laws are named exactly as before, no longer linked.
+test('new launches: the four sources are named, not linked', () => {
   const m = main('new-launches.html');
   const urls = [
     'https://dlp.dubai.gov.ae/Legislation%20Reference/2007/Law%20No.%20(8)%20of%202007.html',
@@ -93,8 +94,10 @@ test('new launches: the four sources link to the Dubai Legislation Portal, in a 
     'https://dlp.dubai.gov.ae/Legislation%20Reference/2009/Law%20No.%20(9)%20of%202009%20Amending%20Law%20No.%20(13)%20of%202008.html',
     'https://dlp.dubai.gov.ae/Legislation%20Reference/2019/Law%20No.%20(6)%20of%202019%20Concerning%20Ownership%20of%20Jointly%20Owned%20Real%20Property%20in%20the%20Emirate%20of%20Dubai.html',
   ];
-  const links = [...m.matchAll(/<li id="source-(\d)"><a href="([^"]+)" target="_blank" rel="noopener">/g)];
-  assert.deepEqual(links.map((x) => [x[1], x[2]]), urls.map((u, i) => [String(i + 1), u]));
+  const labels = ['Law No. 8 of 2007 (escrow accounts), Articles 7 and 9', 'Law No. 13 of 2008 (Interim Real Property Register), Article 3', 'Law No. 9 of 2009, amended Article 11', 'Law No. 6 of 2019 (jointly owned property), Article 27'];
+  const items = [...m.matchAll(/<li id="source-(\d)"[^>]*>([^<]*)<\/li>/g)];
+  assert.deepEqual(items.map((x) => [x[1], x[2]]), labels.map((l, i) => [String(i + 1), l]));
+  for (const u of urls) assert.equal(m.includes(u), false, `${u} is not on the page`);
 });
 
 test('new launches: no empty card, no WhatsApp link, no images, no banned wording; title, description and noindex', () => {

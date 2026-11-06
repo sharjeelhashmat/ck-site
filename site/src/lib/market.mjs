@@ -1,6 +1,8 @@
 // Market figures on /areas, the area guides and /new-launches. Plain ESM + JSDoc so the Astro build, the browser and
 // node:test share one implementation. Every renderer returns '' when it has nothing to show: production never shows an
 // empty box, a zero, a spinner or a placeholder. Text colours come from Rules 1c tokens only (rises Ink, falls Brass Deep).
+// Sources are named, never linked (owner decision 2026-11-06, "remove source links only"): the URLs below and any
+// source_url in a response or data file are kept as data for verification and are never rendered as an <a href>.
 
 import { changeAgrees, renderCompareChart } from './chart.mjs';
 
@@ -149,8 +151,8 @@ export function renderYtd(emirate, ytd) {
     [ytd.mortgages_bn, `mortgages, ${year} to date`],
   ];
   const source = emirate === 'dubai'
-    ? `Source: Dubai Land Department, <a href="${SOURCES.dubaiTx.url}" target="_blank" rel="noopener">Real Estate Transactions open data</a> via Data.Dubai (Open Data Licence), 1 Jan to ${esc(fmtDate(ytd.as_of))}.`
-    : `Source: <a href="${SOURCES.adrec.url}" target="_blank" rel="noopener">Abu Dhabi Real Estate Centre (ADREC)</a>, published year-to-date figures, as of ${esc(fmtDate(ytd.as_of))}.`;
+    ? `Source: Dubai Land Department, Real Estate Transactions open data via Data.Dubai (Open Data Licence), 1 Jan to ${esc(fmtDate(ytd.as_of))}.`
+    : `Source: Abu Dhabi Real Estate Centre (ADREC), published year-to-date figures, as of ${esc(fmtDate(ytd.as_of))}.`;
   return `<section class="mk-block" aria-labelledby="mk-ytd-${emirate}">
 <h2 id="mk-ytd-${emirate}" class="mk-h2">${esc(year)} so far · ${EMIRATES[emirate]}</h2>
 <div class="mk-tiles">${tiles.map(([v, l]) => `<div class="mk-tile"><p class="mk-tile-value">${fmtBn(v)}</p><p class="mk-tile-label">${esc(l)}</p></div>`).join('')}</div>
@@ -238,8 +240,8 @@ export function renderChange(emirate, d) {
     ? `<p class="mk-src">ADREC did not publish a year-on-year change for ${missing} of the top areas (n/p = not published). They are left out of this ranking rather than estimated.</p>`
     : '';
   const source = emirate === 'dubai'
-    ? `Source: Dubai Land Department, <a href="${SOURCES.dubaiTx.url}" target="_blank" rel="noopener">Real Estate Transactions open data</a> via Data.Dubai (Open Data Licence). Residential sales value. Area names as registered by DLD.`
-    : `Source: <a href="${esc(d.source_url ?? SOURCES.adrec.url)}" target="_blank" rel="noopener">Abu Dhabi Real Estate Centre (ADREC)</a>, ${esc(reportName(d.period))} market report${d.published ? ` (published ${esc(fmtDate(d.published))})` : ''}. Residential sales value.`;
+    ? `Source: Dubai Land Department, Real Estate Transactions open data via Data.Dubai (Open Data Licence). Residential sales value. Area names as registered by DLD.`
+    : `Source: Abu Dhabi Real Estate Centre (ADREC), ${esc(reportName(d.period))} market report${d.published ? ` (published ${esc(fmtDate(d.published))})` : ''}. Residential sales value.`;
   return `<section class="mk-block" aria-labelledby="mk-chg-${emirate}">
 <h2 id="mk-chg-${emirate}" class="mk-h2">Change vs last year · ${EMIRATES[emirate]}</h2>
 ${chart}<div class="mk-table-card"${chart ? '' : ' data-chart-gap="prior-period-not-in-data"'}><div class="mk-table-scroll" tabindex="0"><table class="mk-table">
@@ -285,8 +287,8 @@ export function renderGuideCard(emirate, d) {
   const prior = periodLabel(priorPeriodId(d.period));
   const c = formatChange(a);
   const source = emirate === 'dubai'
-    ? `Source: Dubai Land Department, <a href="${SOURCES.dubaiTx.url}" target="_blank" rel="noopener">Real Estate Transactions open data</a> via Data.Dubai (Open Data Licence). Residential sales value${d.dldArea ? ` for the DLD area ${esc(d.dldArea)}` : ''}.`
-    : `Source: <a href="${esc(d.source_url ?? SOURCES.adrec.url)}" target="_blank" rel="noopener">Abu Dhabi Real Estate Centre (ADREC)</a>, ${esc(reportName(d.period))} market report${d.published ? ` (published ${esc(fmtDate(d.published))})` : ''}. Residential sales value.`;
+    ? `Source: Dubai Land Department, Real Estate Transactions open data via Data.Dubai (Open Data Licence). Residential sales value${d.dldArea ? ` for the DLD area ${esc(d.dldArea)}` : ''}.`
+    : `Source: Abu Dhabi Real Estate Centre (ADREC), ${esc(reportName(d.period))} market report${d.published ? ` (published ${esc(fmtDate(d.published))})` : ''}. Residential sales value.`;
   return `<p class="mk-chip">${esc(label)} vs ${esc(prior)}</p>
 <p class="mk-value">${fmtBn(a.value_bn)}</p>
 <p class="mk-tile-label">residential sales value, ${esc(label)}</p>
@@ -320,7 +322,7 @@ export function renderLaunchDubai(d, today = todayIso()) {
   if (!lines.length) return '';
   // The month the data is from (the dataset's load date), never the day the sync ran.
   return `<article class="mk-launch"><h3>Dubai</h3>${lines.join('')}
-<p class="mk-src">Source: Dubai Land Department, <a href="${esc(d.source_url)}" target="_blank" rel="noopener">Real Estate Projects open data</a> via Data.Dubai (Open Data Licence), as of ${esc(fmtMonth(d.as_of))}.</p></article>`;
+<p class="mk-src">Source: Dubai Land Department, Real Estate Projects open data via Data.Dubai (Open Data Licence), as of ${esc(fmtMonth(d.as_of))}.</p></article>`;
 }
 
 export function renderLaunchAbuDhabi(d) {
@@ -329,7 +331,7 @@ export function renderLaunchAbuDhabi(d) {
 <p class="mk-lead">${fmtBn(d.sales_value_bn)} in sales, ${esc(String(d.year))} to date</p>
 <p class="mk-line">${fmtBn(d.transaction_value_bn)} total transactions</p>
 <p class="mk-line">${fmtBn(d.mortgage_value_bn)} mortgages</p>
-<p class="mk-src">Source: <a href="${esc(d.source_url)}" target="_blank" rel="noopener">Abu Dhabi Real Estate Centre (ADREC)</a>, published year-to-date figures, as of ${esc(fmtDate(d.as_of))}.</p></article>`;
+<p class="mk-src">Source: Abu Dhabi Real Estate Centre (ADREC), published year-to-date figures, as of ${esc(fmtDate(d.as_of))}.</p></article>`;
 }
 
 /** Both cards, or one full-width card, or '' (panel hidden). @param {any} body @param {string} [today] YYYY-MM-DD */
@@ -353,6 +355,7 @@ export function checkAdrecAreas(f, guideSlugs) {
   if (f.areas.length % 2) e.push('keep the card count even');
   if (f.areas.length) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(f.published ?? '')) e.push('published (YYYY-MM-DD) is required once areas are listed');
+    // Stored as the verification record only: the source line names ADREC and is never a link (owner decision 2026-11-06).
     if (!/^https:\/\/adrec\.gov\.ae\//.test(f.source_url ?? '')) e.push("source_url must be ADREC's own page or report");
     if (!(f.total_res_bn > 0)) e.push('total_res_bn is required once areas are listed');
   }

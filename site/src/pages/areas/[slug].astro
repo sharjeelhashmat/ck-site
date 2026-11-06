@@ -57,7 +57,7 @@ const adCard = ad
                 <p class="change-head"><span class="change-title">{e.title}</span> <span class={e.status === 'Cancelled' ? 'badge badge--cancelled' : 'badge'}>{e.status}</span></p>
                 {e.officialDate && <p class="src">Official date: {e.officialDate}</p>}
                 <p class="change-summary">{e.summary}</p>
-                <p class="src">Source: <a href={e.source.url} rel="noopener" target="_blank">{e.source.name}</a> · {eventNeedsRecheck(e, today) ? <span class="fine">last checked <span class="date">{e.source.verifiedOn}</span></span> : <>verified <span class="date">{e.source.verifiedOn}</span></>}</p>
+                <p class="src">Source: {e.source.name} · {eventNeedsRecheck(e, today) ? <span class="fine">last checked <span class="date">{e.source.verifiedOn}</span></span> : <>verified <span class="date">{e.source.verifiedOn}</span></>}</p>
                 {e.project && <p class="src"><a href={`/projects/${e.project}`}>Infrastructure tracker: {projectName(e.project)}</a></p>}
               </li>
             ))}
