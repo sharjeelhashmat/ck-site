@@ -257,9 +257,18 @@ a.card:hover { border-color: var(--navy); }
 .site-footer .small, .site-footer .fine { color: var(--slate-light); }
 .site-footer .status.ok { color: var(--ivory); }
 .site-footer .status.bad { color: var(--gold); }
-.site-footer .brand { color: var(--ivory); flex-wrap: wrap; }
-/* The title beside the footer logo: the Cormorant tagline style (Cormorant never below 22px). */
-.site-footer .brand span { font-family: var(--serif); font-style: italic; font-weight: 400; font-size: var(--fs-tagline); line-height: var(--lh-tagline); letter-spacing: 0; }
+/* Footer lockup, stacked (owner 2026-11-07): mark | wordmark over title. logo-web-ivory.svg at 46px tall is 223.7px wide
+   (viewBox 205 225 2480 510, so 1px = 11.09 units). The mark's ink ends at x 48.3px and the wordmark's underline starts at
+   59.2px, so the mark crop is the first 52px and the wordmark crop starts there: horizontally the lockup is unchanged. The
+   wordmark's ink runs from y 9.0px to 32.6px, so its crop is y 8px to 33px (25px tall). The "Sharjeel Hashmat" text starts
+   at x 60.9px, 8.9px into the wordmark crop: the title's column starts there. The mark (46px) is centred against the
+   wordmark, the 4px gap and the title. */
+.site-footer .brand { color: var(--ivory); display: grid; grid-template-columns: 52px 8.9px max-content; grid-template-rows: 25px auto; gap: var(--space-1) 0; align-items: start; }
+.site-footer .brand-mark { grid-column: 1; grid-row: 1 / 3; align-self: center; width: 52px; height: 46px; overflow: hidden; }
+.site-footer .brand-word { grid-column: 2 / 4; grid-row: 1; width: 172px; height: 25px; overflow: hidden; }
+.site-footer .brand-word .logo { transform: translate(-52px, -8px); }
+/* The title under the wordmark: the Cormorant tagline style (Cormorant never below 22px), on one line at every width. */
+.site-footer .brand span { grid-column: 3; grid-row: 2; white-space: nowrap; font-family: var(--serif); font-style: italic; font-weight: 400; font-size: var(--fs-tagline); line-height: var(--lh-tagline); letter-spacing: 0; }
 .foot-row { display: flex; flex-wrap: wrap; gap: var(--space-4) var(--space-8); justify-content: space-between; align-items: center; }
 .foot-row + .foot-row { margin-top: var(--space-6); padding-top: var(--space-6); border-top: 1px solid color-mix(in srgb, var(--slate-light) 35%, transparent); }
 .foot-links { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-6); font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); }
