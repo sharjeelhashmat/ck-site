@@ -11,6 +11,7 @@ import { changeAgrees, changeValue, chartRows, checkChartSpec, figure, isCompari
 import { checkArticle } from '../src/lib/intel.mjs';
 import { checkAdrecAreas, dubaiRows, fmtBn, renderChange, renderGuideCard, renderTop } from '../src/lib/market.mjs';
 import { validArticle } from './helpers/fixtures.mjs';
+import { decodeEntities } from '../scripts/html-text.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const dist = join(root, 'dist');
@@ -18,8 +19,7 @@ const read = (p) => readFileSync(join(root, p), 'utf8');
 const walk = (d) => readdirSync(d).flatMap((f) => (statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : [join(d, f)]));
 const htmlFiles = () => walk(dist).filter((f) => f.endsWith('.html'));
 const articles = () => readdirSync(join(root, 'src/data/insights')).map((f) => JSON.parse(read(`src/data/insights/${f}`)));
-const unescape = (s) => s.replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
-const texts = (svg, cls) => [...svg.matchAll(new RegExp(`<text class="${cls}[^"]*"[^>]*>([^<]*)</text>`, 'g'))].map((m) => unescape(m[1]));
+const texts = (svg, cls) => [...svg.matchAll(new RegExp(`<text class="${cls}[^"]*"[^>]*>([^<]*)</text>`, 'g'))].map((m) => decodeEntities(m[1]));
 
 const ROWS = [
   { label: 'Q1', earlier: 96.5, later: 107.5, earlierText: '96.5', laterText: '107.5', change: '+11%' },

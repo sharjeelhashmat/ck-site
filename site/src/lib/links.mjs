@@ -3,6 +3,9 @@
 // text; their URLs stay in the data files as the verification record. tel: and mailto: links are not external links.
 // Used by scripts/postbuild.mjs, which fails the build on any other external <a href>, and by tests/external-links.test.mjs.
 
+// Entities decoded with &amp; last (CodeQL js/double-escaping), shared with the tests and the readiness check.
+import { decodeEntities } from '../../scripts/html-text.mjs';
+
 /** The only external hrefs a page may carry: exactly these three URLs (SITE.linkedin, SITE.instagram, SITE.facebook). */
 export const SOCIAL_PROFILE_URLS = Object.freeze([
   'https://www.linkedin.com/in/sharjeel-hashmat-16944322',
@@ -18,13 +21,12 @@ export const SOCIAL_PROFILE_URLS = Object.freeze([
 export const WHATSAPP_OWNER_RE = /^https:\/\/wa\.me\/971555414468\?text=[^"\s]*$/;
 
 const OWN_HOST = /^(?:www\.)?sharjeelhashmat\.com$/i;
-const unescape = (s) => s.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
 
 /** Every <a href> in the HTML that points to another host (absolute http(s) or protocol-relative), as written. */
 export function externalHrefs(html) {
   const out = [];
   for (const m of String(html).matchAll(/<a\b[^>]*?\shref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))/gi)) {
-    const href = unescape((m[1] ?? m[2] ?? m[3] ?? '').trim());
+    const href = decodeEntities((m[1] ?? m[2] ?? m[3] ?? '').trim());
     if (!/^(?:https?:)?\/\//i.test(href)) continue;
     let host = '';
     try { host = new URL(href, 'https://www.sharjeelhashmat.com').hostname; } catch { out.push(href); continue; }
