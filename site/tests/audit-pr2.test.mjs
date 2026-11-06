@@ -12,6 +12,7 @@ import { BUILD, PERSON_IDS, SITEMAP_LINE, leadCaptureDist } from './helpers/buil
 import { checkArticle } from '../src/lib/intel.mjs';
 import { pageTitle } from '../src/lib/seo.mjs';
 import { jsonLd } from '../src/lib/jsonld.mjs';
+import { decodeEntities, stripScripts, stripTags } from '../scripts/html-text.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const dist = join(root, 'dist');
@@ -24,7 +25,7 @@ const GATED = ['privacy.html', 'terms.html', 'investor-profile.html'];
 const src = (p) => readFileSync(join(root, p), 'utf8');
 const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]));
 const htmlIn = (d) => walk(d).filter((f) => f.endsWith('.html'));
-const decode = (s) => s.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+const decode = decodeEntities;
 const ldOf = (h) => JSON.parse(h.match(/<script type="application\/ld\+json">(.*?)<\/script>/s)[1]);
 
 function build(env) {
@@ -204,7 +205,7 @@ test('35: checkArticle accepts archived with no other validation; archived is ne
 test('36: no unclosed <a> on any page, and no link wraps #lead-next', () => {
   // The lead-capture build too: the alert templates this rule is about exist only there.
   for (const f of [...new Set([...htmlIn(dist), ...htmlIn(LEAD)])]) {
-    const h = readFileSync(f, 'utf8').replace(/<script[\s\S]*?<\/script>/g, '');
+    const h = stripScripts(readFileSync(f, 'utf8'));
     let depth = 0;
     for (const m of h.matchAll(/<(\/?)a\b[^>]*>/g)) {
       depth += m[1] ? -1 : 1;
@@ -228,11 +229,11 @@ test('38: FAQ "How do I start working with you?" has the owner-approved answer, 
     if (!lead) {
       // Soft launch: the answer describes the enquiry form, so the question is hidden, visibly and in the JSON-LD.
       assert.equal(q, undefined);
-      assert.ok(!decode(h.replace(/<[^>]+>/g, '')).includes(answer));
+      assert.ok(!decode(stripTags(h)).includes(answer));
       continue;
     }
     assert.equal(q.acceptedAnswer.text, answer);
-    assert.ok(decode(h.replace(/<[^>]+>/g, '')).includes(answer));
+    assert.ok(decode(stripTags(h)).includes(answer));
   }
   for (const f of [...htmlIn(dist), ...htmlIn(LEAD)]) assert.doesNotMatch(readFileSync(f, 'utf8'), /book a call/i, f);
 });

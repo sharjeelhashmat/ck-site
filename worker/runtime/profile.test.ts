@@ -1,7 +1,7 @@
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import worker, { type Env } from '../src/index';
-import { OPEN_LIMITS } from './helpers';
+import { OPEN_LIMITS, RESEND, SITEVERIFY } from './helpers';
 
 const cf = env as unknown as Env;
 const ORIGIN = 'https://sharjeelhashmat.com';
@@ -18,8 +18,8 @@ beforeEach(async () => {
   for (const t of ['leads', 'messages', 'events', 'investor_profiles', 'outbox']) await cf.DB.exec(`DELETE FROM ${t}`);
   vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    if (url.startsWith('https://challenges.cloudflare.com')) return Response.json({ success: true, hostname: 'sharjeelhashmat.com', action: 'lead' });
-    if (url === 'https://api.resend.com/emails') { mails.push(JSON.parse(init?.body as string)); return Response.json({ id: 're-1' }); }
+    if (url === SITEVERIFY) return Response.json({ success: true, hostname: 'sharjeelhashmat.com', action: 'lead' });
+    if (url === RESEND) { mails.push(JSON.parse(init?.body as string)); return Response.json({ id: 're-1' }); }
     return new Response('unexpected: ' + url, { status: 500 });
   });
 });

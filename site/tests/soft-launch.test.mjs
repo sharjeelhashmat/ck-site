@@ -10,13 +10,14 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BUILD, leadCaptureDist } from './helpers/build-mode.mjs';
+import { stripScripts, stripStyles, stripTags } from '../scripts/html-text.mjs';
 import { goLiveMissing, GOLIVE, LEAD_CAPTURE } from '../src/lib/golive.ts';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const dist = join(root, 'dist');
 const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]));
 const rel = (d, f) => relative(d, f).split(sep).join('/');
-const textOf = (h) => h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<style[\s\S]*?<\/style>/g, ' ').replace(/<[^>]+>/g, ' ').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+const textOf = (h) => stripTags(stripStyles(stripScripts(h, ' '), ' '), ' ').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
 
 // Names are assembled from parts so a repository search for them stays empty (as tests/site.test.mjs does).
 const AGENCY_NAMES = [new RegExp('alk' + 'ira', 'i'), new RegExp('roy' + 'als', 'i')];

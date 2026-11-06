@@ -9,6 +9,13 @@ export const TEMPLATES = (templatesJson as { templates: Template[] }).templates;
 export const cf = env as unknown as Env;
 export const ORIGIN = 'https://sharjeelhashmat.com';
 export const STAGING = 'https://ck-site-staging.sharjeelhashmat.workers.dev';
+export const SITEVERIFY = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+export const RESEND = 'https://api.resend.com/emails';
+export const BREVO = 'https://api.brevo.com/v3/smtp/email';
+// The two email providers' API hosts (exact hostnames, never a substring of the URL).
+export const EMAIL_HOSTS = ['api.resend.com', 'api.brevo.com'];
+/** Lower-cased hostname of a URL, '' when it does not parse. */
+export const hostOf = (url: string) => { try { return new URL(url).hostname.toLowerCase(); } catch { return ''; } };
 
 // Rate limiters that never limit, so a test file can post more than 5 times a minute; runtime/rate-limit.test.ts uses the
 // real bindings from wrangler.toml instead.
@@ -76,23 +83,23 @@ export function stubFetch(calls: Call[], opts: { siteverify?: (token: string) =>
   vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
     const headers = Object.fromEntries(Object.entries((init?.headers ?? {}) as Record<string, string>).map(([k, v]) => [k.toLowerCase(), v]));
-    if (url.startsWith('https://challenges.cloudflare.com/turnstile/v0/siteverify')) {
+    if (url === SITEVERIFY) {
       const form = init?.body as FormData;
       const token = String(form.get('response'));
       calls.push({ url, body: { response: token }, headers });
       const out = opts.siteverify?.(token) ?? { success: token === 'ok' || token.startsWith('ok:'), hostname: 'sharjeelhashmat.com', action: token.startsWith('ok:') ? token.slice(3) : undefined };
       return Response.json(out);
     }
-    if (url === 'https://api.resend.com/emails' || url === 'https://api.brevo.com/v3/smtp/email') {
+    if (url === RESEND || url === BREVO) {
       calls.push({ url, body: JSON.parse(init?.body as string), headers });
       if (opts.email) return opts.email(url, calls.length);
-      return url.includes('resend') ? Response.json({ id: `re-${calls.length}` }) : Response.json({ messageId: `m-${calls.length}` }, { status: 201 });
+      return url === RESEND ? Response.json({ id: `re-${calls.length}` }) : Response.json({ messageId: `m-${calls.length}` }, { status: 201 });
     }
     return new Response('unexpected outbound call: ' + url, { status: 500 });
   });
 }
 
-export const emails = (calls: Call[]) => calls.filter((c) => c.url.includes('resend.com') || c.url.includes('brevo.com'));
+export const emails = (calls: Call[]) => calls.filter((c) => EMAIL_HOSTS.includes(hostOf(c.url)));
 export const toOf = (c: Call) => {
   const b = c.body as { to: unknown[] };
   const t = b.to[0];

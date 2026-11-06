@@ -625,7 +625,7 @@ function rowsFor(file, violations) {
   return rows;
 }
 
-const esc = (s) => String(s).replace(/\|/g, '\\|').replace(/\n/g, ' ');
+const esc = (s) => String(s).replace(/[\\|]/g, '\\$&').replace(/\n/g, ' ');
 
 function scan(mode) {
   const { violations: scopeV, workflows } = scope(REPO);

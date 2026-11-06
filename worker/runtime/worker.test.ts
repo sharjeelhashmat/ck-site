@@ -4,7 +4,7 @@ import worker, { type Env } from '../src/index';
 import { sha256Hex } from '../src/hash';
 import { templateHash, type Template } from '../src/templates';
 import templatesJson from '../templates/lead-replies.v1.json';
-import { OPEN_LIMITS } from './helpers';
+import { BREVO, hostOf, OPEN_LIMITS, RESEND, SITEVERIFY } from './helpers';
 
 const TEMPLATES = (templatesJson as { templates: Template[] }).templates;
 
@@ -76,16 +76,16 @@ beforeEach(async () => {
   await cf.KV.delete('approved_templates');
   vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
-    if (url.startsWith('https://challenges.cloudflare.com/turnstile/v0/siteverify')) {
+    if (url === SITEVERIFY) {
       const form = init?.body as FormData;
       calls.push({ url, body: { response: form.get('response'), secret: form.get('secret') } });
       return verified(form.get('response') === 'ok');
     }
-    if (url === 'https://api.resend.com/emails') {
+    if (url === RESEND) {
       calls.push({ url, body: { ...JSON.parse(init?.body as string), _auth: (init?.headers as Record<string, string>).authorization } });
       return Response.json({ id: `re-${calls.length}` }, { status: 200 });
     }
-    if (url === 'https://api.brevo.com/v3/smtp/email') {
+    if (url === BREVO) {
       calls.push({ url, body: JSON.parse(init?.body as string) });
       return Response.json({ messageId: `m-${calls.length}` }, { status: 201 });
     }
@@ -94,8 +94,8 @@ beforeEach(async () => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-const brevo = () => calls.filter((c) => c.url.includes('brevo'));
-const resend = () => calls.filter((c) => c.url.includes('resend'));
+const brevo = () => calls.filter((c) => hostOf(c.url) === 'api.brevo.com');
+const resend = () => calls.filter((c) => hostOf(c.url) === 'api.resend.com');
 
 describe('worker on workerd', () => {
   it('serves /health and 404s unknown paths', async () => {

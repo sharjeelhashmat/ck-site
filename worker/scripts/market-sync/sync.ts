@@ -195,7 +195,7 @@ function arg(name: string): string {
 }
 
 function report(title: string, summary: Record<string, string | number>) {
-  const rows = Object.entries(summary).map(([k, v]) => `| ${k} | ${String(v).replace(/\|/g, '\\|')} |`);
+  const rows = Object.entries(summary).map(([k, v]) => `| ${k} | ${String(v).replace(/[\\|]/g, '\\$&')} |`);
   const md = [`## ${title}`, '', '| field | value |', '|---|---|', ...rows, ''].join('\n');
   console.log(md);
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, md + '\n');

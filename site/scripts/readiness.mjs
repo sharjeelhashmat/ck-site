@@ -16,6 +16,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { LEAD_CAPTURE } from '../src/lib/golive.ts';
+import { decodeEntities, stripScripts, stripStyles, stripTags } from './html-text.mjs';
 
 // The lawyer-approved Privacy PR flips this ONE constant to true; from then on missing retention periods fail the build.
 export const PRIVACY_RETENTION_REQUIRED = false;
@@ -37,9 +38,9 @@ const WA_RE = /<a\b[^>]*href="https:\/\/(wa\.me|api\.whatsapp\.com|wa\.link)\/[^
 // The form's failure message carries a WhatsApp fallback in a hidden template; it is shown only when sending fails.
 const ALERT_TPL_RE = /<div id="(lead|profile)-alert-tpl" hidden>[\s\S]*?<\/div>/g;
 
-const decode = (s) => s.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+const decode = decodeEntities;
 const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]));
-const textOf = (h) => decode(h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<style[\s\S]*?<\/style>/g, ' ').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ');
+const textOf = (h) => decode(stripTags(stripStyles(stripScripts(h, ' '), ' '), ' ')).replace(/\s+/g, ' ');
 
 /** Slugs of every insight that is not published (archived, draft or anything else). */
 export function unpublishedInsights(dir = INSIGHTS_DIR) {
@@ -72,7 +73,7 @@ export function checkReadiness(dist, opts = {}) {
     const h = read(f);
 
     // links
-    const body = h.replace(/<script[\s\S]*?<\/script>/g, '');
+    const body = stripScripts(h);
     let depth = 0;
     for (const m of body.matchAll(/<(\/?)a\b[^>]*>/g)) {
       depth += m[1] ? -1 : 1;

@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GOLIVE_TEST } from './helpers/golive.mjs';
 import { BUILD, leadCaptureDist } from './helpers/build-mode.mjs';
+import { stripTags } from '../scripts/html-text.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const read = (p) => readFileSync(join(root, p), 'utf8');
@@ -141,7 +142,7 @@ test('profile feedback: each answer maps to exactly one visible outcome; failure
   assert.equal((await sendProfile('u', {}, { fetchImpl: hang, timeoutMs: 50 })).kind, 'failure');
   assert.equal(TIMEOUT_MS, 15000);
   const tpl = page().match(/<div id="profile-alert-tpl" hidden>([\s\S]*?)<\/div>/)?.[1] ?? '';
-  assert.ok(tpl.replace(/<[^>]+>/g, '').startsWith(MESSAGES.failure), 'failure panel text');
+  assert.ok(stripTags(tpl).startsWith(MESSAGES.failure), 'failure panel text');
   assert.match(tpl, /<a href="https:\/\/wa\.me\/[^"]+" target="_blank" rel="noopener">Message me on WhatsApp<\/a>/);
   assert.match(page(), /<div class="profile-alert" id="profile-alert" role="alert"><\/div>/);
 });

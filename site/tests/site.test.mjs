@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { GOLIVE_TEST } from './helpers/golive.mjs';
 import { BUILD, SITEMAP_LINE, leadCaptureDist } from './helpers/build-mode.mjs';
+import { stripScripts, stripTags } from '../scripts/html-text.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const dist = join(root, 'dist');
@@ -62,7 +63,7 @@ test('every page has one title, one h1, is noindex in non-production builds, and
 
 test('owner decisions hold: no Gmail, no "Investment Advisor", no Firebase, no "broker" word, no trademark symbol', () => {
   for (const f of htmlFiles) {
-    const h = readFileSync(f, 'utf8').replace(/<script[\s\S]*?<\/script>/g, '');
+    const h = stripScripts(readFileSync(f, 'utf8'));
     assert.doesNotMatch(h, /gmail/i, f);
     assert.doesNotMatch(h, /investment advis[eo]r/i, f);
     assert.doesNotMatch(h, /firebase|firestore/i, f);
@@ -145,7 +146,7 @@ test('analytics: a default build has no beacon and the CSP does not allow Cloudf
     for (const f of htmlFiles) for (const m of readFileSync(f, 'utf8').matchAll(/\bdata-worker="([^"]*)"/g)) origins.add(new URL(m[1]).origin);
     const turnstile = BUILD.leadCapture ? ' https://challenges.cloudflare.com' : '';
     assert.equal(csp.match(/connect-src ([^;]+);/)[1], `'self' ${[...origins].sort().join(' ')}${turnstile} https://cloudflareinsights.com`);
-    assert.match(csp.match(/script-src ([^;]+);/)[1], new RegExp(`^'self'( 'sha256-[A-Za-z0-9+/=]+')+${turnstile.replace(/[./]/g, '\\$&')} https://static\\.cloudflareinsights\\.com$`));
+    assert.match(csp.match(/script-src ([^;]+);/)[1], new RegExp(`^'self'( 'sha256-[A-Za-z0-9+/=]+')+${turnstile.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')} https://static\\.cloudflareinsights\\.com$`));
     assert.equal((csp.match(/cloudflareinsights/g) ?? []).length, 2, 'the two beacon origins and nothing else');
     return;
   }
@@ -226,7 +227,7 @@ test('FAQ: six approved questions, FAQPage data matches the visible copy, and th
     for (const q of FORM_QUESTIONS) assert.equal(summaries.includes(q), lead, q);
     const ld = JSON.parse(h.match(/<script type="application\/ld\+json">(\{"@context":"https:\/\/schema.org","@type":"FAQPage"[\s\S]*?)<\/script>/)[1]);
     assert.equal(ld.mainEntity.length, lead ? 6 : 4);
-    const text = h.replace(/<[^>]+>/g, '').replace(/&#39;/g, "'");
+    const text = stripTags(h).replace(/&#39;/g, "'");
     for (const q of ld.mainEntity) {
       assert.ok(text.includes(q.name), `visible question: ${q.name}`);
       assert.ok(text.includes(q.acceptedAnswer.text), `visible answer: ${q.name}`);

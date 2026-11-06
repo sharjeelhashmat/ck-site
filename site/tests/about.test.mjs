@@ -5,6 +5,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BUILD, leadCaptureDist } from './helpers/build-mode.mjs';
+import { stripTags } from '../scripts/html-text.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const dist = join(root, 'dist');
@@ -17,7 +18,7 @@ const main = (dir = dist) => about(dir).match(/<main id="main">([\s\S]*?)<\/main
 // The closing line and "Get in touch" exist only with lead capture (golive.ts LEAD_CAPTURE); a lead-capture build is checked
 // for them, and site/dist (soft launch) for their absence.
 const LEAD = leadCaptureDist().dir;
-const text = (html) => html.replace(/<[^>]+>/g, '').replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+const text = (html) => stripTags(html).replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 const items = (html) => [...html.match(/<ol[^>]*>([\s\S]*?)<\/ol>/)[1].matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => m[1].trim());
 
 const LINES = [
