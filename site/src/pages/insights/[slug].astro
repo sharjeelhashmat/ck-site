@@ -2,6 +2,7 @@
 import Base from '../../layouts/Base.astro';
 import ReadingProgress from '../../components/ReadingProgress.astro';
 import { loadPublic } from '../../lib/intel-data.mjs';
+import { inlineSegments as rich } from '../../lib/intel.mjs';
 import NewsletterSignup from '../../components/NewsletterSignup.astro';
 import { LEAD_CAPTURE } from '../../lib/golive';
 
@@ -31,8 +32,8 @@ const propertyAnalysis = ['Would I Buy It?', 'Opportunity vs Risk'].includes(a.s
       {a.stale && <p class="stale-banner">This article is past its review date and is being re-checked. Treat the figures as historical until it is updated.</p>}
       {a.body.map((b: any) => {
         if (b.h) return <h2>{b.h}</h2>;
-        if (b.p) return <p>{b.p}{cite(b).map((n) => <sup class="cite"><a href={`#src-${n}`} aria-label={`Source ${n}`}>[{n}]</a></sup>)}</p>;
-        if (b.ul) return <><ul>{b.ul.map((x: string) => <li>{x}</li>)}</ul>{cite(b).length > 0 && <p class="src">Sources: {cite(b).map((n) => <a href={`#src-${n}`}>[{n}]</a>)}</p>}</>;
+        if (b.p) return <p>{rich(b.p).map((x) => (x.href ? <a href={x.href}>{x.text}</a> : x.bold ? <strong>{x.text}</strong> : x.text))}{cite(b).map((n) => <sup class="cite"><a href={`#src-${n}`} aria-label={`Source ${n}`}>[{n}]</a></sup>)}</p>;
+        if (b.ul) return <><ul>{b.ul.map((s: string) => <li>{rich(s).map((x) => (x.href ? <a href={x.href}>{x.text}</a> : x.bold ? <strong>{x.text}</strong> : x.text))}</li>)}</ul>{cite(b).length > 0 && <p class="src">Sources: {cite(b).map((n) => <a href={`#src-${n}`}>[{n}]</a>)}</p>}</>;
         if (b.table) return (
           <>
             <div class="table-scroll" tabindex="0"><table>

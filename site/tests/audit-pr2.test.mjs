@@ -68,8 +68,12 @@ test('22: public build is unchanged: robots advertises the sitemap, no X-Robots-
   for (const p of ['/areas', '/areas/downtown-dubai', '/areas/hudayriyat-island', '/areas/zayed-city', '/buy', '/invest', '/investment-approach', '/contact']) {
     assert.match(s, new RegExp(p + '<'), p);
   }
-  // Two published articles: Insights stays out of the sitemap until three are (decision 5); archived ones never enter.
-  assert.doesNotMatch(s, /\/insights/);
+  // Three published articles (November 2026): Insights and every published article enter the sitemap (decision 5);
+  // archived ones never do.
+  for (const p of ['/insights', '/insights/costs-investors-forget-before-yield', '/insights/does-rising-transaction-value-mean-rising-prices', '/insights/dubai-2026-so-far-official-numbers']) {
+    assert.match(s, new RegExp(p + '<'), p);
+  }
+  assert.doesNotMatch(s, /dubai-q1-2026-who-is-buying|dubai-august-2026-market-view/);
 });
 
 // ---------- 18. CSP connect-src from the data-worker origins in the built HTML ----------
@@ -182,7 +186,7 @@ test('35: checkArticle accepts archived with no other validation; archived is ne
   const dir = join(root, 'src/data/insights');
   const records = readdirSync(dir).filter((f) => f.endsWith('.json')).map((f) => JSON.parse(readFileSync(join(dir, f), 'utf8')));
   const published = records.filter((r) => r.status === 'published').map((r) => r.slug).sort();
-  assert.deepEqual(published, ['costs-investors-forget-before-yield', 'does-rising-transaction-value-mean-rising-prices']);
+  assert.deepEqual(published, ['costs-investors-forget-before-yield', 'does-rising-transaction-value-mean-rising-prices', 'dubai-2026-so-far-official-numbers']);
   for (const slug of ['dubai-q1-2026-who-is-buying', 'dubai-august-2026-market-view']) {
     assert.equal(records.find((r) => r.slug === slug).status, 'archived', slug);
     for (const out of [dist, pub()]) {
