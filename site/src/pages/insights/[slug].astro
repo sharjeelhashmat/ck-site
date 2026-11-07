@@ -3,7 +3,8 @@ import Base from '../../layouts/Base.astro';
 import ReadingProgress from '../../components/ReadingProgress.astro';
 import { loadPublic } from '../../lib/intel-data.mjs';
 import { inlineSegments as rich } from '../../lib/intel.mjs';
-import { renderTableChart } from '../../lib/chart.mjs';
+import { renderTableCards } from '../../lib/chart.mjs';
+import DataCard from '../../components/DataCard.astro';
 import NewsletterSignup from '../../components/NewsletterSignup.astro';
 import { LEAD_CAPTURE } from '../../lib/golive';
 
@@ -38,8 +39,8 @@ const propertyAnalysis = ['Would I Buy It?', 'Opportunity vs Risk'].includes(a.s
         if (b.ul) return <><ul>{b.ul.map((s: string) => <li>{rich(s).map((x) => (x.href ? <a href={x.href}>{x.text}</a> : x.bold ? <strong>{x.text}</strong> : x.text))}</li>)}</ul>{cite(b).length > 0 && <p class="src">Sources: {cite(b).map((n) => <a href={`#src-${n}`}>[{n}]</a>)}</p>}</>;
         if (b.table) return (
           <>
-            {/* Comparison chart (Rules 1c v6.6) above its table; the table stays the text alternative. */}
-            {b.chart && <Fragment set:html={renderTableChart(`chart-${i + 1}`, b.table, b.chart, cite(b))} />}
+            {/* Comparison cards (Rules 1c v6.9): one card per table row above the table; the table stays as it is. */}
+            {b.chart && <DataCard html={renderTableCards(`chart-${i + 1}`, b.table, b.chart, cite(b))} />}
             <div class="table-scroll" tabindex="0"><table>
               <thead><tr>{b.table.head.map((h: string) => <th>{h}</th>)}</tr></thead>
               <tbody>{b.table.rows.map((r: string[]) => <tr>{r.map((c) => <td>{c}</td>)}</tr>)}</tbody>

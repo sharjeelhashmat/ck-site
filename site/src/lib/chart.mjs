@@ -1,26 +1,15 @@
-// Comparison charts (Rules 1c v6.6): every comparison of figures on the site is shown with a chart as well as the numbers.
-// Paired bars, one pair per row: the earlier period above the later one, every value written next to its bar, the change
-// written beside each pair, and a source and period line under the chart. Pure inline SVG built as a string: no chart
-// library, no script, no request. Plain ESM + JSDoc so the Astro build, the browser (/areas, the area guides) and node:test
-// share one implementation. The table beside a chart stays the text alternative; the chart repeats its values exactly.
+// Data cards (Rules 1c v6.9, "Brand data standard"; replaces the v6.6 paired-bar chart blocks). Every comparison of
+// figures on the site is shown as cards: one card per item, and inside the card the bar pair, the earlier period above
+// the current one. There is no chart outside a card. This file defines the card once, as strings, for every place that
+// draws one: /areas (both emirates), the area guide figures card and the Insights tables. The Astro component
+// components/DataCard.astro renders the same strings at build time; the browser (/areas Dubai, the Dubai guides) calls
+// the same functions. Plain ESM + JSDoc, no import, no chart library, no script, no request.
 //
-// Colours are Rules 1c tokens: earlier period Slate (--sky), later period Ink. Slate Light, the colour the rule names for
-// the earlier period, is 2.3:1 on Ivory and 2.6:1 on white, below the 3:1 a bar needs (WCAG 1.4.11); Slate is the closest
-// token that passes (4.6:1 on the white chart card, 3.4:1 against Ink). Change text is Ink for a rise and Brass Deep for a
-// fall, as on /areas. Brass is never used as text.
-//
-// The SVG has no viewBox: its user units are CSS pixels, so the 14px text never scales down on a phone. Bar lengths are
-// percentages of the chart width; the room the value and change labels need is reserved from the widest label, measured at
-// the narrowest chart (a 320px screen, minus the page and card padding).
-
-const MIN_WIDTH = 216;  // px: the narrowest chart: inside the area guide card on a 320px screen (224px), with margin
-const CHAR = 8.5;       // px: a generous width for one 14px Inter character (tabular digits are about 8.1px)
-const LINE = 20;        // px: one label line
-const BAR = 14;         // px: bar height
-const BAR_GAP = 4;      // px: between the two bars of a pair
-const ROW_GAP = 20;     // px: between rows
-const LEGEND = 28;      // px: legend height
-const WRAP = Math.floor((MIN_WIDTH - 8) / CHAR); // characters per label line
+// Look (styles/data-card.css): current period bar solid Brass, earlier period bar a 1.5px Brass Deep outline with no fill
+// (Brass on an Ink card); 10px bars with fully rounded ends; the value printed at the end of each bar and a small period
+// label at its start; no legend. Change text is Ink when up and Brass Deep when down (Ivory and Brass on Ink). No Slate,
+// Slate Light or Mono in a chart. Bar widths are fractions of the largest value in the card set, passed to CSS as --f.
+// Each chart is role="img" with an aria-label that states both values and the change; the numbers stay in text.
 
 /** @param {unknown} s */
 export const escHtml = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
@@ -54,74 +43,88 @@ export function changeAgrees(earlier, later, stated) {
   return /×/.test(String(stated)) ? Math.abs(later / earlier - (c / 100 + 1)) <= 0.1 * (c / 100 + 1) : Math.abs(actual - c) <= 1;
 }
 
-/** Splits a label into lines of at most WRAP characters, at spaces. @param {string} s */
-export function wrapLabel(s, width = WRAP) {
-  const lines = [];
-  let cur = '';
-  for (const w of String(s).split(/\s+/).filter(Boolean)) {
-    if (cur && (cur + ' ' + w).length > width) { lines.push(cur); cur = w; } else cur = cur ? `${cur} ${w}` : w;
-  }
-  if (cur) lines.push(cur);
-  return lines.length ? lines : [''];
-}
-
-const dirOf = (changeText) => {
+/** 'rise' | 'fall' | 'flat' for a change as written; anything that is not a number (e.g. "new this year") is 'flat'. */
+export const dirOf = (changeText) => {
   const c = changeValue(changeText);
   return c > 0 ? 'rise' : c < 0 ? 'fall' : 'flat';
 };
 
-/**
- * @typedef {{label: string, earlier: number, later: number, earlierText: string, laterText: string, change: string}} ChartRow
- * @typedef {{id: string, title: string, earlierLabel: string, laterLabel: string, rows: ChartRow[], caption: string}} Chart
- * caption is HTML (it may hold a source link); every other field is text and is escaped here.
- * @param {Chart} c
- * @returns {string} '' when there is no row to draw
- */
-export function renderCompareChart(c) {
-  const rows = (c?.rows ?? []).filter((r) => r && Number.isFinite(r.earlier) && Number.isFinite(r.later) && r.earlier >= 0 && r.later >= 0);
-  if (!rows.length || !c.id) return '';
-  const top = Math.max(...rows.flatMap((r) => [r.earlier, r.later]));
-  // Room for the widest value and change labels at the narrowest chart width; the bars take what is left.
-  const valueChars = Math.max(...rows.flatMap((r) => [r.earlierText.length, r.laterText.length]));
-  const changeChars = Math.max(...rows.map((r) => r.change.length));
-  const barMax = Math.max(30, Math.floor(((MIN_WIDTH - CHAR * (valueChars + changeChars) - 24) / MIN_WIDTH) * 100));
-  const pct = (v) => (top > 0 ? Math.round((v / top) * barMax * 10) / 10 : 0);
+const pos = (x) => typeof x === 'number' && Number.isFinite(x) && x > 0;
+/** A bar length as a fraction of the largest value in the card set, 0 to 1, three decimals; never a division by zero. */
+export const barFraction = (v, max) => (pos(max) && Number.isFinite(v) && v > 0 ? Math.min(1, Math.round((v / max) * 1000) / 1000) : 0);
 
-  // The two legend keys side by side when both fit the narrowest chart, else one under the other.
-  const sideBySide = 18 + CHAR * c.earlierLabel.length + 24 + 18 + CHAR * c.laterLabel.length <= MIN_WIDTH;
-  const kx = sideBySide ? 18 + CHAR * c.earlierLabel.length + 24 : 0;
-  const ky = sideBySide ? 0 : LINE;
-  let y = LEGEND + ky + 8;
-  const body = rows.map((r) => {
-    const lines = wrapLabel(r.label);
-    const label = lines.map((l, i) => `<text class="cmp-label" x="0" y="${y + 14 + i * LINE}">${escHtml(l)}</text>`).join('');
-    y += lines.length * LINE + 4;
-    const yE = y;
-    const yL = y + BAR + BAR_GAP;
-    const mid = yE + BAR + BAR_GAP / 2;
-    const bar = (yy, v, text, cls) => {
-      const w = pct(v);
-      return `<rect class="${cls}" x="0" y="${yy}" width="${w}%" height="${BAR}"></rect>`
-        + `<text class="cmp-value" x="${w}%" dx="6" y="${yy + BAR / 2}" dominant-baseline="central">${escHtml(text)}</text>`;
-    };
-    const out = `<g class="cmp-row">${label}${bar(yE, r.earlier, r.earlierText, 'cmp-earlier')}${bar(yL, r.later, r.laterText, 'cmp-later')}`
-      + `<text class="cmp-change cmp-${dirOf(r.change)}" x="100%" y="${mid}" text-anchor="end" dominant-baseline="central">${escHtml(r.change)}</text></g>`;
-    y = yL + BAR + ROW_GAP;
-    return out;
-  }).join('');
-  const height = y - ROW_GAP + 4;
-  const desc = rows.map((r) => `${r.label}: ${r.earlierText} in ${c.earlierLabel}, ${r.laterText} in ${c.laterLabel}, change ${r.change}`).join('; ');
-  const t = `${c.id}-t`;
-  const d = `${c.id}-d`;
-  return `<figure class="cmp" data-chart="compare">
-<svg class="cmp-svg" width="100%" height="${height}" role="img" aria-labelledby="${t} ${d}" focusable="false" xmlns="http://www.w3.org/2000/svg">
-<title id="${t}">${escHtml(c.title)}</title><desc id="${d}">${escHtml(desc)}.</desc>
-<g class="cmp-legend" aria-hidden="true"><rect class="cmp-earlier" x="0" y="6" width="12" height="12"></rect><text class="cmp-key" x="18" y="12" dominant-baseline="central">${escHtml(c.earlierLabel)}</text>`
-    + `<rect class="cmp-later" x="${kx}" y="${6 + ky}" width="12" height="12"></rect><text class="cmp-key" x="${kx + 18}" y="${12 + ky}" dominant-baseline="central">${escHtml(c.laterLabel)}</text></g>
-${body}
-</svg>
-<figcaption class="cmp-src">${c.caption}</figcaption>
-</figure>`;
+/**
+ * @typedef {{name: string, earlierLabel: string, laterLabel: string, earlierName?: string, laterName?: string,
+ *   earlier: number, later: number, earlierText: string, laterText: string, change: string}} Pair
+ * earlierLabel / laterLabel: the small period labels on the bars ("2025", "Q3 2025"); earlierName / laterName: the
+ * periods in full for the aria-label (default: the labels).
+ */
+
+/**
+ * The bar pair: the earlier period row above the current period row. '' when either value is not a number above zero.
+ * @param {Pair} p @param {number} max the largest value in the card set
+ */
+export function renderBars(p, max) {
+  if (!pos(p?.earlier) || !pos(p?.later) || !pos(max)) return '';
+  const label = `${p.name}: ${p.earlierText} in ${p.earlierName ?? p.earlierLabel}, ${p.laterText} in ${p.laterName ?? p.laterLabel}, change ${p.change}`;
+  const row = (cls, period, v, text) => `<div class="dc-row dc-row--${cls}"><span class="dc-period">${escHtml(period)}</span>`
+    + `<span class="dc-track"><span class="dc-bar dc-bar--${cls}" style="--f:${barFraction(v, max)}"></span><span class="dc-val">${escHtml(text)}</span></span></div>`;
+  return `<div class="dc-chart" data-chart="bars" role="img" aria-label="${escHtml(label)}">`
+    + row('earlier', p.earlierLabel, p.earlier, p.earlierText) + row('later', p.laterLabel, p.later, p.laterText) + '</div>';
+}
+
+/**
+ * One data card. Every part is optional except the name; html parts (top, src) are passed through, text is escaped.
+ * @param {{name?: string, heading?: 'h3'|'none', official?: string, rank?: {value: string, change?: string},
+ *   value?: string, valueLabel?: string, bigChange?: string, pair?: Pair|null, max?: number, foot?: {left: string, change: string, dir?: string},
+ *   top?: string, src?: string, dark?: boolean, attrs?: string, single?: boolean}} c
+ */
+export function renderDataCard(c) {
+  const parts = [];
+  if (c.top) parts.push(c.top);
+  if (c.rank) parts.push(`<p class="dc-rank" data-rank-value="${escHtml(c.rank.value)}" data-rank-change="${escHtml(c.rank.change ?? '')}">${escHtml(c.rank.value)}</p>`);
+  if (c.name && c.heading !== 'none') parts.push(`<h3 class="dc-name">${escHtml(c.name)}</h3>`);
+  if (c.official && c.official !== c.name) parts.push(`<p class="dc-official">${escHtml(c.official)}</p>`);
+  if (c.value) parts.push(`<p class="dc-value">${escHtml(c.value)}</p>`);
+  if (c.valueLabel) parts.push(`<p class="dc-value-label">${escHtml(c.valueLabel)}</p>`);
+  if (c.bigChange) parts.push(`<p class="dc-big-change dc-${dirOf(c.bigChange)}">${escHtml(c.bigChange)}</p>`);
+  const bars = c.pair ? renderBars(c.pair, c.max ?? Math.max(c.pair.earlier, c.pair.later)) : '';
+  if (bars) parts.push(bars);
+  if (c.foot) parts.push(`<p class="dc-foot"><span>${escHtml(c.foot.left)}</span><span class="dc-change dc-${c.foot.dir ?? dirOf(c.foot.change)}">${escHtml(c.foot.change)}</span></p>`);
+  if (c.src) parts.push(c.src);
+  const cls = ['dc', c.single ? 'dc--single' : '', c.dark ? 'dc--dark' : '', bars ? '' : 'dc--nochart'].filter(Boolean).join(' ');
+  return `<article class="${cls}"${c.attrs ?? ''}>${parts.join('')}</article>`;
+}
+
+/**
+ * A grid of cards. One scale for the whole set: the largest value of any pair in it. cols: 4 (/areas: 4 columns, 2 on a
+ * phone) or 2 (Insights: 2 columns, 1 on a phone).
+ * @param {Array<Parameters<typeof renderDataCard>[0]>} cards @param {{label?: string, cols?: 2|4, attrs?: string}} [o]
+ */
+export function renderCardGrid(cards, o = {}) {
+  const list = (cards ?? []).filter(Boolean);
+  if (!list.length) return '';
+  const max = setMax(list.map((c) => c.pair));
+  const label = o.label ? ` role="group" aria-label="${escHtml(o.label)}"` : '';
+  return `<div class="dc-grid dc-grid--${o.cols ?? 4}"${label}${o.attrs ?? ''}>${list.map((c) => renderDataCard({ ...c, max })).join('')}</div>`;
+}
+
+/** The largest value of any pair (0 when there is none). @param {Array<Pair|null|undefined>} pairs */
+export function setMax(pairs) {
+  const v = pairs.filter(Boolean).flatMap((p) => [p.earlier, p.later]).filter(pos);
+  return v.length ? Math.max(...v) : 0;
+}
+
+/**
+ * The order of the cards for the sort toggle: 'value' keeps the given order (sales value, highest first); 'change' puts
+ * the cards with a comparable change first, highest first ("≈N×" above percentages, ties by value order), then the rest
+ * in value order. Returns indexes into cards. @param {Array<{changeRank: [number, number]|null}>} cards @param {'value'|'change'} mode
+ */
+export function sortOrder(cards, mode) {
+  const idx = cards.map((_, i) => i);
+  if (mode !== 'change') return idx;
+  const ranked = idx.filter((i) => cards[i].changeRank).sort((a, b) => cards[b].changeRank[0] - cards[a].changeRank[0] || cards[b].changeRank[1] - cards[a].changeRank[1] || a - b);
+  return [...ranked, ...idx.filter((i) => !cards[i].changeRank)];
 }
 
 // ---- Insights: a table's optional chart spec --------------------------------------------------------------------------
@@ -174,14 +177,18 @@ export function chartRows(table, spec) {
 export const isComparisonTable = (table) => Array.isArray(table?.head) && table.head.some((h) => /\bchange\b|\bvs\b/i.test(String(h)));
 
 /**
- * The chart for an article table, or '' when it declares none. src: the block's 1-based source numbers; the first one is
- * linked in the caption as on the rest of the article.
+ * The cards for an article table, or '' when it declares no chart: one card per row (heading = the row label, the change
+ * large, the bar pair), on one scale. The table itself follows on the page, unchanged. src: the block's 1-based source
+ * numbers, linked in the source line under the cards as on the rest of the article.
  */
-export function renderTableChart(id, table, spec, src = []) {
+export function renderTableCards(id, table, spec, src = []) {
   if (!spec) return '';
+  const rows = chartRows(table, spec);
   const cite = src.length ? ` ${src.map((n) => `<a href="#src-${n}">[${n}]</a>`).join(' ')}` : '';
-  return renderCompareChart({
-    id, title: spec.title, earlierLabel: spec.earlier.label, laterLabel: spec.later.label, rows: chartRows(table, spec),
-    caption: `Source: ${escHtml(spec.source)}${cite}. ${escHtml(spec.period)}.`,
-  });
+  const cards = rows.map((r) => ({
+    name: r.label, bigChange: r.change,
+    pair: { name: r.label, earlierLabel: spec.earlier.label, laterLabel: spec.later.label, earlier: r.earlier, later: r.later, earlierText: r.earlierText, laterText: r.laterText, change: r.change },
+  }));
+  const grid = renderCardGrid(cards, { label: spec.title, cols: 2, attrs: ` id="${escHtml(id)}"` });
+  return grid ? `${grid}<p class="dc-src">Source: ${escHtml(spec.source)}${cite}. ${escHtml(spec.period)}.</p>` : '';
 }

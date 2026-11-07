@@ -23,7 +23,8 @@ test('title: no "Real Estate Consultant" anywhere in the build, and "Property Co
   for (const f of textFiles) assert.doesNotMatch(readFileSync(f, 'utf8'), /real estate consultant/i, f);
   const home = readFileSync(join(dist, 'index.html'), 'utf8');
   assert.match(home, /<title>Sharjeel Hashmat, Property Consultant · UAE<\/title>/);
-  for (const f of htmlFiles) assert.match(readFileSync(f, 'utf8'), /<span>Property Consultant · UAE<\/span>/, `${f}: footer title line`);
+  // The footer title line is part of the Brand Package lockup image (Rules 1c v6.9); its alt text carries it.
+  for (const f of htmlFiles) assert.match(readFileSync(f, 'utf8'), /<img class="lockup" src="\/logo-horizontal-ivory\.svg" alt="Sharjeel Hashmat, Property Consultant · UAE"/, `${f}: footer title line`);
   assert.match(readFileSync(join(dist, 'llms.txt'), 'utf8'), /Title: Property Consultant · UAE/);
 });
 
@@ -59,14 +60,18 @@ test('icons: no favicon.svg; ico, 32, 48 and apple-touch links; theme-color is I
   }
 });
 
-test('logo: header and footer use the ivory web lockup with alt and explicit size; the old mark is gone', () => {
+test('logo: the header uses the ivory web lockup, the footer the Brand Package lockup, with alt and explicit size; the old mark is gone', () => {
   const img = /<img class="logo" src="\/logo-web-ivory\.svg" alt="Sharjeel Hashmat" width="\d+" height="\d+"/;
+  // Footer (owner 2026-11-07, Rules 1c v6.9): logo-horizontal-ivory.svg exactly as delivered (pinned byte for byte below),
+  // shown once, cropped by CSS only.
+  const lockup = /<div class="brand brand-lockup"> <img class="lockup" src="\/logo-horizontal-ivory\.svg" alt="Sharjeel Hashmat, Property Consultant · UAE" width="2880" height="960"> <\/div>/;
   for (const f of htmlFiles) {
     const h = readFileSync(f, 'utf8');
     const header = h.match(/<header class="site-nav"[^>]*>.*?<\/header>/s)?.[0] ?? '';
     const footer = h.match(/<footer class="site-footer"[^>]*>.*?<\/footer>/s)?.[0] ?? '';
     assert.match(header, img, `${f}: header logo`);
-    assert.match(footer, img, `${f}: footer logo`);
+    assert.match(footer, lockup, `${f}: footer lockup`);
+    assert.equal((footer.match(/<img\b/g) ?? []).length, 1, `${f}: one footer image`);
     assert.doesNotMatch(h, /viewBox="0 0 34 34"/, `${f}: old Compass Key mark`);
   }
   assert.equal(existsSync(join(root, 'src/components/Mark.astro')), false, 'old mark component removed');

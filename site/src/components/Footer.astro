@@ -16,13 +16,11 @@ const social = [
   <div class="wrap">
     {LEAD_CAPTURE && <NewsletterSignup source="footer" />}
     <div class="foot-row">
-      {/* Stacked lockup (owner 2026-11-07): the title on its own line under the wordmark, starting where the "Sharjeel
-          Hashmat" text starts, with the mark centred against both lines. The approved logo file is shown twice, cropped by
-          CSS (global.css, footer lockup): once for the mark, once for the wordmark. The file itself is unchanged. */}
-      <div class="brand">
-        <div class="brand-mark" aria-hidden="true"><img class="logo" src="/logo-web-ivory.svg" alt="" width="224" height="46" /></div>
-        <div class="brand-word"><img class="logo" src="/logo-web-ivory.svg" alt="Sharjeel Hashmat" width="224" height="46" /></div>
-        <span>{SITE.title} · UAE</span>
+      {/* Brand Package lockup (owner 2026-11-07, Rules 1c v6.9): the approved logo-horizontal-ivory.svg exactly as
+          delivered (compass-key mark, "Sharjeel Hashmat" in Ivory serif, the Brass rule, "PROPERTY CONSULTANT · UAE" in
+          Brass spaced capitals), on Ink. CSS only crops the empty canvas around it (global.css, footer lockup). */}
+      <div class="brand brand-lockup">
+        <img class="lockup" src="/logo-horizontal-ivory.svg" alt={`${SITE.name}, ${SITE.title} · UAE`} width="2880" height="960" />
       </div>
       <div class="social">
         <span class="social-label">Follow</span>

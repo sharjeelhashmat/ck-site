@@ -77,7 +77,7 @@ for (const width of [1280, 360]) {
     assert.ok(await visible(p, '.mk-panel[data-emirate="dubai"]'));
     assert.ok(!(await visible(p, '.mk-panel[data-emirate="abu_dhabi"]')));
     assert.ok(await visible(p, '.mk-guides[data-emirate="dubai"]') && !(await visible(p, '.mk-guides[data-emirate="abu_dhabi"]')));
-    assert.equal(await p.locator('.mk-panel[data-emirate="dubai"] .mk-card').count(), 8);
+    assert.equal(await p.locator('.mk-panel[data-emirate="dubai"] article.dc').count(), 8);
     if (LEAD) assert.ok(await visible(p, '#mk-ask'));
     else assert.equal(await p.locator('#mk-ask').count(), 0, 'soft launch: no "Ask me" line');
     await noSideScroll(p);
@@ -133,7 +133,7 @@ for (const width of [1280, 360]) {
     const p = await page(width, { area: hills });
     await p.goto(`${base}/areas/dubai-hills`);
     await p.waitForSelector('#guide-figures:not([hidden])');
-    assert.match(await p.textContent('#guide-figures'), /AED 8\.5bn[\s\S]*4\.7% of Dubai's total[\s\S]*−14%/);
+    assert.match(await p.textContent('#guide-figures'), /AED 8\.5bn[\s\S]*4\.7% of Dubai total[\s\S]*−14%/);
     await noSideScroll(p);
     await shot(p, `guide-dubai-hills-${width}`);
     await p.close();
@@ -231,7 +231,7 @@ for (const width of [320, 375, 1280]) {
       await p.goto(`${base}${route}`);
       if (route === '/areas') {
         await p.waitForSelector('#mk-switch:not([hidden])');
-        assert.equal(await p.locator('.mk-panel[data-emirate="dubai"] .mk-card').count(), 7, 'the malformed row is dropped');
+        assert.equal(await p.locator('.mk-panel[data-emirate="dubai"] article.dc').count(), 7, 'the malformed row is dropped');
         await noBadText(p);
         await noSideScroll(p);
         await p.click('.mk-pill[data-emirate="abu_dhabi"]');
@@ -261,7 +261,7 @@ for (const width of [320, 375, 1280]) {
     const p = await ctx.newPage();
     await p.goto(`${base}/areas`);
     if ((await p.getAttribute('.mk-panel[data-emirate="abu_dhabi"]', 'data-static')) === 'yes') {
-      assert.ok(await p.locator('.mk-panel[data-emirate="abu_dhabi"] .mk-card').first().isVisible(), 'Abu Dhabi figures without JS');
+      assert.ok(await p.locator('.mk-panel[data-emirate="abu_dhabi"] article.dc').first().isVisible(), 'Abu Dhabi figures without JS');
     }
     assert.ok(await visible(p, '.mk-guides[data-emirate="dubai"]') && await visible(p, '.mk-guides[data-emirate="abu_dhabi"]'));
     await noSideScroll(p);
