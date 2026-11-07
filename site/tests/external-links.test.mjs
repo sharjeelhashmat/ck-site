@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { SOCIAL_PROFILE_URLS, WHATSAPP_OWNER_RE, disallowedExternalHrefs, externalHrefs } from '../src/lib/links.mjs';
 import { checkArticle, checkClaim } from '../src/lib/intel.mjs';
-import { renderChange, renderGuideCard, renderLaunchAbuDhabi, renderLaunchDubai, renderTop, renderYtd } from '../src/lib/market.mjs';
+import { renderGuideCard, renderLaunchAbuDhabi, renderLaunchDubai, renderTop, renderYtd } from '../src/lib/market.mjs';
 import { BUILD, leadCaptureDist } from './helpers/build-mode.mjs';
 import { claim, validArticle } from './helpers/fixtures.mjs';
 
@@ -93,8 +93,8 @@ test('source lines rendered in the browser name the source and never link it', (
   const area = { rank: 1, area: 'Saadiyat Island', label: null, value_bn: 13.3, share_pct: 18.9, change_pct: 63 };
   const ad = { period: '2026-H1', published: '2026-08-18', source_url: 'https://adrec.gov.ae/report.pdf', areas: [area] };
   const out = [
-    renderYtd('dubai', ytd), renderYtd('abu_dhabi', { ...ytd, year: 2026 }), renderTop('abu_dhabi', ad), renderChange('abu_dhabi', ad),
-    renderChange('dubai', { period: '2026-YTD09', areas: [{ ...area, change_pct: 10 }] }),
+    renderYtd('dubai', ytd), renderYtd('abu_dhabi', { ...ytd, year: 2026 }), renderTop('abu_dhabi', ad),
+    renderTop('dubai', { period: '2026-YTD09', areas: [{ ...area, change_pct: 10, prior_value_bn: 12.1 }] }),
     renderGuideCard('abu_dhabi', { ...ad, area }), renderGuideCard('dubai', { period: '2026-YTD09', dldArea: 'Saadiyat', area }),
     renderLaunchDubai({ as_of: '2026-10-30', new_projects_90d: 3, source_url: 'https://data.dubai/en/l/467654' }, '2026-11-06'),
     renderLaunchAbuDhabi({ sales_value_bn: 86.1, transaction_value_bn: 117, mortgage_value_bn: 25.5, year: 2026, as_of: '2026-10-16', source_url: 'https://adrec.gov.ae/en' }),
@@ -104,9 +104,9 @@ test('source lines rendered in the browser name the source and never link it', (
     assert.doesNotMatch(h, /<a\b|href=|https?:\/\//, h.slice(0, 120));
   }
   assert.match(out[0], /Source: Dubai Land Department, Real Estate Transactions open data via Data\.Dubai \(Open Data Licence\), 1 Jan to 9 Oct 2026\./);
-  assert.match(out[3], /Source: Abu Dhabi Real Estate Centre \(ADREC\), H1 2026 market report \(published 18 Aug 2026\)\. Residential sales value\./);
-  assert.match(out[7], /Source: Dubai Land Department, Real Estate Projects open data via Data\.Dubai \(Open Data Licence\), as of Oct 2026\./);
-  assert.match(out[8], /Source: Abu Dhabi Real Estate Centre \(ADREC\), published year-to-date figures, as of 16 Oct 2026\./);
+  assert.match(out[2], /Source: Abu Dhabi Real Estate Centre \(ADREC\), H1 2026 market report \(published 18 Aug 2026\)\. Residential sales value\./);
+  assert.match(out[6], /Source: Dubai Land Department, Real Estate Projects open data via Data\.Dubai \(Open Data Licence\), as of Oct 2026\./);
+  assert.match(out[7], /Source: Abu Dhabi Real Estate Centre \(ADREC\), published year-to-date figures, as of 16 Oct 2026\./);
 });
 
 test('Insights: each source row keeps its name, tier and dates; the URL stays in the data and is not on the page', () => {

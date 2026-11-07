@@ -45,6 +45,7 @@ test('rules: the checker catches every kind of break (self-test)', () => {
   assert.deepEqual(v('.x { font-size: clamp(1rem, 2vw, 2rem); }'), ['.x: font-size clamp(1rem, 2vw, 2rem) (only a --fs-* step, or a clamp() between two)']);
   assert.deepEqual(v('.f { font-family: var(--serif); font-weight: 600; font-size: var(--fs-body); }'), ['.f: Cormorant at var(--fs-body), below 22px']);
   assert.deepEqual(v('.f { font-family: var(--serif); font-weight: 600; font-size: var(--fs-tagline); }'), ['.f: the tagline step is Cormorant Italic']);
+  assert.deepEqual(v('.dc-name { font-family: var(--serif); font-weight: 600; font-size: var(--fs-tagline); }'), [], 'the data card heading on a phone (Coordinator review 2)');
   assert.deepEqual(v('h3 { font-size: var(--fs-small); }'), ['h3: Cormorant at var(--fs-small), below 22px']);
   assert.deepEqual(v('.x { font-size: var(--fs-heading); }'), ['.x: Inter at var(--fs-heading), a Cormorant step']);
   assert.deepEqual(violations('.mk-area { font-size: var(--fs-small); }', new Set(['mk-area'])), ['.mk-area: Cormorant at var(--fs-small), below 22px'], 'a class used on an h3');
@@ -111,7 +112,8 @@ test('rules: h1 to h3 are Cormorant 600 on the scale, the italic inside them sta
 
 test('rules: big figures are Inter 500 (stat or data), lining and tabular', () => {
   const all = sources.flatMap((s) => blocks(s.css));
-  for (const sel of ['.way-num', '.stat', '.mk-tile-value', '.mk-value', '.mk-lead']) {
+  // .dc-value and .dc-big-change: the data card figures (styles/data-card.css, Rules 1c v6.9).
+  for (const sel of ['.way-num', '.stat', '.mk-tile-value', '.dc-value', '.dc-big-change', '.mk-lead']) {
     const b = all.find((x) => x.selector === sel);
     assert.ok(b, sel);
     const f = fontOf(b.body);
@@ -119,7 +121,9 @@ test('rules: big figures are Inter 500 (stat or data), lining and tabular', () =
     assert.match(f.size, /^var\(--fs-(stat|data)\)$/, sel);
   }
   assert.match(globalCss, /\.way-num \{[^}]*font-variant-numeric: lining-nums tabular-nums;/);
-  assert.match(read(join(root, 'src/styles/market.css')), /\.mk-value, \.mk-tile-value, \.mk-lead, \.mk-rank \{ font-variant-numeric: lining-nums tabular-nums; \}/);
+  assert.match(read(join(root, 'src/styles/market.css')), /\.mk-tile-value, \.mk-lead \{ font-variant-numeric: lining-nums tabular-nums; \}/);
+  const dc = read(join(root, 'src/styles/data-card.css'));
+  for (const sel of ['dc-value', 'dc-big-change', 'dc-rank']) assert.match(dc, new RegExp(`\\.${sel} \\{[^}]*font-variant-numeric: lining-nums tabular-nums;`), sel);
 });
 
 test('rules: only the Guide\'s @fontsource files are imported', () => {

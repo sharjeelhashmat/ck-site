@@ -1,0 +1,91 @@
+/* Data cards (Rules 1c v6.9, "Brand data standard"): the one look for every chart on the site, drawn by lib/chart.mjs
+   (renderDataCard, renderCardGrid) and components/DataCard.astro. Charts live inside cards; there is no chart block of
+   its own. Active palette tokens only (global.css :root). In a chart: current period bar Brass (--gold), earlier period
+   bar a 1.5px Brass Deep outline with no fill; change text Ink up, Brass Deep down. On an Ink card (.dc--dark): earlier
+   outline Brass, change Ivory up, Brass down. No Slate, Slate Light or Mono in bars or change text
+   (tests/charts.test.mjs reads this file and fails on any other colour). Brass is never text on Ivory or white. */
+
+.dc-grid { display: grid; gap: var(--space-4); margin-top: var(--space-6); }
+/* /areas: 4 columns, 2 at 900px and below (phone included). */
+.dc-grid--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 900px) { .dc-grid--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); } }
+/* One column below 21rem (336px): a card heading never breaks inside a word (Coordinator review 2). A two-column card's
+   text is (screen - 48px page padding - 12px gap) / 2 - 32px card padding wide; the longest heading word, "Hudayriyat" at
+   22px Cormorant 600, is 96px, plus an 8px margin for font rendering = 104px, which needs a 336px screen. */
+@media (max-width: 21rem) { .dc-grid--4 { grid-template-columns: 1fr; } }
+/* Insights tables: 2 columns, 1 on a phone (the row labels are long). */
+.dc-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (max-width: 36rem) { .dc-grid--2 { grid-template-columns: 1fr; } }
+
+.dc {
+  container: dc / inline-size;
+  display: flex; flex-direction: column; min-width: 0;
+  background: var(--paper); color: var(--ink); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-4);
+}
+.dc--single { padding: var(--space-6); }
+.dc > * { margin: 0; }
+.dc-rank { font-size: var(--fs-data); line-height: var(--lh-data); letter-spacing: var(--ls-data); font-weight: 500; font-variant-numeric: lining-nums tabular-nums; }
+/* Card headings break between words only, never inside one (no overflow-wrap or word-break). On a phone they use the
+   smallest Cormorant size, 22px (Coordinator review 2, 2026-11-07). */
+.dc-name { font-size: var(--fs-heading); line-height: var(--lh-heading); letter-spacing: 0; margin-top: var(--space-1); overflow-wrap: normal; word-break: normal; hyphens: manual; font-variant-numeric: lining-nums; }
+@media (max-width: 40rem) { .dc-name { font-size: var(--fs-tagline); line-height: var(--lh-tagline); } }
+.dc-official { font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); margin-top: var(--space-1); overflow-wrap: anywhere; }
+.dc-value { font-family: var(--sans); font-weight: 500; font-size: var(--fs-stat); line-height: var(--lh-stat); letter-spacing: var(--ls-stat); margin-top: var(--space-3); font-variant-numeric: lining-nums tabular-nums; }
+.dc-grid .dc-value { font-size: var(--fs-data); line-height: var(--lh-data); letter-spacing: var(--ls-data); margin-top: auto; padding-top: var(--space-3); }
+.dc-value-label { font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); margin-top: var(--space-1); }
+.dc-big-change { font-family: var(--sans); font-weight: 500; font-size: var(--fs-stat); line-height: var(--lh-stat); letter-spacing: var(--ls-stat); margin-top: var(--space-3); font-variant-numeric: lining-nums tabular-nums; }
+
+/* The bar pair, by the card's own width (container queries):
+   wide (18rem and more): "2025 [bar] AED 14.0bn" on one line;
+   medium (12rem to 18rem): the period label on its own line, then the bar with its value at the end;
+   narrow (under 12rem, two cards a row on a phone): the period label and the value on one line, the bar under it at the
+   card's full width, so short bars still read. Bar widths: --f (0 to 1) of the room the value label leaves. Fully rounded
+   ends: --radius-sm (8px) on a 10px bar, which CSS clamps to half its height. */
+.dc-chart { display: grid; gap: var(--space-2); margin-top: auto; padding-top: var(--space-4); }
+.dc-row { display: grid; grid-template-columns: 4.25rem minmax(0, 1fr); align-items: center; column-gap: var(--space-2); }
+.dc-period, .dc-val { font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
+.dc-val { font-weight: 500; }
+.dc-track { display: flex; align-items: center; gap: var(--space-2); min-width: 0; font-size: var(--fs-small); }
+.dc-bar { flex: 0 0 auto; box-sizing: border-box; height: 10px; min-width: 4px; border-radius: var(--radius-sm); width: calc((100% - 6.5em) * var(--f, 0)); }
+.dc-bar--later { background: var(--gold); }
+.dc-bar--earlier { background: transparent; border: 1.5px solid var(--brass-deep); }
+@container dc (max-width: 18rem) {
+  .dc-row { grid-template-columns: minmax(0, 1fr); row-gap: var(--space-1); }
+}
+@container dc (max-width: 12rem) {
+  .dc-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .dc-track { display: contents; }
+  .dc-period { grid-column: 1; grid-row: 1; }
+  .dc-val { grid-column: 2; grid-row: 1; text-align: right; }
+  .dc-bar { grid-column: 1 / -1; grid-row: 2; width: calc(100% * var(--f, 0)); }
+}
+
+/* Card footer (Coordinator review 3): share text left, change right, on one line when both fit at the share text's own
+   one-line width. When they do not, the change moves to its own line, right-aligned, and the share text takes the full
+   width (wrapping only if it is wider than the card itself). Flex wrapping decides per card, from its own text. */
+.dc-foot { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 var(--space-3); margin-top: var(--space-3); font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); }
+.dc-foot > span:first-child { flex: 1 1 auto; }
+.dc-change { margin-left: auto; text-align: right; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.dc-rise, .dc-flat, .dc-none { color: var(--ink); }
+.dc-fall { color: var(--brass-deep); }
+.dc-src { font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); color: var(--ink); margin: var(--space-4) 0 0; }
+.dc > .mk-src, .dc > .dc-src { margin-top: var(--space-4); }
+.dc > .mk-chip { align-self: flex-start; margin-bottom: var(--space-3); }
+
+/* On an Ink card. */
+.dc--dark { background: var(--ink); color: var(--ivory); border-color: var(--ink); }
+.dc--dark .dc-bar--earlier { border-color: var(--gold); }
+.dc--dark .dc-rise, .dc--dark .dc-flat, .dc--dark .dc-none { color: var(--ivory); }
+.dc--dark .dc-fall { color: var(--gold); }
+
+/* The sort toggle above a card grid (/areas, Dubai). */
+.dc-sort { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin-top: var(--space-6); }
+.dc-sort-label { font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); color: var(--ink); }
+.dc-sort-buttons { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.dc-sort button {
+  min-height: 44px; padding: 0 var(--space-4); border-radius: var(--radius-md); border: 1px solid var(--ink); background: var(--paper); color: var(--ink);
+  font-family: var(--sans); font-weight: 400; font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); cursor: pointer;
+}
+.dc-sort button[aria-pressed='true'] { background: var(--ink); color: var(--ivory); }
+.dc-sort button:focus-visible { outline: 3px solid var(--ink); outline-offset: 3px; }
+.dc-src a { color: var(--ink); text-underline-offset: 3px; }

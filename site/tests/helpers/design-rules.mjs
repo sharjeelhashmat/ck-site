@@ -4,6 +4,10 @@
 //   below 22px. Inter 400 (body, labels in capitals) and Inter 500 (data, tables, big figures). No other weights.
 //   Type scale: the --fs-* tokens in global.css. Spacing: the nine --space-* steps. Corners: the five --radius-* tokens.
 
+// The one upright use of the 22px step: a data card heading on a phone (Coordinator review 2, 2026-11-07), the smallest
+// Cormorant size, so a card name never has to break inside a word.
+const TAGLINE_UPRIGHT = new Set(['.dc-name']);
+
 export const WEIGHTS = { sans: ['400', '500'], serifNormal: ['600'], serifItalic: ['400'] };
 
 // The type scale in px (global.css :root, rem x 16), and which face may use each step.
@@ -147,7 +151,7 @@ export function violations(css, serif = serifClasses(blocks(css))) {
         else if (family === 'serif') {
           if (st.some((s) => FS[s] < 22)) bad.push(`${sel}: Cormorant at ${f.size}, below 22px`);
           else if (st.some((s) => !SERIF_STEPS.includes(s))) bad.push(`${sel}: Cormorant at ${f.size}, an Inter step`);
-          else if (st.includes('tagline') && !italic) bad.push(`${sel}: the tagline step is Cormorant Italic`);
+          else if (st.includes('tagline') && !italic && !TAGLINE_UPRIGHT.has(sel)) bad.push(`${sel}: the tagline step is Cormorant Italic`);
         } else if (family === 'sans' && st.some((s) => !SANS_STEPS.includes(s))) bad.push(`${sel}: Inter at ${f.size}, a Cormorant step`);
       }
       if (family === 'serif') {
