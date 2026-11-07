@@ -176,18 +176,30 @@ export function chartRows(table, spec) {
 /** A table needs a chart when it compares: a column headed "Change" or "vs" (Rules 1c v6.6). */
 export const isComparisonTable = (table) => Array.isArray(table?.head) && table.head.some((h) => /\bchange\b|\bvs\b/i.test(String(h)));
 
+/** Whether a chart spec's figures are AED billions: its title says so, or a value column is headed "(AED bn)". */
+export const isAedBn = (table, spec) => /\bin AED (billion|bn)\b/.test(spec?.title ?? '')
+  || ['earlier', 'later'].some((k) => 'col' in (spec?.[k] ?? {}) && /\(AED bn\)/.test(String(table?.head?.[spec[k].col] ?? '')));
+
+/** A figure as the cards print it: "AED 96.5bn" for AED billions (the table's own digits), else as written. */
+export const cardFigure = (text, aed) => (aed ? `AED ${text}bn` : text);
+
 /**
  * The cards for an article table, or '' when it declares no chart: one card per row (heading = the row label, the change
- * large, the bar pair), on one scale. The table itself follows on the page, unchanged. src: the block's 1-based source
+ * large, the bar pair), on one scale. Bar values use the site's money format, "AED 96.5bn", with the table's own digits
+ * (Coordinator review 2026-11-07); the table itself follows on the page, unchanged. src: the block's 1-based source
  * numbers, linked in the source line under the cards as on the rest of the article.
  */
 export function renderTableCards(id, table, spec, src = []) {
   if (!spec) return '';
   const rows = chartRows(table, spec);
+  const aed = isAedBn(table, spec);
   const cite = src.length ? ` ${src.map((n) => `<a href="#src-${n}">[${n}]</a>`).join(' ')}` : '';
   const cards = rows.map((r) => ({
     name: r.label, bigChange: r.change,
-    pair: { name: r.label, earlierLabel: spec.earlier.label, laterLabel: spec.later.label, earlier: r.earlier, later: r.later, earlierText: r.earlierText, laterText: r.laterText, change: r.change },
+    pair: {
+      name: r.label, earlierLabel: spec.earlier.label, laterLabel: spec.later.label, earlier: r.earlier, later: r.later,
+      earlierText: cardFigure(r.earlierText, aed), laterText: cardFigure(r.laterText, aed), change: r.change,
+    },
   }));
   const grid = renderCardGrid(cards, { label: spec.title, cols: 2, attrs: ` id="${escHtml(id)}"` });
   return grid ? `${grid}<p class="dc-src">Source: ${escHtml(spec.source)}${cite}. ${escHtml(spec.period)}.</p>` : '';

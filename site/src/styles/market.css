@@ -9,10 +9,6 @@
 .mk-src a { color: var(--brass-deep); }
 .mk-label { display: block; font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); color: var(--ink); margin: var(--space-1) 0 0; }
 .mk-num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.mk-rise { color: var(--ink); }
-.mk-fall { color: var(--brass-deep); }
-.mk-flat, .mk-none { color: var(--ink); }
-.mk-change { font-weight: 500; font-variant-numeric: tabular-nums; }
 
 /* Cormorant's default old-style figures read as letters (11.1 looks like II.I): lining figures in every serif heading.
    The figures themselves are Inter, lining and tabular. */
@@ -45,19 +41,6 @@
   font-size: var(--fs-label); line-height: var(--lh-label); letter-spacing: var(--ls-label); font-weight: 400; text-transform: uppercase;
 }
 .mk-note { margin: var(--space-4) 0 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--band); border: 1px solid var(--line); font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); color: var(--ink); max-width: 46rem; }
-
-/* Change table: the card scrolls sideways, never the page */
-.mk-table-card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; }
-/* tabindex="0" in the markup lets a keyboard scroll it (axe scrollable-region-focusable), as .table-scroll does. */
-.mk-table-scroll { overflow-x: auto; }
-/* Inside the card (overflow hidden), so the focus ring is drawn inside the edge. */
-.mk-table-scroll:focus-visible { outline-offset: -3px; }
-.mk-table { width: 100%; border-collapse: collapse; font-size: var(--fs-data); line-height: var(--lh-data); letter-spacing: var(--ls-data); font-weight: 500; min-width: 30rem; }
-.mk-table th, .mk-table td { padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--line); vertical-align: top; text-align: left; }
-.mk-table th { font-size: var(--fs-label); line-height: var(--lh-label); letter-spacing: var(--ls-label); text-transform: uppercase; font-weight: 400; color: var(--ink); }
-.mk-table th.mk-num, .mk-table td.mk-num { text-align: right; }
-.mk-table tbody tr:last-child td { border-bottom: 0; }
-.mk-tarea { font-weight: 500; }
 
 .mk-ask { margin-top: var(--space-12); font-size: var(--fs-body); line-height: var(--lh-body); letter-spacing: var(--ls-body); color: var(--ink); }
 .mk-ask a { color: var(--brass-deep); }

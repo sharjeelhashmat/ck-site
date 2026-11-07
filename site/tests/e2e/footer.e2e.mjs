@@ -2,7 +2,7 @@
 // Both are Brand Package files shown once each and cropped by CSS only. From 704px: logo-horizontal-ivory.svg in a 656px
 // frame, whole ink box (x 217 to 2668, y 235 to 725 of 2880 x 960) unclipped, tagline capitals (38 units) at least 10px.
 // Below 704px: logo-stacked-ivory.svg (Brand Package v3.0 sh_stacked_ivory_transparent.svg) at the footer's full content
-// width, whole ink box (x 204 to 1396, y 374 to 1217 of 1600 x 1600) unclipped; its tagline size (26 to 27 units) is
+// width up to 360px (at most 257px tall), centred, whole ink box (x 204 to 1396, y 374 to 1217 of 1600 x 1600) unclipped; its tagline size (26 to 27 units) is
 // printed. Neither image is stretched, the page does not scroll sideways and the header lockup is unchanged. Not part of
 // `npm test`: it needs Chromium.
 //   PLAYWRIGHT=/path/to/playwright/index.mjs node tests/e2e/footer.e2e.mjs <distDir>
@@ -24,7 +24,7 @@ const sizes = [];
 let checks = 0;
 
 try {
-  for (const width of [320, 375, 703, 704, 768, 1280]) {
+  for (const width of [320, 375, 600, 703, 704, 1280]) {
     for (const p of ['/', '/about', '/insights/dubai-2026-so-far-official-numbers']) {
       const page = await browser.newPage({ viewport: { width, height: 800 } });
       await page.route(/^https:\/\//, (r) => r.abort());
@@ -41,7 +41,7 @@ try {
         const row = f.querySelector('.foot-row');
         const pad = parseFloat(getComputedStyle(row).paddingLeft) + parseFloat(getComputedStyle(row).paddingRight);
         return {
-          horizontal: one(f.querySelector('.brand-lockup')), stacked: one(f.querySelector('.brand-stacked')), row: R(row).width - pad,
+          horizontal: one(f.querySelector('.brand-lockup')), stacked: one(f.querySelector('.brand-stacked')), row: R(row).width - pad, rowLeft: R(row).left + parseFloat(getComputedStyle(row).paddingLeft),
           imgs: [...f.querySelectorAll('img')].map((x) => x.getAttribute('src')), typed: /Property Consultant · UAE/.test(f.textContent),
           scrollWidth: document.documentElement.scrollWidth, header: [...document.querySelectorAll('header.site-nav img')].map((x) => [x.getAttribute('src'), x.alt, Math.round(R(x).height)]),
         };
@@ -67,7 +67,9 @@ try {
         assert.ok(Math.abs(x.frame.width - 656) < 0.5, `${at}: frame ${x.frame.width}px`);
         assert.ok(L.caps[0] * s >= 10, `${at}: tagline capitals ${caps[0]}px`);
       } else {
-        assert.ok(Math.abs(x.frame.width - m.row) < 0.5, `${at}: frame ${x.frame.width}px, footer content ${m.row}px`);
+        assert.ok(Math.abs(x.frame.width - Math.min(m.row, 360)) < 0.5, `${at}: frame ${x.frame.width}px, footer content ${m.row}px`);
+        assert.ok(x.frame.height <= 257, `${at}: frame ${x.frame.height}px tall`);
+        assert.ok(Math.abs((x.frame.left + x.frame.right) / 2 - (m.rowLeft + m.row / 2)) < 0.5, `${at}: centred`);
       }
       if (p === '/') sizes.push(`${width}px: ${kind}, frame ${x.frame.width.toFixed(1)} x ${x.frame.height.toFixed(1)}px, tagline capitals ${caps.join(' to ')}px`);
       assert.ok(m.scrollWidth <= width, `${at}: page is ${m.scrollWidth}px wide`);

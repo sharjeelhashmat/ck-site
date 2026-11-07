@@ -13,7 +13,7 @@ import { BUILD, PERSON_IDS, leadCaptureDist } from './helpers/build-mode.mjs';
 import { decodeEntities, stripScripts, stripStyles, stripTags } from '../scripts/html-text.mjs';
 import {
   checkAdrecAreas, checkLaunchReviews, dubaiRows, formatChange, fmtDate, fmtMonth, isHalfYear, isYtd, periodLabel, priorPeriodId, rankByChange,
-  renderChange, renderGuideCard, renderLaunchPanel, renderTop, renderYtd, servedPeriod,
+  renderGuideCard, renderLaunchPanel, renderTop, renderYtd, servedPeriod,
 } from '../src/lib/market.mjs';
 import { decide } from '../src/lib/areas-page.mjs';
 
@@ -307,27 +307,31 @@ test('E: the Dubai cards sort by change (≈N× above percentages), rises Ink, f
   assert.deepEqual(cards.map((c) => c.rankValue), ['#1', '#2', '#3', '#4', '#5', '#6', '#7', '#8']);
   assert.equal(cards.find((c) => c.name === 'Majan').rankChange, '#3 by change');
   assert.match(html, /<div class="dc-sort" role="group" aria-labelledby="dc-sort-dubai"><span class="dc-sort-label" id="dc-sort-dubai">Sort by<\/span><div class="dc-sort-buttons"><button type="button" data-sort="value" aria-pressed="true">Sales value<\/button><button type="button" data-sort="change" aria-pressed="false">Change vs last year<\/button><\/div><\/div>/);
-  assert.equal(renderChange('dubai', { period: '2026-H1', areas: dubaiRows(EXPECTED_DUBAI) }), '');
+  assert.doesNotMatch(html, /<table|Change vs last year ·/);
   const css = src('src/styles/data-card.css');
   assert.match(css, /\.dc-rise, \.dc-flat, \.dc-none \{ color: var\(--ink\); \}/);
   assert.match(css, /\.dc-fall \{ color: var\(--brass-deep\); \}/);
-  // The Abu Dhabi change table keeps its colours.
-  assert.match(src('src/styles/market.css'), /\.mk-fall \{ color: var\(--brass-deep\); \}/);
 });
 
-test('E: Abu Dhabi: ≈N× text ranks first, n/p areas are left out with the note, source line names the report', () => {
+test('E: Abu Dhabi matches Dubai: one section, the Sort by toggle, ≈N× ranks first, n/p areas last with the note, both source lines', () => {
   const areas = [
     { rank: 1, area: 'Hudayriyat Island', value_bn: 19, share_pct: 27, change_text: '≈8×', guide: 'hudayriyat-island' },
-    { rank: 2, area: 'Saadiyat Island', value_bn: 13.3, share_pct: 18.9, change_pct: 63, guide: 'saadiyat-island' },
+    { rank: 2, area: 'Saadiyat Island', value_bn: 13.3, prior_value_bn: 8.2, share_pct: 18.9, change_pct: 63, guide: 'saadiyat-island' },
     { rank: 3, area: 'Al Ramhan Island', value_bn: 2.9, share_pct: 4.1, change_pct: null, guide: 'ramhan-island' },
     { rank: 4, area: 'Zayed City', value_bn: 1.9, share_pct: 2.7, change_pct: null, guide: 'zayed-city' },
   ];
-  const d = { period: '2026-H1', published: '2026-08-18', total_res_bn: 70.4, source_url: 'https://adrec.gov.ae/en/news/x', areas };
-  const html = renderChange('abu_dhabi', d);
-  assert.deepEqual([...html.matchAll(/<span class="mk-tarea">([^<]+)<\/span>/g)].map((m) => m[1]), ['Hudayriyat Island', 'Saadiyat Island']);
-  assert.match(text(html), /ADREC did not publish a year-on-year change for 2 of the top areas \(n\/p = not published\)\. They are left out of this ranking rather than estimated\./);
-  assert.match(text(html), /Source: Abu Dhabi Real Estate Centre \(ADREC\), H1 2026 market report \(published 18 Aug 2026\)\. Residential sales value\./);
-  assert.match(text(renderTop('abu_dhabi', d)), /#3 Al Ramhan Island AED 2\.9bn 4\.1% of Abu Dhabi total change n\/p/);
+  const d = { period: '2026-H1', published: '2026-08-18', total_res_bn: 70.4, source_url: 'https://adrec.gov.ae/en/news/x', chart_caption: 'Caption.', areas };
+  const html = renderTop('abu_dhabi', d);
+  assert.match(html, /<h2 id="mk-top-abu_dhabi" class="mk-h2">Top areas · Abu Dhabi<\/h2>/);
+  assert.match(html, /<div class="dc-sort" role="group" aria-labelledby="dc-sort-abu_dhabi"><span class="dc-sort-label" id="dc-sort-abu_dhabi">Sort by<\/span><div class="dc-sort-buttons"><button type="button" data-sort="value" aria-pressed="true">Sales value<\/button><button type="button" data-sort="change" aria-pressed="false">Change vs last year<\/button><\/div><\/div><div class="dc-grid dc-grid--4" data-sortable="yes">/);
+  assert.doesNotMatch(html, /<table|Change vs last year ·/, 'no separate change table');
+  const cards = [...html.matchAll(/data-order-value="(\d+)" data-order-change="(\d+)"[^>]*><p class="dc-rank" data-rank-value="([^"]*)" data-rank-change="([^"]*)">[^<]*<\/p><h3 class="dc-name">([^<]+)<\/h3>/g)]
+    .map((m) => ({ change: Number(m[2]), rankChange: m[4], name: m[5] }));
+  assert.deepEqual([...cards].sort((a, b) => a.change - b.change).map((c) => [c.name, c.rankChange]),
+    [['Hudayriyat Island', '#1 by change'], ['Saadiyat Island', '#2 by change'], ['Al Ramhan Island', ''], ['Zayed City', '']], 'n/p areas go last, without a change rank');
+  // Under the grid: the n/p note, then the two source lines as before.
+  assert.match(html, /<\/article><\/div>\n<p class="mk-src">ADREC did not publish a year-on-year change for 2 of the top areas \(n\/p = not published\)\. They are left out of this ranking rather than estimated\.<\/p>\n<p class="dc-src">Caption\.<\/p>\n<p class="mk-src">Source: Abu Dhabi Real Estate Centre \(ADREC\), H1 2026 market report \(published 18 Aug 2026\)\. Residential sales value\.<\/p>\n<\/section>$/);
+  assert.match(text(html), /#3 Al Ramhan Island AED 2\.9bn 4\.1% of Abu Dhabi total change n\/p/);
   assert.equal(rankByChange(areas).length, 2);
   // A file that is odd-sized, or points at a guide that does not exist, fails the build.
   assert.match(checkAdrecAreas({ ...d, areas: areas.slice(0, 3) }, ['hudayriyat-island', 'saadiyat-island', 'ramhan-island']).join(), /even/);
@@ -343,7 +347,7 @@ test('E: year-to-date tiles and source lines, one decimal; nothing renders witho
   const ad = text(renderYtd('abu_dhabi', { sales_bn: 86.1, total_bn: 117, mortgages_bn: 25.5, as_of: '2026-10-16', year: 2026 }));
   assert.match(ad, /2026 so far · Abu Dhabi AED 86\.1bn sales, 2026 to date AED 117\.0bn total transactions/);
   assert.match(ad, /Source: Abu Dhabi Real Estate Centre \(ADREC\), published year-to-date figures, as of 16 Oct 2026\./);
-  for (const empty of [renderYtd('dubai', null), renderTop('dubai', { period: '2026-H1', areas: [] }), renderChange('abu_dhabi', { period: '2026-H1', areas: [] }), renderLaunchPanel({ dubai: null, abu_dhabi: null }), renderGuideCard('dubai', null)]) {
+  for (const empty of [renderYtd('dubai', null), renderTop('dubai', { period: '2026-H1', areas: [] }), renderTop('abu_dhabi', { period: '2026-H1', areas: [] }), renderLaunchPanel({ dubai: null, abu_dhabi: null }), renderGuideCard('dubai', null)]) {
     assert.equal(empty, '');
   }
 });
@@ -403,7 +407,8 @@ test('E: adrec-areas.json holds exactly the figures confirmed in ADREC\'s own H1
   });
   assert.deepEqual(checkAdrecAreas(ADREC, GUIDES.filter((g) => g.emirate === 'abu_dhabi').map((g) => g.slug)), []);
   assert.match(checkAdrecAreas({ ...ADREC, areas: [{ ...ADREC.areas[0], share_pct: 25 }, ADREC.areas[1]] }, ['hudayriyat-island', 'saadiyat-island']).join(), /share_pct 25 does not match/);
-  // Rendered at build time on /areas (Abu Dhabi panel): 8 cards, the change table, the n/p note and the report line.
+  // Rendered at build time on /areas (Abu Dhabi panel): one section, 8 cards, then the n/p note, the caption and the
+  // report line (owner symmetry rule 2026-11-07: no separate change table).
   // Lead capture ends the panel at the "Ask me" line; soft launch has none, so the panel runs to the guide lists.
   const m = main('areas.html');
   const panel = m.match(/<div class="mk-panel" data-emirate="abu_dhabi"[\s\S]*?(<p class="mk-ask"|<section class="mk-guides")/)[0];
@@ -413,10 +418,9 @@ test('E: adrec-areas.json holds exactly the figures confirmed in ADREC\'s own H1
   assert.match(t, /#1 Hudayriyat Island 2025 AED 2\.4bn 2026 AED 19\.0bn 27\.0% of Abu Dhabi total ≈8×/);
   assert.match(t, /#3 Al Reem Island \+ Al Maryah Island 2025 AED 4\.2bn 2026 AED 10\.5bn 14\.9% of Abu Dhabi total \+153%/);
   assert.match(t, /#5 Al Ramhan Island AED 2\.9bn 4\.1% of Abu Dhabi total change n\/p/);
-  assert.match(t, /#8 Zayed City AED 1\.9bn 2\.7% of Abu Dhabi total change n\/p Source: Abu Dhabi Real Estate Centre \(ADREC\), H1 2026 market report\. H1 2025 values for Saadiyat, ADGM and Yas calculated from ADREC's published change; Hudayriyat as stated by ADREC\. Change vs last year/);
-  assert.match(t, /1 Hudayriyat Island AED 19\.0bn ≈8× 2 Al Reem Island \+ Al Maryah Island AED 10\.5bn \+153% 3 Yas Island AED 7\.3bn \+91% 4 Saadiyat Island AED 13\.3bn \+63%/);
-  assert.match(t, /ADREC did not publish a year-on-year change for 4 of the top areas \(n\/p = not published\)\./);
-  assert.match(t, /Source: Abu Dhabi Real Estate Centre \(ADREC\), H1 2026 market report \(published 18 Aug 2026\)\. Residential sales value\./);
+  assert.match(t, /Top areas · Abu Dhabi Jan to Jun 2026 vs Jan to Jun 2025 Abu Dhabi: Jan to Jun 2026, the latest period ADREC publishes by area\. Sort by Sales value Change vs last year #1 Hudayriyat Island/);
+  assert.match(t, /#8 Zayed City AED 1\.9bn 2\.7% of Abu Dhabi total change n\/p ADREC did not publish a year-on-year change for 4 of the top areas \(n\/p = not published\)\. They are left out of this ranking rather than estimated\. Source: Abu Dhabi Real Estate Centre \(ADREC\), H1 2026 market report\. H1 2025 values for Saadiyat, ADGM and Yas calculated from ADREC's published change; Hudayriyat as stated by ADREC\. Source: Abu Dhabi Real Estate Centre \(ADREC\), H1 2026 market report \(published 18 Aug 2026\)\. Residential sales value\.\s*(<p class="mk-ask"|<section class="mk-guides")/);
+  assert.doesNotMatch(panel, /<table|Change vs last year ·/, 'no separate change table');
   // The report is named, never linked (owner decision 2026-11-06); source_url stays in the data file as the record.
   assert.doesNotMatch(panel, /href="https:\/\/adrec\.gov\.ae/);
   // And on each Abu Dhabi guide page.

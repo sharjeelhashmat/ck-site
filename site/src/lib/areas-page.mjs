@@ -30,7 +30,7 @@ export function visibility(state, selected = state.selected) {
  * Fill the panels, decide what shows and wire the switch. Safe to call more than once: slots are replaced (never
  * appended) and the switch listeners and the resize handler are attached once per document.
  * @param {Document} doc
- * @param {{dubai: {ytd: string, top: string, change: string}, abu_dhabi: {ytd: string}}} html  rendered sections ('' = none)
+ * @param {{dubai: {ytd: string, top: string}, abu_dhabi: {ytd: string}}} html  rendered sections ('' = none)
  */
 export function initAreasPage(doc, html) {
   const panel = (e) => doc.querySelector(`.mk-panel[data-emirate="${e}"]`);

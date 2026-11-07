@@ -134,7 +134,6 @@ export function rankByChange(areas) {
 
 /** @param {number} x */
 const pct1 = (x) => `${x.toFixed(1)}%`;
-const changeSpan = (c) => `<span class="mk-change mk-${c.dir}">${esc(c.text)}</span>`;
 
 // ---- /areas section 3: year to date ----------------------------------------------------------------------------------
 
@@ -203,9 +202,11 @@ export function areaCards(emirate, period, areas) {
 // ---- /areas: top areas ------------------------------------------------------------------------------------------------
 
 /**
- * Dubai: one section, "Top areas · Dubai", with the sort toggle (Sales value, the default and the order in the markup;
- * Change vs last year) over one grid of the 8 cards (lib/card-sort.mjs reorders them). Abu Dhabi: the cards for ADREC's
- * period with the approved chart caption under the grid; its change table follows in renderChange.
+ * One section per emirate, the same for both (owner symmetry rule, 2026-11-07): "Top areas · <emirate>", the period chip
+ * and sentence, the Sort by toggle (Sales value, the default and the order in the markup; Change vs last year) over one
+ * grid of the cards (lib/card-sort.mjs reorders them), then the notes and source lines. There is no separate change
+ * table: the cards carry the change. Abu Dhabi: the n/p note, the approved chart caption and the report line under the
+ * grid; in change order the n/p areas go last, without a change rank.
  * @param {'dubai'|'abu_dhabi'} emirate
  * @param {{period: string, areas: AreaRow[], published?: string|null, chart_caption?: string}} d
  */
@@ -221,52 +222,26 @@ export function renderTop(emirate, d) {
   const note = emirate === 'dubai'
     ? (isYtd(d.period) ? `<p class="mk-note">Dubai: ${esc(label)} against the same months of ${esc(String(parsePeriod(d.period).year - 1))}, from DLD open data, updated weekly.</p>` : '')
     : `<p class="mk-note">Abu Dhabi: ${esc(label)}, the latest period ADREC publishes by area.</p>`;
+  const sort = cards.some((c) => c.rank.change)
+    ? `<div class="dc-sort" role="group" aria-labelledby="dc-sort-${emirate}"><span class="dc-sort-label" id="dc-sort-${emirate}">Sort by</span><div class="dc-sort-buttons">`
+      + `<button type="button" data-sort="value" aria-pressed="true">Sales value</button><button type="button" data-sort="change" aria-pressed="false">Change vs last year</button></div></div>`
+    : '';
+  let after;
   if (emirate === 'dubai') {
-    const sort = charted || cards.some((c) => c.rank.change)
-      ? `<div class="dc-sort" role="group" aria-labelledby="dc-sort-dubai"><span class="dc-sort-label" id="dc-sort-dubai">Sort by</span><div class="dc-sort-buttons">`
-        + `<button type="button" data-sort="value" aria-pressed="true">Sales value</button><button type="button" data-sort="change" aria-pressed="false">Change vs last year</button></div></div>`
+    after = `<p class="mk-src">Source: Dubai Land Department, Real Estate Transactions open data via Data.Dubai (Open Data Licence). Residential sales value. Area names as registered by DLD.</p>`;
+  } else {
+    const missing = cards.filter((c) => !c.rank.change).length;
+    const np = missing > 0
+      ? `<p class="mk-src">ADREC did not publish a year-on-year change for ${missing} of the top areas (n/p = not published). They are left out of this ranking rather than estimated.</p>\n`
       : '';
-    return `<section class="mk-block" aria-labelledby="mk-top-dubai">
-<h2 id="mk-top-dubai" class="mk-h2">Top areas · Dubai</h2>
+    const caption = charted && d.chart_caption ? `<p class="dc-src">${esc(d.chart_caption)}</p>\n` : '';
+    after = `${np}${caption}<p class="mk-src">Source: Abu Dhabi Real Estate Centre (ADREC), ${esc(reportName(d.period))} market report${d.published ? ` (published ${esc(fmtDate(d.published))})` : ''}. Residential sales value.</p>`;
+  }
+  return `<section class="mk-block" aria-labelledby="mk-top-${emirate}">
+<h2 id="mk-top-${emirate}" class="mk-h2">Top areas · ${EMIRATES[emirate]}</h2>
 <p class="mk-chip">${esc(label)} vs ${esc(prior)}</p>${note}
 ${sort}${renderCardGrid(cards, { cols: 4, attrs: ' data-sortable="yes"' })}
-<p class="mk-src">Source: Dubai Land Department, Real Estate Transactions open data via Data.Dubai (Open Data Licence). Residential sales value. Area names as registered by DLD.</p>
-</section>`;
-  }
-  const caption = charted && d.chart_caption ? `<p class="dc-src">${esc(d.chart_caption)}</p>` : '';
-  return `<section class="mk-block" aria-labelledby="mk-top-${emirate}">
-<h2 id="mk-top-${emirate}" class="mk-h2">Top areas by sales value · ${EMIRATES[emirate]}</h2>
-<p class="mk-chip">${esc(label)} vs ${esc(prior)}</p>${note}
-${renderCardGrid(cards, { cols: 4 })}${caption}
-</section>`;
-}
-
-/**
- * Abu Dhabi's change table (its cards and their charts are in renderTop, directly above). Dubai has no separate change
- * section: its cards sort by change in renderTop, so this returns ''.
- * @param {'dubai'|'abu_dhabi'} emirate
- * @param {{period: string, areas: AreaRow[], published?: string|null, chart_caption?: string}} d
- */
-export function renderChange(emirate, d) {
-  if (emirate !== 'abu_dhabi') return '';
-  const areas = (d?.areas ?? []).filter((a) => a.value_bn > 0);
-  const ranked = rankByChange(areas);
-  if (!ranked.length || !parsePeriod(d.period)) return '';
-  const missing = areas.length - ranked.length;
-  // Rules 1c v6.9: the comparison is charted in the cards above (renderTop). With no prior-period value for any area the
-  // table records the gap in data-chart-gap, which tests/charts.test.mjs reads.
-  const charted = areas.some((a) => pos(a.prior_value_bn));
-  const rows = ranked.map(({ a, c }, i) => `<tr><td class="mk-num">${i + 1}</td><td><span class="mk-tarea">${esc(a.area)}</span>${a.label ? `<span class="mk-label">${esc(a.label)}</span>` : ''}</td><td class="mk-num">${fmtBn(a.value_bn)}</td><td class="mk-num">${changeSpan(c)}</td></tr>`).join('');
-  const np = missing > 0
-    ? `<p class="mk-src">ADREC did not publish a year-on-year change for ${missing} of the top areas (n/p = not published). They are left out of this ranking rather than estimated.</p>`
-    : '';
-  const source = `Source: Abu Dhabi Real Estate Centre (ADREC), ${esc(reportName(d.period))} market report${d.published ? ` (published ${esc(fmtDate(d.published))})` : ''}. Residential sales value.`;
-  return `<section class="mk-block" aria-labelledby="mk-chg-${emirate}">
-<h2 id="mk-chg-${emirate}" class="mk-h2">Change vs last year · ${EMIRATES[emirate]}</h2>
-<div class="mk-table-card"${charted ? ' data-charted-by="cards"' : GAP}><div class="mk-table-scroll" tabindex="0"><table class="mk-table">
-<thead><tr><th scope="col" class="mk-num">#</th><th scope="col">Area</th><th scope="col" class="mk-num">Sales value</th><th scope="col" class="mk-num">Change</th></tr></thead>
-<tbody>${rows}</tbody></table></div></div>
-${np}<p class="mk-src">${source}</p>
+${after}
 </section>`;
 }
 

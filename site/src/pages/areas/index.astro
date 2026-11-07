@@ -10,13 +10,12 @@ import '../../styles/market.css';
 import '../../styles/data-card.css';
 import DataCard from '../../components/DataCard.astro';
 import { ADREC, DUBAI_PERIOD, guidesFor, type Emirate } from '../../lib/area-guides';
-import { EMIRATES, renderChange, renderTop } from '../../lib/market.mjs';
+import { EMIRATES, renderTop } from '../../lib/market.mjs';
 import { SITE } from '../../lib/site';
 import { LEAD_CAPTURE } from '../../lib/golive';
 
 const adData = { period: ADREC.period, published: ADREC.published, source_url: ADREC.source_url, chart_caption: ADREC.chart_caption, areas: ADREC.areas.map((a) => ({ ...a, label: null })) };
 const adTop = renderTop('abu_dhabi', adData);
-const adChange = renderChange('abu_dhabi', adData);
 const emirates: Emirate[] = ['dubai', 'abu_dhabi'];
 ---
 <Base title="Areas: Dubai and Abu Dhabi" description="Where Dubai and Abu Dhabi property money is going: top areas by residential sales value, change against last year, and area guides. From official records.">
@@ -42,13 +41,11 @@ const emirates: Emirate[] = ['dubai', 'abu_dhabi'];
       <div class="mk-panel" data-emirate="dubai" hidden>
         <div data-slot="ytd"></div>
         <div data-slot="top"></div>
-        <div data-slot="change"></div>
       </div>
       {/* The build-time Abu Dhabi figures are visible in the markup; the script only hides them if the switch picks Dubai. */}
       <div class="mk-panel" data-emirate="abu_dhabi" hidden={!adTop} data-static={adTop ? 'yes' : 'no'}>
         <div data-slot="ytd"></div>
         <div data-slot="top"><DataCard html={adTop} /></div>
-        <div data-slot="change"><DataCard html={adChange} /></div>
       </div>
       {/* Soft launch (LEAD_CAPTURE false): no "Ask me" line; lib/areas-page.mjs skips a missing #mk-ask. */}
       {LEAD_CAPTURE && <p class="mk-ask" id="mk-ask" hidden>Want to know what these numbers mean for a specific unit? <a href="/contact">Ask me.</a></p>}
@@ -68,7 +65,7 @@ const emirates: Emirate[] = ['dubai', 'abu_dhabi'];
 </Base>
 
 <script>
-  import { dubaiRows, renderChange, renderTop, renderYtd, servedPeriod } from '../../lib/market.mjs';
+  import { dubaiRows, renderTop, renderYtd, servedPeriod } from '../../lib/market.mjs';
   import { initAreasPage } from '../../lib/areas-page.mjs';
   import { initCardSort } from '../../lib/card-sort.mjs';
 
@@ -78,7 +75,10 @@ const emirates: Emirate[] = ['dubai', 'abu_dhabi'];
   const get = (path: string) =>
     fetch(`${worker}${path}`, { signal: AbortSignal.timeout(8000) }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
 
-  const NONE = { dubai: { ytd: '', top: '', change: '' }, abu_dhabi: { ytd: '' } };
+  // The Sort by toggles: bound now (Abu Dhabi's cards are in the markup), and the Dubai cards use the same handler once
+  // they arrive.
+  initCardSort(document);
+  const NONE = { dubai: { ytd: '', top: '' }, abu_dhabi: { ytd: '' } };
   Promise.all([get(`/market/areas?period=${encodeURIComponent(period)}`), get('/market/launches')])
     .then(([areas, launches]) => {
       const dubai = areas?.dubai ?? null;
@@ -89,7 +89,6 @@ const emirates: Emirate[] = ['dubai', 'abu_dhabi'];
         dubai: {
           ytd: renderYtd('dubai', dubai?.ytd ?? null),
           top: dubaiData ? renderTop('dubai', dubaiData) : '',
-          change: dubaiData ? renderChange('dubai', dubaiData) : '',
         },
         abu_dhabi: {
           ytd: renderYtd('abu_dhabi', ad ? { sales_bn: ad.sales_value_bn, total_bn: ad.transaction_value_bn, mortgages_bn: ad.mortgage_value_bn, as_of: ad.as_of, year: ad.year } : null),
@@ -98,6 +97,5 @@ const emirates: Emirate[] = ['dubai', 'abu_dhabi'];
     })
     // A response that cannot be read or rendered leaves the page as built (Abu Dhabi figures, every guide), never half-set.
     .catch(() => NONE)
-    .then((html) => initAreasPage(document, html))
-    .then(() => initCardSort(document));
+    .then((html) => initAreasPage(document, html));
 </script>

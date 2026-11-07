@@ -10,10 +10,10 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { barFraction, changeAgrees, changeValue, chartRows, checkChartSpec, figure, isComparisonTable, renderBars, renderCardGrid, renderDataCard, renderTableCards, sortOrder } from '../src/lib/chart.mjs';
+import { barFraction, cardFigure, changeAgrees, changeValue, chartRows, checkChartSpec, figure, isComparisonTable, renderBars, renderCardGrid, renderDataCard, renderTableCards, sortOrder } from '../src/lib/chart.mjs';
 import { applySort } from '../src/lib/card-sort.mjs';
 import { checkArticle } from '../src/lib/intel.mjs';
-import { checkAdrecAreas, dubaiRows, fmtBn, formatChange, renderChange, renderGuideCard, renderTop } from '../src/lib/market.mjs';
+import { checkAdrecAreas, dubaiRows, fmtBn, formatChange, renderGuideCard, renderTop } from '../src/lib/market.mjs';
 import { validArticle } from './helpers/fixtures.mjs';
 import { decodeEntities } from '../scripts/html-text.mjs';
 
@@ -97,6 +97,10 @@ test('chart: figures and changes are read as written', () => {
   assert.equal(changeAgrees(96.5, 107.5, '+11%'), true);
   assert.equal(changeAgrees(96.5, 107.5, '+15%'), false);
   assert.equal(changeAgrees(2.3, 19.0, '≈8×'), true);
+  assert.equal(cardFigure('96.5', true), 'AED 96.5bn');
+  assert.equal(cardFigure('5.97', true), 'AED 5.97bn', 'the table\'s own digits');
+  assert.equal(cardFigure('96.5', false), '96.5');
+  assert.equal(figure(cardFigure('5.97', true)), 5.97);
 });
 
 // ---------- the sort toggle (a DOM test on a small fake document) ----------
@@ -151,12 +155,31 @@ test('toggle: a card with no comparable change ("new this year") goes last in ch
   assert.equal(last.rank.textContent, '');
 });
 
+test('toggle: Abu Dhabi (built page) sorts the same way; the n/p areas go last with their rank label hidden', () => {
+  const h = readFileSync(join(dist, 'areas.html'), 'utf8');
+  const panel = h.slice(h.indexOf('<div class="mk-panel" data-emirate="abu_dhabi"'), h.indexOf('<section class="mk-guides"'));
+  assert.match(panel, /<h2 id="mk-top-abu_dhabi" class="mk-h2">Top areas · Abu Dhabi<\/h2>/);
+  const s = fakeSection(panel);
+  const names = () => s.grid.children.map((c) => c.name);
+  const value = ['Hudayriyat Island', 'Saadiyat Island', 'Al Reem Island + Al Maryah Island', 'Yas Island', 'Al Ramhan Island', 'Al Fahid Island', 'Ghadeer Al Tayr', 'Zayed City'];
+  assert.deepEqual(names(), value, 'no script: value order');
+  applySort(s, 'change');
+  assert.deepEqual(names(), ['Hudayriyat Island', 'Al Reem Island + Al Maryah Island', 'Yas Island', 'Saadiyat Island', 'Al Ramhan Island', 'Al Fahid Island', 'Ghadeer Al Tayr', 'Zayed City']);
+  assert.deepEqual(s.grid.children.map((c) => [c.rank.textContent, c.rank.hidden]), [
+    ['#1 by change', false], ['#2 by change', false], ['#3 by change', false], ['#4 by change', false], ['', true], ['', true], ['', true], ['', true],
+  ]);
+  assert.deepEqual(s.buttons.map((b) => b.getAttribute('aria-pressed')), ['false', 'true']);
+  applySort(s, 'value');
+  assert.deepEqual(names(), value);
+  assert.deepEqual(s.grid.children.map((c) => [c.rank.textContent, c.rank.hidden]), value.map((_, i) => [`#${i + 1}`, false]));
+});
+
 // ---------- /areas and the area guides ----------
 
 test('/areas Dubai: one section, 8 cards; card values are the Worker values; common name over the DLD name; one scale', () => {
   const h = liveTop();
   assert.match(h, /<h2 id="mk-top-dubai" class="mk-h2">Top areas · Dubai<\/h2>/);
-  assert.equal(renderChange('dubai', { period: LIVE.period, areas: dubaiRows(LIVE) }), '', 'the change section is merged into the cards');
+  assert.doesNotMatch(h, /<table|Change vs last year ·/, 'the change section is merged into the cards');
   const cards = cardsOf(h);
   assert.equal(cards.length, 8);
   const max = Math.max(...LIVE.dubai.top8.flatMap((a) => [a.value_bn, a.prior_value_bn]));
@@ -235,7 +258,7 @@ test('guard: Abu Dhabi charts draw exactly where adrec-areas.json has prior_valu
       assert.deepEqual(texts(cards[i], 'dc-value'), [fmtBn(a.value_bn)], a.area);
     }
   });
-  assert.match(panel, /<\/article><\/div><p class="dc-src">Source: Abu Dhabi Real Estate Centre \(ADREC\), H1 2026 market report\. H1 2025 values for Saadiyat, ADGM and Yas calculated from ADREC&#39;s published change; Hudayriyat as stated by ADREC\.<\/p>/, 'the approved caption under the grid, plain text');
+  assert.match(panel, /<\/article><\/div>\n<p class="mk-src">ADREC did not publish a year-on-year change for 4 of the top areas \(n\/p = not published\)\. They are left out of this ranking rather than estimated\.<\/p>\n<p class="dc-src">Source: Abu Dhabi Real Estate Centre \(ADREC\), H1 2026 market report\. H1 2025 values for Saadiyat, ADGM and Yas calculated from ADREC&#39;s published change; Hudayriyat as stated by ADREC\.<\/p>\n<p class="mk-src">Source: Abu Dhabi Real Estate Centre \(ADREC\), H1 2026 market report \(published 18 Aug 2026\)\. Residential sales value\.<\/p>/, 'the n/p note, the approved caption (plain text) and the report line under the grid');
   // H1 2025 values appear only inside the charts.
   // (Hudayriyat's H1 2025, AED 2.4bn, is also Ghadeer Al Tayr's H1 2026 value, so this is checked card by card.)
   adrec.areas.forEach((a, i) => {
@@ -243,8 +266,7 @@ test('guard: Abu Dhabi charts draw exactly where adrec-areas.json has prior_valu
     const outside = cards[i].replace(/<div class="dc-chart"[\s\S]*?<\/div><\/div>/, '');
     assert.equal(outside.includes(fmtBn(a.prior_value_bn)), false, `${a.area}: H1 2025 only in the chart`);
   });
-  const table = panel.slice(panel.indexOf('<table'), panel.indexOf('</table>'));
-  assert.deepEqual([...table.matchAll(/AED [\d.]+bn/g)].map((m) => m[0]).sort(), withPrior.map((a) => fmtBn(a.value_bn)).sort(), 'the change table shows H1 2026 values only');
+  assert.doesNotMatch(panel, /<table|Change vs last year ·/, 'no separate change table (owner symmetry rule)');
   // Each Abu Dhabi guide: a chart and one source line (the caption) with a prior value; no chart, the gap and the report
   // line without one.
   for (const a of adrec.areas) {
@@ -353,7 +375,9 @@ test('build: each Insights comparison table has its cards above it, one per row,
       cards.forEach((c, i) => {
         assert.deepEqual(texts(c, 'dc-name'), [rows[i].label], 'heading = the row label');
         assert.deepEqual(texts(c, 'dc-big-change'), [b.table.rows[i][b.chart.change]], 'the change, large, as the table writes it');
-        assert.deepEqual(texts(c, 'dc-val'), [rows[i].earlierText, rows[i].laterText]);
+        // The site's money format with the table's own digits: "AED 96.5bn" (Coordinator review 2026-11-07).
+        assert.deepEqual(texts(c, 'dc-val'), [`AED ${rows[i].earlierText}bn`, `AED ${rows[i].laterText}bn`]);
+        assert.deepEqual(texts(c, 'dc-val').map(figure), [rows[i].earlier, rows[i].later], 'the same figures as the table');
         assert.deepEqual(texts(c, 'dc-period'), [b.chart.earlier.label, b.chart.later.label]);
       });
       for (const [side, s] of [['earlier', b.chart.earlier], ['later', b.chart.later]]) {
@@ -400,7 +424,22 @@ test('guard: no comparison table on any built page ships without its cards (or a
       if (gap) assert.equal(adHasPrior, false, `${f}: adrec-areas.json has prior_value_bn, so the table needs its cards`);
     }
   }
-  assert.ok(tables >= 3, `${tables} comparison tables (2 Insights, /areas Abu Dhabi)`);
+  assert.equal(tables, 2, `${tables} comparison tables: the 2 in the November Insights article`);
+});
+
+test('guard: no comparison table section outside an Insights article: /areas compares in its cards only', () => {
+  for (const f of htmlFiles()) {
+    const rel = f.slice(dist.length);
+    const h = readFileSync(f, 'utf8');
+    assert.doesNotMatch(h, /Change vs last year ·|class="mk-table/, `${rel}: a separate change section`);
+    if (rel.startsWith('/insights/')) continue;
+    for (const m of h.matchAll(/<table[\s\S]*?<\/thead>/g)) {
+      const head = [...m[0].matchAll(/<th[^>]*>([^<]*)</g)].map((x) => x[1]);
+      assert.equal(isComparisonTable({ head }), false, `${rel}: comparison table (${head.join(', ')}) outside an article`);
+    }
+  }
+  // The browser-rendered Dubai section has none either.
+  assert.doesNotMatch(liveTop(), /<table/);
 });
 
 /** Every chart in a stretch of HTML must sit inside a data card. Returns the offending positions. */

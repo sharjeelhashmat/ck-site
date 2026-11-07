@@ -108,9 +108,9 @@ try {
         }));
         assert.deepEqual(grids[0].cards, ['+11%', '−33%', '−46%', '−25%']);
         assert.deepEqual(grids[0].cards, grids[0].table.map((r) => r[3]), 'quarter card changes are the table changes');
-        assert.deepEqual(grids[0].later, grids[0].table.map((r) => r[2]), 'quarter card 2026 values are the table values');
+        assert.deepEqual(grids[0].later, grids[0].table.map((r) => `AED ${r[2]}bn`), 'quarter card 2026 values are the table values, as AED bn');
         assert.deepEqual(grids[1].cards, grids[1].table.map((r) => r[2]), 'Q3 card changes are the table changes');
-        assert.deepEqual(grids[1].later, grids[1].table.map((r) => r[1]), 'Q3 card values are the table values');
+        assert.deepEqual(grids[1].later, grids[1].table.map((r) => `AED ${r[1]}bn`), 'Q3 card values are the table values, as AED bn');
         checks++;
       }
       if (p === '/areas/saadiyat-island') {
@@ -140,19 +140,19 @@ try {
       else assert.equal(await page.locator('.mk-panel[data-emirate="dubai"] article.dc[data-chart-gap="prior-period-not-in-data"]').count(), 8);
       // The sort toggle: value order without a click; change order with "#n by change"; back again; keyboard too.
       assert.deepEqual(await names(page, 'dubai'), VALUE_ORDER);
-      const pressed = () => page.$$eval('.dc-sort button', (b) => b.map((x) => [x.textContent, x.getAttribute('aria-pressed')]));
+      const pressed = () => page.$$eval('.mk-panel[data-emirate="dubai"] .dc-sort button', (b) => b.map((x) => [x.textContent, x.getAttribute('aria-pressed')]));
       assert.deepEqual(await pressed(), [['Sales value', 'true'], ['Change vs last year', 'false']]);
-      await page.click('.dc-sort button[data-sort="change"]');
+      await page.click('.mk-panel[data-emirate="dubai"] .dc-sort button[data-sort="change"]');
       assert.deepEqual(await names(page, 'dubai'), CHANGE_ORDER);
       assert.deepEqual(await page.$$eval('.mk-panel[data-emirate="dubai"] .dc-rank', (r) => r.map((x) => x.textContent)), CHANGE_ORDER.map((_, i) => `#${i + 1} by change`));
       assert.deepEqual(await pressed(), [['Sales value', 'false'], ['Change vs last year', 'true']]);
       await noSideScroll(page, `/areas Dubai by change prior=${prior}`, width);
       if (prior) await cardsFit(page, '/areas Dubai by change');
-      await page.focus('.dc-sort button[data-sort="value"]');
+      await page.focus('.mk-panel[data-emirate="dubai"] .dc-sort button[data-sort="value"]');
       await page.keyboard.press('Enter');
       assert.deepEqual(await names(page, 'dubai'), VALUE_ORDER, 'Enter on "Sales value" restores value order');
       assert.deepEqual(await page.$$eval('.mk-panel[data-emirate="dubai"] .dc-rank', (r) => r.map((x) => x.textContent)), VALUE_ORDER.map((_, i) => `#${i + 1}`));
-      await page.focus('.dc-sort button[data-sort="change"]');
+      await page.focus('.mk-panel[data-emirate="dubai"] .dc-sort button[data-sort="change"]');
       await page.keyboard.press('Space');
       assert.deepEqual(await names(page, 'dubai'), CHANGE_ORDER, 'Space on "Change vs last year"');
       checks++;
@@ -161,7 +161,21 @@ try {
       // Abu Dhabi (adrec-areas.json prior_value_bn, owner decision 2026-11-07): four cards with a chart, four without.
       assert.equal(await page.locator('.mk-panel[data-emirate="abu_dhabi"] .dc-chart').count(), 4, '/areas Abu Dhabi charts');
       assert.equal(await page.locator('.mk-panel[data-emirate="abu_dhabi"] article.dc[data-chart-gap]').count(), 4);
+      assert.equal(await page.locator('.mk-panel[data-emirate="abu_dhabi"] table').count(), 0, 'no separate change table');
       await cardsFit(page, '/areas Abu Dhabi');
+      // The same toggle as Dubai: change order puts the n/p areas last with no change rank.
+      const AD_VALUE = ['Hudayriyat Island', 'Saadiyat Island', 'Al Reem Island + Al Maryah Island', 'Yas Island', 'Al Ramhan Island', 'Al Fahid Island', 'Ghadeer Al Tayr', 'Zayed City'];
+      assert.deepEqual(await names(page, 'abu_dhabi'), AD_VALUE);
+      await page.click('.mk-panel[data-emirate="abu_dhabi"] .dc-sort button[data-sort="change"]');
+      assert.deepEqual(await names(page, 'abu_dhabi'), ['Hudayriyat Island', 'Al Reem Island + Al Maryah Island', 'Yas Island', 'Saadiyat Island', 'Al Ramhan Island', 'Al Fahid Island', 'Ghadeer Al Tayr', 'Zayed City']);
+      assert.deepEqual(await page.$$eval('.mk-panel[data-emirate="abu_dhabi"] .dc-rank', (r) => r.map((x) => (x.hidden ? '' : x.textContent))), ['#1 by change', '#2 by change', '#3 by change', '#4 by change', '', '', '', '']);
+      assert.deepEqual(await page.$$eval('.mk-panel[data-emirate="abu_dhabi"] .dc-sort button', (b) => b.map((x) => x.getAttribute('aria-pressed'))), ['false', 'true']);
+      await noSideScroll(page, '/areas Abu Dhabi by change', width);
+      await page.focus('.mk-panel[data-emirate="abu_dhabi"] .dc-sort button[data-sort="value"]');
+      await page.keyboard.press('Enter');
+      assert.deepEqual(await names(page, 'abu_dhabi'), AD_VALUE);
+      // The Dubai panel's order is untouched by the Abu Dhabi toggle.
+      assert.deepEqual(await names(page, 'dubai'), CHANGE_ORDER);
       await ctx.close();
     }
     // A Dubai guide: one card with the pair when the Worker sends the prior period.

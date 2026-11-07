@@ -16,7 +16,8 @@ import { FIELD_MESSAGES, MESSAGES, outcomeFor, sendLead, turnstileGate, validate
 import { CHOOSE_ONE, MESSAGES as PROFILE_MESSAGES, profileProblems } from '../src/lib/profile-submit.mjs';
 import { turnstileLoader, TURNSTILE_SRC } from '../src/lib/turnstile.mjs';
 import { decide, initAreasPage, visibility } from '../src/lib/areas-page.mjs';
-import { dubaiRows, renderChange, renderTop, renderYtd } from '../src/lib/market.mjs';
+import * as market from '../src/lib/market.mjs';
+import { dubaiRows, renderTop, renderYtd } from '../src/lib/market.mjs';
 import { toE164 } from '../src/lib/phone.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -185,7 +186,9 @@ test('H11: the build-time Abu Dhabi panel is visible in the markup; the fetch ch
   assert.match(h.slice(h.indexOf(tag)), /<article class="dc[ "]/);
   assert.match(h.match(/<div class="mk-panel" data-emirate="dubai"[^>]*>/)[0], /\shidden/, 'the Dubai panel waits for its data');
   const page = src('src/pages/areas/index.astro');
-  assert.match(page, /\.catch\(\(\) => NONE\)\n\s*\.then\(\(html\) => initAreasPage\(document, html\)\)\n\s*\.then\(\(\) => initCardSort\(document\)\);/);
+  assert.match(page, /\.catch\(\(\) => NONE\)\n\s*\.then\(\(html\) => initAreasPage\(document, html\)\);/);
+  // The Sort by toggles are bound before the fetch: the Abu Dhabi cards are in the markup and must not wait for it.
+  assert.ok(page.indexOf('initCardSort(document);') < page.indexOf('Promise.all('), 'initCardSort runs first');
 });
 
 test('H11: dubaiRows drops malformed rows; nothing renders as NaN or undefined', () => {
@@ -203,8 +206,9 @@ test('H11: dubaiRows drops malformed rows; nothing renders as NaN or undefined',
   assert.deepEqual(dubaiRows({ dubai: { top8: 'nope' } }), []);
   assert.deepEqual(dubaiRows(null), []);
   const d = { period: '2026-H1', areas: rows };
-  // Dubai is one section (Rules 1c v6.9): renderTop draws the cards for both orders, renderChange draws nothing.
-  assert.equal(renderChange('dubai', d), '');
+  // One section per emirate (Rules 1c v6.9, owner symmetry rule): renderTop draws the cards for both orders; there is no
+  // separate change section any more.
+  assert.equal('renderChange' in market, false);
   for (const html of [renderTop('dubai', d), renderTop('dubai', { ...d, areas: rows.map((r) => ({ ...r, prior_value_bn: 9.1 })) })]) {
     assert.ok(html.length > 100);
     assert.doesNotMatch(html, /NaN|undefined|null/);
