@@ -85,6 +85,26 @@ const cardsFit = async (page, label) => {
   }
   checks++;
 };
+// Coordinator review 2: a card heading never breaks inside a word. For each word of each visible .dc-name, all of its
+// line boxes share one top (a word split across lines has two), and the heading does not overflow its card.
+const headingsWhole = async (page, label) => {
+  const bad = await page.$$eval('.dc-name', (hs) => hs.filter((h) => h.getBoundingClientRect().width > 0).flatMap((h) => {
+    const out = [];
+    const node = h.firstChild;
+    const text = node?.textContent ?? '';
+    for (const m of text.matchAll(/\S+/g)) {
+      const r = document.createRange();
+      r.setStart(node, m.index);
+      r.setEnd(node, m.index + m[0].length);
+      const tops = new Set([...r.getClientRects()].filter((q) => q.width > 0).map((q) => Math.round(q.top)));
+      if (tops.size > 1) out.push(`"${m[0]}" split in "${text}"`);
+    }
+    if (h.scrollWidth > h.clientWidth + 1) out.push(`"${text}" overflows its card`);
+    return out;
+  }));
+  assert.deepEqual(bad, [], `${label}: card headings`);
+  checks++;
+};
 const names = (page, panel) => page.$$eval(`.mk-panel[data-emirate="${panel}"] .dc-grid .dc-name`, (h) => h.map((x) => x.textContent));
 
 try {
@@ -186,6 +206,27 @@ try {
       assert.deepEqual(await page.$$eval('#guide-figures .dc-val', (t) => t.map((x) => x.textContent)), ['AED 18.0bn', 'AED 9.0bn']);
       assert.deepEqual(await page.$$eval('#guide-figures .dc-official', (t) => t.map((x) => x.textContent)), ['DLD: Marsa Dubai']);
       await cardsFit(page, '/areas/dubai-marina');
+      await ctx.close();
+    }
+  }
+  // Card headings at phone widths: /areas (Dubai from the Worker fixture, then Abu Dhabi) and the November article.
+  for (const width of [320, 375, 414]) {
+    {
+      const { page, ctx } = await open('/areas', width);
+      await page.waitForSelector('.mk-panel[data-emirate="dubai"]:not([hidden]) .dc-grid');
+      assert.equal(await page.$eval('.dc-name', (h) => getComputedStyle(h).fontSize), '22px', `/areas @${width}: 22px card headings`);
+      await headingsWhole(page, `/areas Dubai @${width}`);
+      await page.click('.mk-panel[data-emirate="dubai"] .dc-sort button[data-sort="change"]');
+      await headingsWhole(page, `/areas Dubai by change @${width}`);
+      await page.click('.mk-pill[data-emirate="abu_dhabi"]');
+      await headingsWhole(page, `/areas Abu Dhabi @${width}`);
+      const cols = await page.$eval('.mk-panel[data-emirate="abu_dhabi"] .dc-grid', (g) => getComputedStyle(g).gridTemplateColumns.split(' ').length);
+      assert.equal(cols, width < 336 ? 1 : 2, `/areas @${width}: grid columns`);
+      await ctx.close();
+    }
+    {
+      const { page, ctx } = await open('/insights/dubai-2026-so-far-official-numbers', width);
+      await headingsWhole(page, `/insights @${width}`);
       await ctx.close();
     }
   }

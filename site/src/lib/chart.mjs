@@ -183,9 +183,22 @@ export const isAedBn = (table, spec) => /\bin AED (billion|bn)\b/.test(spec?.tit
 /** A figure as the cards print it: "AED 96.5bn" for AED billions (the table's own digits), else as written. */
 export const cardFigure = (text, aed) => (aed ? `AED ${text}bn` : text);
 
+/** Whether the table's label column is headed "DLD area (common name)": its labels read "DLD name (common name)". */
+export const isDldLabelColumn = (table, spec) => /^DLD area \(common name\)$/i.test(String(table?.head?.[spec?.label] ?? '').trim());
+
 /**
- * The cards for an article table, or '' when it declares no chart: one card per row (heading = the row label, the change
- * large, the bar pair), on one scale. Bar values use the site's money format, "AED 96.5bn", with the table's own digits
+ * The common-name-first rule (Rules 1c v6.9) for a table label "Madinat Al Mataar (Dubai South)": the card heading is the
+ * common name and "DLD: Madinat Al Mataar" goes under it; a label with no bracket (Business Bay, Al Yufrah 1) is the
+ * heading alone. The table itself keeps its labels as written. @param {string} label
+ */
+export function splitDldLabel(label) {
+  const m = /^(.+?) \(([^()]+)\)$/.exec(String(label ?? '').trim());
+  return m ? { name: m[2], official: `DLD: ${m[1]}` } : { name: String(label ?? ''), official: '' };
+}
+
+/**
+ * The cards for an article table, or '' when it declares no chart: one card per row (heading = the row label, or for a
+ * "DLD area (common name)" column the common name with the DLD name under it; the change large; the bar pair), on one scale. Bar values use the site's money format, "AED 96.5bn", with the table's own digits
  * (Coordinator review 2026-11-07); the table itself follows on the page, unchanged. src: the block's 1-based source
  * numbers, linked in the source line under the cards as on the rest of the article.
  */
@@ -194,13 +207,17 @@ export function renderTableCards(id, table, spec, src = []) {
   const rows = chartRows(table, spec);
   const aed = isAedBn(table, spec);
   const cite = src.length ? ` ${src.map((n) => `<a href="#src-${n}">[${n}]</a>`).join(' ')}` : '';
-  const cards = rows.map((r) => ({
-    name: r.label, bigChange: r.change,
-    pair: {
-      name: r.label, earlierLabel: spec.earlier.label, laterLabel: spec.later.label, earlier: r.earlier, later: r.later,
-      earlierText: cardFigure(r.earlierText, aed), laterText: cardFigure(r.laterText, aed), change: r.change,
-    },
-  }));
+  const dld = isDldLabelColumn(table, spec);
+  const cards = rows.map((r) => {
+    const { name, official } = dld ? splitDldLabel(r.label) : { name: r.label, official: '' };
+    return {
+      name, official, bigChange: r.change,
+      pair: {
+        name, earlierLabel: spec.earlier.label, laterLabel: spec.later.label, earlier: r.earlier, later: r.later,
+        earlierText: cardFigure(r.earlierText, aed), laterText: cardFigure(r.laterText, aed), change: r.change,
+      },
+    };
+  });
   const grid = renderCardGrid(cards, { label: spec.title, cols: 2, attrs: ` id="${escHtml(id)}"` });
   return grid ? `${grid}<p class="dc-src">Source: ${escHtml(spec.source)}${cite}. ${escHtml(spec.period)}.</p>` : '';
 }

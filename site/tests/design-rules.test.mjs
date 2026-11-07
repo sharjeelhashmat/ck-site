@@ -45,6 +45,7 @@ test('rules: the checker catches every kind of break (self-test)', () => {
   assert.deepEqual(v('.x { font-size: clamp(1rem, 2vw, 2rem); }'), ['.x: font-size clamp(1rem, 2vw, 2rem) (only a --fs-* step, or a clamp() between two)']);
   assert.deepEqual(v('.f { font-family: var(--serif); font-weight: 600; font-size: var(--fs-body); }'), ['.f: Cormorant at var(--fs-body), below 22px']);
   assert.deepEqual(v('.f { font-family: var(--serif); font-weight: 600; font-size: var(--fs-tagline); }'), ['.f: the tagline step is Cormorant Italic']);
+  assert.deepEqual(v('.dc-name { font-family: var(--serif); font-weight: 600; font-size: var(--fs-tagline); }'), [], 'the data card heading on a phone (Coordinator review 2)');
   assert.deepEqual(v('h3 { font-size: var(--fs-small); }'), ['h3: Cormorant at var(--fs-small), below 22px']);
   assert.deepEqual(v('.x { font-size: var(--fs-heading); }'), ['.x: Inter at var(--fs-heading), a Cormorant step']);
   assert.deepEqual(violations('.mk-area { font-size: var(--fs-small); }', new Set(['mk-area'])), ['.mk-area: Cormorant at var(--fs-small), below 22px'], 'a class used on an h3');

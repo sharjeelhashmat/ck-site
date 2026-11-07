@@ -10,7 +10,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { barFraction, cardFigure, changeAgrees, changeValue, chartRows, checkChartSpec, figure, isComparisonTable, renderBars, renderCardGrid, renderDataCard, renderTableCards, sortOrder } from '../src/lib/chart.mjs';
+import { barFraction, cardFigure, isDldLabelColumn, splitDldLabel, changeAgrees, changeValue, chartRows, checkChartSpec, figure, isComparisonTable, renderBars, renderCardGrid, renderDataCard, renderTableCards, sortOrder } from '../src/lib/chart.mjs';
 import { applySort } from '../src/lib/card-sort.mjs';
 import { checkArticle } from '../src/lib/intel.mjs';
 import { checkAdrecAreas, dubaiRows, fmtBn, formatChange, renderGuideCard, renderTop } from '../src/lib/market.mjs';
@@ -101,6 +101,27 @@ test('chart: figures and changes are read as written', () => {
   assert.equal(cardFigure('5.97', true), 'AED 5.97bn', 'the table\'s own digits');
   assert.equal(cardFigure('96.5', false), '96.5');
   assert.equal(figure(cardFigure('5.97', true)), 5.97);
+  assert.deepEqual(splitDldLabel('Madinat Al Mataar (Dubai South)'), { name: 'Dubai South', official: 'DLD: Madinat Al Mataar' });
+  assert.deepEqual(splitDldLabel('Marsa Dubai (Dubai Marina, Dubai Harbour)'), { name: 'Dubai Marina, Dubai Harbour', official: 'DLD: Marsa Dubai' });
+  assert.deepEqual(splitDldLabel('Business Bay'), { name: 'Business Bay', official: '' });
+  assert.deepEqual(splitDldLabel('Al Yufrah 1'), { name: 'Al Yufrah 1', official: '' });
+});
+
+test('Insights Q3 top 8 cards: common name first, the DLD name under it; no bracket, no sub line; the table keeps its labels', () => {
+  const a = articles().find((x) => x.slug === 'dubai-2026-so-far-official-numbers');
+  const b = a.body.find((x) => x.table?.head[1] === 'Q3 2026 (AED bn)');
+  const h = renderTableCards('q3', b.table, b.chart, b.src);
+  const cards = cardsOf(h);
+  assert.deepEqual(cards.map((c) => [texts(c, 'dc-name')[0], texts(c, 'dc-official')[0] ?? '']), [
+    ['Dubai South', 'DLD: Madinat Al Mataar'], ['City of Arabia', 'DLD: Wadi Al Safa 4'], ['Jumeirah Lake Towers', 'DLD: Jabal Ali First'],
+    ['Dubai Marina, Dubai Harbour', 'DLD: Marsa Dubai'], ['Jumeirah Village Circle', 'DLD: Al Barsha South Fourth'], ['Business Bay', ''],
+    ['Al Yufrah 1', ''], ['Dubailand Residence Complex', 'DLD: Wadi Al Safa 5'],
+  ]);
+  assert.match(cards[0], /aria-label="Dubai South: AED 4\.51bn in Q3 2025, AED 5\.97bn in Q3 2026, change \+32%"/);
+  // The quarter table is not a DLD area table: its labels stay whole.
+  const q = a.body.find((x) => x.table?.head[0] === 'Quarter');
+  assert.deepEqual(cardsOf(renderTableCards('q', q.table, q.chart, q.src)).map((c) => texts(c, 'dc-name')[0]), ['Q1 (Jan to Mar)', 'Q2 (Apr to Jun)', 'Q3 (Jul to Sep)', 'Jan to Sep']);
+  assert.equal(b.table.rows[0][0], 'Madinat Al Mataar (Dubai South)', 'the table is unchanged');
 });
 
 // ---------- the sort toggle (a DOM test on a small fake document) ----------
@@ -373,7 +394,10 @@ test('build: each Insights comparison table has its cards above it, one per row,
       assert.equal(cards.length, b.table.rows.length, `${a.slug} grid ${k + 1}: one card per row`);
       assert.equal(decodeEntities(label), b.chart.title);
       cards.forEach((c, i) => {
-        assert.deepEqual(texts(c, 'dc-name'), [rows[i].label], 'heading = the row label');
+        // Common name first (Rules 1c v6.9): a "DLD area (common name)" label shows the common name, the DLD name under it.
+        const want = isDldLabelColumn(b.table, b.chart) ? splitDldLabel(rows[i].label) : { name: rows[i].label, official: '' };
+        assert.deepEqual(texts(c, 'dc-name'), [want.name], 'heading');
+        assert.deepEqual(texts(c, 'dc-official'), want.official ? [want.official] : [], 'DLD name under it');
         assert.deepEqual(texts(c, 'dc-big-change'), [b.table.rows[i][b.chart.change]], 'the change, large, as the table writes it');
         // The site's money format with the table's own digits: "AED 96.5bn" (Coordinator review 2026-11-07).
         assert.deepEqual(texts(c, 'dc-val'), [`AED ${rows[i].earlierText}bn`, `AED ${rows[i].laterText}bn`]);

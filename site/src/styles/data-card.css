@@ -9,6 +9,10 @@
 /* /areas: 4 columns, 2 at 900px and below (phone included). */
 .dc-grid--4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 @media (max-width: 900px) { .dc-grid--4 { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); } }
+/* One column below 21rem (336px): a card heading never breaks inside a word (Coordinator review 2). A two-column card's
+   text is (screen - 48px page padding - 12px gap) / 2 - 32px card padding wide; the longest heading word, "Hudayriyat" at
+   22px Cormorant 600, is 96px, plus an 8px margin for font rendering = 104px, which needs a 336px screen. */
+@media (max-width: 21rem) { .dc-grid--4 { grid-template-columns: 1fr; } }
 /* Insights tables: 2 columns, 1 on a phone (the row labels are long). */
 .dc-grid--2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (max-width: 36rem) { .dc-grid--2 { grid-template-columns: 1fr; } }
@@ -21,7 +25,10 @@
 .dc--single { padding: var(--space-6); }
 .dc > * { margin: 0; }
 .dc-rank { font-size: var(--fs-data); line-height: var(--lh-data); letter-spacing: var(--ls-data); font-weight: 500; font-variant-numeric: lining-nums tabular-nums; }
-.dc-name { font-size: var(--fs-heading); line-height: var(--lh-heading); letter-spacing: 0; margin-top: var(--space-1); overflow-wrap: anywhere; font-variant-numeric: lining-nums; }
+/* Card headings break between words only, never inside one (no overflow-wrap or word-break). On a phone they use the
+   smallest Cormorant size, 22px (Coordinator review 2, 2026-11-07). */
+.dc-name { font-size: var(--fs-heading); line-height: var(--lh-heading); letter-spacing: 0; margin-top: var(--space-1); overflow-wrap: normal; word-break: normal; hyphens: manual; font-variant-numeric: lining-nums; }
+@media (max-width: 40rem) { .dc-name { font-size: var(--fs-tagline); line-height: var(--lh-tagline); } }
 .dc-official { font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); margin-top: var(--space-1); overflow-wrap: anywhere; }
 .dc-value { font-family: var(--sans); font-weight: 500; font-size: var(--fs-stat); line-height: var(--lh-stat); letter-spacing: var(--ls-stat); margin-top: var(--space-3); font-variant-numeric: lining-nums tabular-nums; }
 .dc-grid .dc-value { font-size: var(--fs-data); line-height: var(--lh-data); letter-spacing: var(--ls-data); margin-top: auto; padding-top: var(--space-3); }
