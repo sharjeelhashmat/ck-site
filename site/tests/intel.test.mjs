@@ -184,7 +184,9 @@ test('build: a published opportunity renders the 12-section Brief with sources, 
   assert.match(brief, /Permit TEST-PERMIT-1 · Working with Example Agency · ORN TEST-ORN · BRN TEST-BRN<\/p>/);
   assert.doesNotMatch(brief, /BRN pending/);
   assert.match(brief, /Why it could work/); assert.match(brief, /Why it could fail/);
-  assert.match(brief, /https:\/\/example\.com\/source/);
+  // Sources are named, never linked (owner decision 2026-11-06): the URL is stored, not rendered.
+  assert.doesNotMatch(brief, /href="https:\/\/example\.com\/source/);
+  assert.match(brief, /<td>Example Register<\/td>/, 'the source is still named');
   assert.match(brief, /<meta name="robots" content="index,follow/);
   assert.doesNotMatch(brief, /™|\bbroker\b/i);
   assert.ok(!existsSync(join(r.out, 'opportunities/draft-only.html')), 'draft opportunity must not be built');

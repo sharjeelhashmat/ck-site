@@ -54,6 +54,8 @@ function checkSource(where, s, today, errors) {
   for (const f of ['name', 'url', 'publishedOn', 'verifiedOn']) if (!nonEmpty(s[f])) errors.push(`${where}: source.${f} is missing`);
   if (s.tier !== 1) errors.push(`${where}: source.tier must be 1 (official source), is ${JSON.stringify(s.tier)}`);
   if (nonEmpty(s.url) && !/^https:\/\//.test(s.url)) errors.push(`${where}: source.url must be https`);
+  // Named, never linked (owner decision 2026-11-06): url is the stored record; the shown name carries no URL or link.
+  if (nonEmpty(s.name) && /https?:\/\/|www\.|<a\b|\]\(/i.test(s.name)) errors.push(`${where}: source.name must be a name, not a URL or link`);
   for (const f of ['publishedOn', 'verifiedOn']) if (nonEmpty(s[f]) && !asDate(s[f])) errors.push(`${where}: source.${f} must be a valid YYYY-MM-DD date`);
   if (asDate(s.verifiedOn) && daysBetween(today, s.verifiedOn) > 0) errors.push(`${where}: source.verifiedOn ${s.verifiedOn} is in the future`);
 }

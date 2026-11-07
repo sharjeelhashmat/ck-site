@@ -16,8 +16,12 @@ const social = [
   <div class="wrap">
     {LEAD_CAPTURE && <NewsletterSignup source="footer" />}
     <div class="foot-row">
+      {/* Stacked lockup (owner 2026-11-07): the title on its own line under the wordmark, starting where the "Sharjeel
+          Hashmat" text starts, with the mark centred against both lines. The approved logo file is shown twice, cropped by
+          CSS (global.css, footer lockup): once for the mark, once for the wordmark. The file itself is unchanged. */}
       <div class="brand">
-        <img class="logo" src="/logo-web-ivory.svg" alt="Sharjeel Hashmat" width="224" height="46" />
+        <div class="brand-mark" aria-hidden="true"><img class="logo" src="/logo-web-ivory.svg" alt="" width="224" height="46" /></div>
+        <div class="brand-word"><img class="logo" src="/logo-web-ivory.svg" alt="Sharjeel Hashmat" width="224" height="46" /></div>
         <span>{SITE.title} · UAE</span>
       </div>
       <div class="social">

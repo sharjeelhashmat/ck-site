@@ -23,6 +23,8 @@ export interface AdrecArea {
   rank: number;
   area: string;
   value_bn: number;
+  // The same period a year earlier, only where ADREC publishes it (drawn as a comparison chart).
+  prior_value_bn?: number;
   share_pct: number;
   change_pct?: number | null;
   change_text?: string;
@@ -33,6 +35,7 @@ export interface AdrecFile {
   published: string | null;
   total_res_bn: number | null;
   prior_total_res_bn?: number | null;
+  // ADREC's own report: the verification record, kept as data and never rendered as a link (owner decision 2026-11-06).
   source_url: string;
   areas: AdrecArea[];
 }

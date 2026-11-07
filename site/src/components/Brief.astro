@@ -49,7 +49,7 @@ const fit = o.investorFit;
   {numbers.length ? (
     <div class="table-scroll" tabindex="0"><table>
       <thead><tr><th>Item</th><th>Figure</th><th>Source</th><th>Verified</th></tr></thead>
-      <tbody>{numbers.map((c) => <tr><td>{c.label}</td><td>{c.value}</td><td><a href={c.sourceUrl} rel="noopener" target="_blank">{c.sourceName}</a></td><td>{c.verifiedOn}</td></tr>)}</tbody>
+      <tbody>{numbers.map((c) => <tr><td>{c.label}</td><td>{c.value}</td><td>{c.sourceName}</td><td>{c.verifiedOn}</td></tr>)}</tbody>
     </table></div>
   ) : <p><span class="badge">{FALLBACKS.price}</span></p>}
 
@@ -57,7 +57,7 @@ const fit = o.investorFit;
   {income.length ? (
     <div class="table-scroll" tabindex="0"><table>
       <thead><tr><th>Item</th><th>Figure</th><th>Source</th><th>Verified</th></tr></thead>
-      <tbody>{income.map((c) => <tr><td>{c.label}</td><td>{c.value}</td><td><a href={c.sourceUrl} rel="noopener" target="_blank">{c.sourceName}</a></td><td>{c.verifiedOn}</td></tr>)}</tbody>
+      <tbody>{income.map((c) => <tr><td>{c.label}</td><td>{c.value}</td><td>{c.sourceName}</td><td>{c.verifiedOn}</td></tr>)}</tbody>
     </table></div>
   ) : <p><span class="badge">{FALLBACKS.income}</span></p>}
 
@@ -65,7 +65,7 @@ const fit = o.investorFit;
   {comps.length ? (
     <div class="table-scroll" tabindex="0"><table>
       <thead><tr><th>Comparable</th><th>Figure</th><th>Source</th><th>Verified</th></tr></thead>
-      <tbody>{comps.map((c) => <tr><td>{c.label}</td><td>{c.value}</td><td><a href={c.sourceUrl} rel="noopener" target="_blank">{c.sourceName}</a></td><td>{c.verifiedOn}</td></tr>)}</tbody>
+      <tbody>{comps.map((c) => <tr><td>{c.label}</td><td>{c.value}</td><td>{c.sourceName}</td><td>{c.verifiedOn}</td></tr>)}</tbody>
     </table></div>
   ) : <p><span class="badge">{FALLBACKS.comps}</span></p>}
 
@@ -74,7 +74,7 @@ const fit = o.investorFit;
   {supply.length > 0 && (
     <div class="table-scroll" tabindex="0"><table>
       <thead><tr><th>Item</th><th>Figure</th><th>Source</th><th>Verified</th></tr></thead>
-      <tbody>{supply.map((c) => <tr><td>{c.label}</td><td>{c.value}</td><td><a href={c.sourceUrl} rel="noopener" target="_blank">{c.sourceName}</a></td><td>{c.verifiedOn}</td></tr>)}</tbody>
+      <tbody>{supply.map((c) => <tr><td>{c.label}</td><td>{c.value}</td><td>{c.sourceName}</td><td>{c.verifiedOn}</td></tr>)}</tbody>
     </table></div>
   )}
 
@@ -109,7 +109,7 @@ const fit = o.investorFit;
     <thead><tr><th>Claim</th><th>Source</th><th>Type</th><th>Published</th><th>Verified</th></tr></thead>
     <tbody>
       {allClaims.map((c) => (
-        <tr><td>{c.label}</td><td><a href={c.sourceUrl} rel="noopener" target="_blank">{c.sourceName}</a></td><td>{String(c.sourceType).replace(/_/g, ' ').toLowerCase()}</td><td>{c.publishedOn}</td><td>{c.verifiedOn} by {c.verifiedBy}</td></tr>
+        <tr><td>{c.label}</td><td>{c.sourceName}</td><td>{String(c.sourceType).replace(/_/g, ' ').toLowerCase()}</td><td>{c.publishedOn}</td><td>{c.verifiedOn} by {c.verifiedBy}</td></tr>
       ))}
     </tbody>
   </table></div>

@@ -58,6 +58,21 @@
           ]
         ]
       },
+      "chart": {
+        "title": "Dubai residential sales value by quarter, 2025 against 2026, in AED billion",
+        "source": "Dubai Land Department, Real Estate Transactions open data",
+        "period": "Residential sales value in AED bn, each period of 2025 against the same months of 2026, as the records stood on 30 October 2026",
+        "label": 0,
+        "earlier": {
+          "label": "2025",
+          "col": 1
+        },
+        "later": {
+          "label": "2026",
+          "col": 2
+        },
+        "change": 3
+      },
       "src": [
         1
       ]
@@ -143,6 +158,30 @@
           ]
         ]
       },
+      "chart": {
+        "title": "Residential sales value in Q3 2025 against Q3 2026 for the eight areas with the most sales in Q3 2026, in AED billion",
+        "source": "Dubai Land Department, Real Estate Transactions open data",
+        "period": "Residential sales value in AED bn, Q3 2025 (Jul to Sep) against Q3 2026, as the records stood on 30 October 2026",
+        "label": 0,
+        "earlier": {
+          "label": "Q3 2025",
+          "values": [
+            "4.51",
+            "2.89",
+            "4.45",
+            "5.70",
+            "5.88",
+            "9.64",
+            "2.34",
+            "3.78"
+          ]
+        },
+        "later": {
+          "label": "Q3 2026",
+          "col": 1
+        },
+        "change": 2
+      },
       "src": [
         1
       ]
@@ -198,6 +237,7 @@
   ],
   "draftNotes": [
     "Figure check 2026-11-06 against the site's D1 aggregates (Worker /market/areas, as_of 2026-10-30, DLD sync 2026-11-03): residential sales value 2025 Q1 96.52, Q2 112.51, Q3 126.72, Jan to Sep 335.75; 2026 Q1 107.54, Q2 75.37, Q3 68.38, Jan to Sep 251.29 (AED bn). Every figure in both tables matches after rounding.",
-    "Off-plan share is by number of sales (off-plan sales over all residential sales in the area), the same measure /areas shows. Madinat Al Mataar reads 96.5% at one decimal, shown as 97%."
+    "Off-plan share is by number of sales (off-plan sales over all residential sales in the area), the same measure /areas shows. Madinat Al Mataar reads 96.5% at one decimal, shown as 97%.",
+    "Chart values 2026-11-06 (COPY HOLD until the owner approves): Q3 2025 residential sales value by area, from the same D1 aggregates /areas uses (Worker /market/area/<DLD area>?period=2025-Q3, as_of 2026-10-30), read only: Madinat Al Mataar 4.51, Wadi Al Safa 4 2.89, Jabal Ali First 4.45, Marsa Dubai 5.70, Al Barsha South Fourth 5.88, Business Bay 9.64, Al Yufrah 1 2.34, Wadi Al Safa 5 3.78 (AED bn). Each agrees with the change column within one point. Shown only inside the Q3 chart."
   ]
 }

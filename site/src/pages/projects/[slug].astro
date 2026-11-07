@@ -35,7 +35,7 @@ const description = `${p.name}: official announcements, status and timeline, eac
       <h2>Timeline</h2>
       <div class="table-scroll" tabindex="0"><table>
         <thead><tr><th>Date</th><th>Status</th><th>Note</th><th>Source</th></tr></thead>
-        <tbody>{timelineOf(p).map((t: any) => <tr><td class="date">{t.date}</td><td>{t.status}</td><td>{t.note}</td><td><a href={t.source.url} rel="noopener" target="_blank">{t.source.name}</a>, verified <span class="date">{t.source.verifiedOn}</span></td></tr>)}</tbody>
+        <tbody>{timelineOf(p).map((t: any) => <tr><td class="date">{t.date}</td><td>{t.status}</td><td>{t.note}</td><td>{t.source.name}, verified <span class="date">{t.source.verifiedOn}</span></td></tr>)}</tbody>
       </table></div>
       <p class="fine" style="margin-top:var(--space-8)">General information, not financial, tax or legal advice.</p>
     </div>

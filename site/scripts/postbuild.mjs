@@ -3,6 +3,7 @@ import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { disallowedExternalHrefs } from '../src/lib/links.mjs';
 
 // Optional argument: another build directory (tests build into a temp dir).
 const dist = process.argv[2] ?? fileURLToPath(new URL('../dist/', import.meta.url));
@@ -31,6 +32,17 @@ for (const f of walk(dist).filter((p) => p.endsWith('.html'))) {
   }
 }
 if (!workerOrigins.size) throw new Error('postbuild: no data-worker attribute found in the built pages');
+// External links (owner decisions 2026-11-06): only the three social profile URLs, plus WhatsApp to the owner's number on
+// a lead-capture build, recognised by the Turnstile widget (data-sitekey) its enquiry form carries. A soft-launch build
+// has no widget, so its only allowed external links are exactly the three social profiles.
+{
+  const bad = [];
+  const leadCapture = turnstile;
+  for (const f of walk(dist).filter((p) => p.endsWith('.html'))) {
+    for (const h of disallowedExternalHrefs(readFileSync(f, 'utf8'), { whatsapp: leadCapture })) bad.push(`${f.slice(dist.length)}: ${h}`);
+  }
+  if (bad.length) throw new Error(`postbuild: external links other than the owner's social profiles:\n- ${bad.join('\n- ')}`);
+}
 // A non-indexable build (robots.txt has no Sitemap line) is noindex on every path through a header too, so crawlers that
 // are allowed in (robots Allow: /) still see noindex; an indexable build is unchanged (audit item 22).
 const indexable = (() => { try { return /^Sitemap: /m.test(readFileSync(join(dist, 'robots.txt'), 'utf8')); } catch { return false; } })();

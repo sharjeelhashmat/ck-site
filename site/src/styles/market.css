@@ -62,7 +62,10 @@
 
 /* Change table: the card scrolls sideways, never the page */
 .mk-table-card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; }
+/* tabindex="0" in the markup lets a keyboard scroll it (axe scrollable-region-focusable), as .table-scroll does. */
 .mk-table-scroll { overflow-x: auto; }
+/* Inside the card (overflow hidden), so the focus ring is drawn inside the edge. */
+.mk-table-scroll:focus-visible { outline-offset: -3px; }
 .mk-table { width: 100%; border-collapse: collapse; font-size: var(--fs-data); line-height: var(--lh-data); letter-spacing: var(--ls-data); font-weight: 500; min-width: 30rem; }
 .mk-table th, .mk-table td { padding: var(--space-3) var(--space-4); border-bottom: 1px solid var(--line); vertical-align: top; text-align: left; }
 .mk-table th { font-size: var(--fs-label); line-height: var(--lh-label); letter-spacing: var(--ls-label); text-transform: uppercase; font-weight: 400; color: var(--ink); }
@@ -103,3 +106,6 @@
 .lw-permit { display: flex; gap: var(--space-3); align-items: center; margin-top: var(--space-4); font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); color: var(--ink); }
 /* The permit QR keeps square-ish corners (--radius-sm): a larger radius would clip its finder patterns. */
 .lw-permit img { width: 72px; height: 72px; border-radius: var(--radius-sm); }
+
+/* A comparison chart inside the area guide card: the card is already the frame (no card in a card). */
+.mk-guide-card .cmp { border: 0; border-radius: 0; padding: 0; background: transparent; }
