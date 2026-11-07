@@ -23,12 +23,13 @@ test('title: no "Real Estate Consultant" anywhere in the build, and "Property Co
   for (const f of textFiles) assert.doesNotMatch(readFileSync(f, 'utf8'), /real estate consultant/i, f);
   const home = readFileSync(join(dist, 'index.html'), 'utf8');
   assert.match(home, /<title>Sharjeel Hashmat, Property Consultant · UAE<\/title>/);
-  // The footer title line: in the Brand Package lockup image on screens 704px and wider (its alt text carries it), and as
-  // the stacked lockup's title line below that.
+  // The footer title line is part of the Brand Package lockup images (horizontal from 704px, stacked below); their alt
+  // text carries it. No typed title line remains.
   for (const f of htmlFiles) {
     const h = readFileSync(f, 'utf8');
-    assert.match(h, /<img class="lockup" src="\/logo-horizontal-ivory\.svg" alt="Sharjeel Hashmat, Property Consultant · UAE"/, `${f}: footer lockup title`);
-    assert.match(h, /<span>Property Consultant · UAE<\/span>/, `${f}: footer title line`);
+    for (const v of ['horizontal', 'stacked']) assert.match(h, new RegExp(`<img class="lockup" src="/logo-${v}-ivory\\.svg" alt="Sharjeel Hashmat, Property Consultant · UAE"`), `${f}: footer ${v} lockup title`);
+    const footer = h.match(/<footer class="site-footer"[^>]*>.*?<\/footer>/s)?.[0] ?? '';
+    assert.doesNotMatch(footer, /Property Consultant · UAE<\/span>/, `${f}: no typed title line in the footer`);
   }
   assert.match(readFileSync(join(dist, 'llms.txt'), 'utf8'), /Title: Property Consultant · UAE/);
 });
@@ -65,11 +66,11 @@ test('icons: no favicon.svg; ico, 32, 48 and apple-touch links; theme-color is I
   }
 });
 
-test('logo: the header uses the ivory web lockup; the footer the Brand Package lockup (704px and up) and the stacked web lockup (below); the old mark is gone', () => {
+test('logo: the header uses the ivory web lockup; the footer the Brand Package lockups, horizontal (704px and up) and stacked (below); the old mark is gone', () => {
   const img = /<img class="logo" src="\/logo-web-ivory\.svg" alt="Sharjeel Hashmat" width="\d+" height="\d+"/;
   // Footer (owner 2026-11-07, Rules 1c v6.9): logo-horizontal-ivory.svg exactly as delivered (pinned byte for byte below),
-  // shown once, cropped by CSS only; and the stacked lockup (logo-web-ivory.svg twice) for screens under 704px, where the
-  // horizontal tagline would be under 10px and the Brand Package has no stacked file.
+  // shown once, cropped by CSS only; and below 704px, where the horizontal tagline would be under 10px, the Brand Package
+  // v3.0 stacked lockup logo-stacked-ivory.svg, also unchanged and cropped by CSS only.
   const lockup = /<div class="brand brand-lockup"> <img class="lockup" src="\/logo-horizontal-ivory\.svg" alt="Sharjeel Hashmat, Property Consultant · UAE" width="2880" height="960"> <\/div>/;
   for (const f of htmlFiles) {
     const h = readFileSync(f, 'utf8');
@@ -77,8 +78,8 @@ test('logo: the header uses the ivory web lockup; the footer the Brand Package l
     const footer = h.match(/<footer class="site-footer"[^>]*>.*?<\/footer>/s)?.[0] ?? '';
     assert.match(header, img, `${f}: header logo`);
     assert.match(footer, lockup, `${f}: footer lockup`);
-    assert.match(footer, img, `${f}: stacked footer lockup`);
-    assert.deepEqual([...footer.matchAll(/<img\b[^>]*src="([^"]+)"/g)].map((m) => m[1]), ['/logo-horizontal-ivory.svg', '/logo-web-ivory.svg', '/logo-web-ivory.svg'], `${f}: footer images`);
+    assert.match(footer, /<div class="brand brand-stacked"> <img class="lockup" src="\/logo-stacked-ivory\.svg" alt="Sharjeel Hashmat, Property Consultant · UAE" width="1600" height="1600"> <\/div>/, `${f}: stacked footer lockup`);
+    assert.deepEqual([...footer.matchAll(/<img\b[^>]*src="([^"]+)"/g)].map((m) => m[1]), ['/logo-horizontal-ivory.svg', '/logo-stacked-ivory.svg'], `${f}: footer images`);
     assert.doesNotMatch(h, /viewBox="0 0 34 34"/, `${f}: old Compass Key mark`);
   }
   assert.equal(existsSync(join(root, 'src/components/Mark.astro')), false, 'old mark component removed');
@@ -242,6 +243,8 @@ test('brand assets are the approved Brand Package v3.0 files (tab icons with the
     'icon-512.png': 'd71ab9b4bf05000fe6ad2f93770b2d42148ce1e2d6b1494746a4c31934061911',
     'logo-horizontal-ink.svg': 'f7f4530cc2bfc7b16c828ba4aec0dec03a02e1303d12469bed849a86662b0b55',
     'logo-horizontal-ivory.svg': '2162b5c1c6c33bedd447d7cb83a833deb8f91392cbb8e763a0ba64f2526a06b0',
+    // Brand Package v3.0 01_Logos/sh_stacked_ivory_transparent.svg, byte for byte (footer below 704px, 2026-11-07).
+    'logo-stacked-ivory.svg': 'c464b4362d258ed4f5cf8baf69c93c68050fd38410f386d471c8ff2c882197c1',
     'logo-web-ink.svg': '01ef41f695d2c78a74b6d269d898c8dc5ee66efb020919b96fc9b86cdb0bc78d',
     'logo-web-ivory.svg': '54d4b338fedb6694cf9b4558bdb95e030a7a17f7c234037b9b9bb56f4fb61fc5',
     // Recompressed (audit item 20): 256-colour palette PNG, 1200x630, 89 KB (was 279 KB).
