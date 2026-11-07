@@ -23,8 +23,13 @@ test('title: no "Real Estate Consultant" anywhere in the build, and "Property Co
   for (const f of textFiles) assert.doesNotMatch(readFileSync(f, 'utf8'), /real estate consultant/i, f);
   const home = readFileSync(join(dist, 'index.html'), 'utf8');
   assert.match(home, /<title>Sharjeel Hashmat, Property Consultant · UAE<\/title>/);
-  // The footer title line is part of the Brand Package lockup image (Rules 1c v6.9); its alt text carries it.
-  for (const f of htmlFiles) assert.match(readFileSync(f, 'utf8'), /<img class="lockup" src="\/logo-horizontal-ivory\.svg" alt="Sharjeel Hashmat, Property Consultant · UAE"/, `${f}: footer title line`);
+  // The footer title line: in the Brand Package lockup image on screens 704px and wider (its alt text carries it), and as
+  // the stacked lockup's title line below that.
+  for (const f of htmlFiles) {
+    const h = readFileSync(f, 'utf8');
+    assert.match(h, /<img class="lockup" src="\/logo-horizontal-ivory\.svg" alt="Sharjeel Hashmat, Property Consultant · UAE"/, `${f}: footer lockup title`);
+    assert.match(h, /<span>Property Consultant · UAE<\/span>/, `${f}: footer title line`);
+  }
   assert.match(readFileSync(join(dist, 'llms.txt'), 'utf8'), /Title: Property Consultant · UAE/);
 });
 
@@ -60,10 +65,11 @@ test('icons: no favicon.svg; ico, 32, 48 and apple-touch links; theme-color is I
   }
 });
 
-test('logo: the header uses the ivory web lockup, the footer the Brand Package lockup, with alt and explicit size; the old mark is gone', () => {
+test('logo: the header uses the ivory web lockup; the footer the Brand Package lockup (704px and up) and the stacked web lockup (below); the old mark is gone', () => {
   const img = /<img class="logo" src="\/logo-web-ivory\.svg" alt="Sharjeel Hashmat" width="\d+" height="\d+"/;
   // Footer (owner 2026-11-07, Rules 1c v6.9): logo-horizontal-ivory.svg exactly as delivered (pinned byte for byte below),
-  // shown once, cropped by CSS only.
+  // shown once, cropped by CSS only; and the stacked lockup (logo-web-ivory.svg twice) for screens under 704px, where the
+  // horizontal tagline would be under 10px and the Brand Package has no stacked file.
   const lockup = /<div class="brand brand-lockup"> <img class="lockup" src="\/logo-horizontal-ivory\.svg" alt="Sharjeel Hashmat, Property Consultant · UAE" width="2880" height="960"> <\/div>/;
   for (const f of htmlFiles) {
     const h = readFileSync(f, 'utf8');
@@ -71,7 +77,8 @@ test('logo: the header uses the ivory web lockup, the footer the Brand Package l
     const footer = h.match(/<footer class="site-footer"[^>]*>.*?<\/footer>/s)?.[0] ?? '';
     assert.match(header, img, `${f}: header logo`);
     assert.match(footer, lockup, `${f}: footer lockup`);
-    assert.equal((footer.match(/<img\b/g) ?? []).length, 1, `${f}: one footer image`);
+    assert.match(footer, img, `${f}: stacked footer lockup`);
+    assert.deepEqual([...footer.matchAll(/<img\b[^>]*src="([^"]+)"/g)].map((m) => m[1]), ['/logo-horizontal-ivory.svg', '/logo-web-ivory.svg', '/logo-web-ivory.svg'], `${f}: footer images`);
     assert.doesNotMatch(h, /viewBox="0 0 34 34"/, `${f}: old Compass Key mark`);
   }
   assert.equal(existsSync(join(root, 'src/components/Mark.astro')), false, 'old mark component removed');
@@ -365,4 +372,15 @@ test('tab icons: rounded (transparent corners, opaque centre, exact sizes); favi
   const apple = readFileSync(join(root, 'public/apple-touch-icon.png'));
   assert.equal(apple[25], 2, 'apple-touch-icon is RGB (no alpha): square, iOS rounds it');
   assert.equal(existsSync(join(root, 'public/site.webmanifest')) || existsSync(join(root, 'public/manifest.webmanifest')), false, 'no web manifest (nothing marked maskable)');
+});
+
+test('footer lockup legibility: the Brand Package lockup shows only where its tagline is at least 10px tall', () => {
+  // Tagline capitals: 38 to 40 of the frame's 2480 units (logo-horizontal-ivory.svg rendered at 1:1). Frame 41rem = 656px.
+  const rule = css.match(/\.site-footer \.brand-lockup \{([^}]*)\}/)[1];
+  assert.match(rule, /display: none;/);
+  assert.match(rule, /width: 41rem;/);
+  assert.match(rule, /aspect-ratio: 2480 \/ 510;/);
+  assert.ok((38 * 656) / 2480 >= 10, 'a 656px frame gives capitals of at least 10px');
+  // Shown from 44rem (704px): the footer row there is 704 - 2 x 24px = 656px, the whole frame.
+  assert.match(css, /@media \(min-width: 44rem\) \{\n  \.site-footer \.brand-lockup \{ display: block; \}\n  \.site-footer \.brand-stacked \{ display: none; \}\n\}/);
 });
