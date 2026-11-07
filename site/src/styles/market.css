@@ -16,8 +16,8 @@
 
 /* Cormorant's default old-style figures read as letters (11.1 looks like II.I): lining figures in every serif heading.
    The figures themselves are Inter, lining and tabular. */
-.mk-h2, .mk-area, .mk-guide h3 { font-variant-numeric: lining-nums; }
-.mk-value, .mk-tile-value, .mk-lead, .mk-rank { font-variant-numeric: lining-nums tabular-nums; }
+.mk-h2, .mk-guide h3 { font-variant-numeric: lining-nums; }
+.mk-tile-value, .mk-lead { font-variant-numeric: lining-nums tabular-nums; }
 
 /* Emirate switch: sticky directly under the fixed header (its height is measured into --mk-header). */
 .mk-switch-bar { position: sticky; top: var(--mk-header, 4rem); z-index: 20; background: var(--ivory); margin-top: var(--space-8); padding: var(--space-3) 0; border-bottom: 1px solid var(--line); }
@@ -46,20 +46,6 @@
 }
 .mk-note { margin: var(--space-4) 0 0; padding: var(--space-3) var(--space-4); border-radius: var(--radius-lg); background: var(--band); border: 1px solid var(--line); font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); color: var(--ink); max-width: 46rem; }
 
-/* Top area cards: 4 columns, 2 at 900px and below (phone included) */
-.mk-cards { display: grid; gap: var(--space-4); grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: var(--space-6); }
-@media (max-width: 900px) { .mk-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); } }
-.mk-card { display: flex; flex-direction: column; min-width: 0; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-4); }
-.mk-rank { margin: 0; font-size: var(--fs-data); line-height: var(--lh-data); letter-spacing: var(--ls-data); font-weight: 500; color: var(--ink); }
-.mk-area { font-size: var(--fs-heading); line-height: var(--lh-heading); letter-spacing: 0; margin-top: var(--space-1); overflow-wrap: anywhere; }
-.mk-value { font-family: var(--sans); font-weight: 500; font-size: var(--fs-stat); line-height: var(--lh-stat); letter-spacing: var(--ls-stat); margin: var(--space-3) 0 0; color: var(--ink); }
-/* Two cards a row down to 320px: the figure uses the data style there (a 48px figure does not fit). */
-.mk-card .mk-value { font-size: var(--fs-data); line-height: var(--lh-data); letter-spacing: var(--ls-data); margin-top: auto; padding-top: var(--space-3); }
-.mk-bar { height: 6px; border-radius: var(--radius-sm); background: var(--band); margin-top: var(--space-2); overflow: hidden; }
-.mk-bar span { display: block; height: 100%; border-radius: var(--radius-sm); background: var(--gold); }
-.mk-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-1) var(--space-3); margin: var(--space-2) 0 0; font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); color: var(--ink); }
-@media (max-width: 30rem) { .mk-card { padding: var(--space-4); } }
-
 /* Change table: the card scrolls sideways, never the page */
 .mk-table-card { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden; }
 /* tabindex="0" in the markup lets a keyboard scroll it (axe scrollable-region-focusable), as .table-scroll does. */
@@ -82,8 +68,8 @@
 @media (max-width: 40rem) { .mk-guide-grid { grid-template-columns: 1fr; } }
 .mk-guide h3 { font-size: var(--fs-heading); line-height: var(--lh-heading); letter-spacing: 0; }
 
-/* Area guide page: live figures card */
-.mk-guide-card { margin-top: var(--space-8); background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: var(--space-6) var(--space-6); }
+/* Area guide page: the live figures card is a data card (styles/data-card.css); this is only its place on the page. */
+.mk-guide-card { margin-top: var(--space-8); }
 
 /* /new-launches: Launch activity */
 .mk-launch-grid { display: grid; gap: var(--space-4); grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: var(--space-6); }
@@ -107,5 +93,3 @@
 /* The permit QR keeps square-ish corners (--radius-sm): a larger radius would clip its finder patterns. */
 .lw-permit img { width: 72px; height: 72px; border-radius: var(--radius-sm); }
 
-/* A comparison chart inside the area guide card: the card is already the frame (no card in a card). */
-.mk-guide-card .cmp { border: 0; border-radius: 0; padding: 0; background: transparent; }

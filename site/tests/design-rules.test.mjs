@@ -111,7 +111,8 @@ test('rules: h1 to h3 are Cormorant 600 on the scale, the italic inside them sta
 
 test('rules: big figures are Inter 500 (stat or data), lining and tabular', () => {
   const all = sources.flatMap((s) => blocks(s.css));
-  for (const sel of ['.way-num', '.stat', '.mk-tile-value', '.mk-value', '.mk-lead']) {
+  // .dc-value and .dc-big-change: the data card figures (styles/data-card.css, Rules 1c v6.9).
+  for (const sel of ['.way-num', '.stat', '.mk-tile-value', '.dc-value', '.dc-big-change', '.mk-lead']) {
     const b = all.find((x) => x.selector === sel);
     assert.ok(b, sel);
     const f = fontOf(b.body);
@@ -119,7 +120,9 @@ test('rules: big figures are Inter 500 (stat or data), lining and tabular', () =
     assert.match(f.size, /^var\(--fs-(stat|data)\)$/, sel);
   }
   assert.match(globalCss, /\.way-num \{[^}]*font-variant-numeric: lining-nums tabular-nums;/);
-  assert.match(read(join(root, 'src/styles/market.css')), /\.mk-value, \.mk-tile-value, \.mk-lead, \.mk-rank \{ font-variant-numeric: lining-nums tabular-nums; \}/);
+  assert.match(read(join(root, 'src/styles/market.css')), /\.mk-tile-value, \.mk-lead \{ font-variant-numeric: lining-nums tabular-nums; \}/);
+  const dc = read(join(root, 'src/styles/data-card.css'));
+  for (const sel of ['dc-value', 'dc-big-change', 'dc-rank']) assert.match(dc, new RegExp(`\\.${sel} \\{[^}]*font-variant-numeric: lining-nums tabular-nums;`), sel);
 });
 
 test('rules: only the Guide\'s @fontsource files are imported', () => {

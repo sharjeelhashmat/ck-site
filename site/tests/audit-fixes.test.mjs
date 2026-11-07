@@ -182,10 +182,10 @@ test('H11: the build-time Abu Dhabi panel is visible in the markup; the fetch ch
   const tag = h.match(/<div class="mk-panel" data-emirate="abu_dhabi"[^>]*>/)[0];
   assert.match(tag, /data-static="yes"/, 'this build has ADREC areas');
   assert.doesNotMatch(tag, /\shidden/, 'not hidden until JS runs');
-  assert.match(h.slice(h.indexOf(tag)), /<article class="mk-card">/);
+  assert.match(h.slice(h.indexOf(tag)), /<article class="dc[ "]/);
   assert.match(h.match(/<div class="mk-panel" data-emirate="dubai"[^>]*>/)[0], /\shidden/, 'the Dubai panel waits for its data');
   const page = src('src/pages/areas/index.astro');
-  assert.match(page, /\.catch\(\(\) => NONE\)\n\s*\.then\(\(html\) => initAreasPage\(document, html\)\);/);
+  assert.match(page, /\.catch\(\(\) => NONE\)\n\s*\.then\(\(html\) => initAreasPage\(document, html\)\)\n\s*\.then\(\(\) => initCardSort\(document\)\);/);
 });
 
 test('H11: dubaiRows drops malformed rows; nothing renders as NaN or undefined', () => {
@@ -203,7 +203,9 @@ test('H11: dubaiRows drops malformed rows; nothing renders as NaN or undefined',
   assert.deepEqual(dubaiRows({ dubai: { top8: 'nope' } }), []);
   assert.deepEqual(dubaiRows(null), []);
   const d = { period: '2026-H1', areas: rows };
-  for (const html of [renderTop('dubai', d), renderChange('dubai', d)]) {
+  // Dubai is one section (Rules 1c v6.9): renderTop draws the cards for both orders, renderChange draws nothing.
+  assert.equal(renderChange('dubai', d), '');
+  for (const html of [renderTop('dubai', d), renderTop('dubai', { ...d, areas: rows.map((r) => ({ ...r, prior_value_bn: 9.1 })) })]) {
     assert.ok(html.length > 100);
     assert.doesNotMatch(html, /NaN|undefined|null/);
   }

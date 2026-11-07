@@ -7,12 +7,14 @@
 // data is not shown; with one emirate left the switch is hidden. Nothing renders as empty, zero or "loading".
 import Base from '../../layouts/Base.astro';
 import '../../styles/market.css';
+import '../../styles/data-card.css';
+import DataCard from '../../components/DataCard.astro';
 import { ADREC, DUBAI_PERIOD, guidesFor, type Emirate } from '../../lib/area-guides';
 import { EMIRATES, renderChange, renderTop } from '../../lib/market.mjs';
 import { SITE } from '../../lib/site';
 import { LEAD_CAPTURE } from '../../lib/golive';
 
-const adData = { period: ADREC.period, published: ADREC.published, source_url: ADREC.source_url, areas: ADREC.areas.map((a) => ({ ...a, label: null })) };
+const adData = { period: ADREC.period, published: ADREC.published, source_url: ADREC.source_url, chart_caption: ADREC.chart_caption, areas: ADREC.areas.map((a) => ({ ...a, label: null })) };
 const adTop = renderTop('abu_dhabi', adData);
 const adChange = renderChange('abu_dhabi', adData);
 const emirates: Emirate[] = ['dubai', 'abu_dhabi'];
@@ -45,8 +47,8 @@ const emirates: Emirate[] = ['dubai', 'abu_dhabi'];
       {/* The build-time Abu Dhabi figures are visible in the markup; the script only hides them if the switch picks Dubai. */}
       <div class="mk-panel" data-emirate="abu_dhabi" hidden={!adTop} data-static={adTop ? 'yes' : 'no'}>
         <div data-slot="ytd"></div>
-        <div data-slot="top" set:html={adTop}></div>
-        <div data-slot="change" set:html={adChange}></div>
+        <div data-slot="top"><DataCard html={adTop} /></div>
+        <div data-slot="change"><DataCard html={adChange} /></div>
       </div>
       {/* Soft launch (LEAD_CAPTURE false): no "Ask me" line; lib/areas-page.mjs skips a missing #mk-ask. */}
       {LEAD_CAPTURE && <p class="mk-ask" id="mk-ask" hidden>Want to know what these numbers mean for a specific unit? <a href="/contact">Ask me.</a></p>}
@@ -68,6 +70,7 @@ const emirates: Emirate[] = ['dubai', 'abu_dhabi'];
 <script>
   import { dubaiRows, renderChange, renderTop, renderYtd, servedPeriod } from '../../lib/market.mjs';
   import { initAreasPage } from '../../lib/areas-page.mjs';
+  import { initCardSort } from '../../lib/card-sort.mjs';
 
   const root = document.getElementById('mk-root')!;
   const worker = root.dataset.worker;
@@ -95,5 +98,6 @@ const emirates: Emirate[] = ['dubai', 'abu_dhabi'];
     })
     // A response that cannot be read or rendered leaves the page as built (Abu Dhabi figures, every guide), never half-set.
     .catch(() => NONE)
-    .then((html) => initAreasPage(document, html));
+    .then((html) => initAreasPage(document, html))
+    .then(() => initCardSort(document));
 </script>

@@ -94,7 +94,7 @@ test('source lines rendered in the browser name the source and never link it', (
   const ad = { period: '2026-H1', published: '2026-08-18', source_url: 'https://adrec.gov.ae/report.pdf', areas: [area] };
   const out = [
     renderYtd('dubai', ytd), renderYtd('abu_dhabi', { ...ytd, year: 2026 }), renderTop('abu_dhabi', ad), renderChange('abu_dhabi', ad),
-    renderChange('dubai', { period: '2026-YTD09', areas: [{ ...area, change_pct: 10 }] }),
+    renderTop('dubai', { period: '2026-YTD09', areas: [{ ...area, change_pct: 10, prior_value_bn: 12.1 }] }),
     renderGuideCard('abu_dhabi', { ...ad, area }), renderGuideCard('dubai', { period: '2026-YTD09', dldArea: 'Saadiyat', area }),
     renderLaunchDubai({ as_of: '2026-10-30', new_projects_90d: 3, source_url: 'https://data.dubai/en/l/467654' }, '2026-11-06'),
     renderLaunchAbuDhabi({ sales_value_bn: 86.1, transaction_value_bn: 117, mortgage_value_bn: 25.5, year: 2026, as_of: '2026-10-16', source_url: 'https://adrec.gov.ae/en' }),

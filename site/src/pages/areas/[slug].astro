@@ -5,6 +5,8 @@
 // with the months the response names. The card stays hidden when there is no data.
 import Base from '../../layouts/Base.astro';
 import '../../styles/market.css';
+import '../../styles/data-card.css';
+import DataCard from '../../components/DataCard.astro';
 import { ADREC, DUBAI_PERIOD, GUIDES, VIEW_HEADING, type Guide } from '../../lib/area-guides';
 import { EMIRATES, renderGuideCard } from '../../lib/market.mjs';
 import { SITE } from '../../lib/site';
@@ -21,7 +23,7 @@ const projectName = (slug: string) => projects.find((p) => p.slug === slug)?.nam
 const emirate = EMIRATES[guide.emirate];
 const ad = guide.emirate === 'abu_dhabi' ? ADREC.areas.find((a) => a.guide === guide.slug) : undefined;
 const adCard = ad
-  ? renderGuideCard('abu_dhabi', { period: ADREC.period, published: ADREC.published, source_url: ADREC.source_url, area: { ...ad, label: null } })
+  ? renderGuideCard('abu_dhabi', { period: ADREC.period, published: ADREC.published, source_url: ADREC.source_url, chart_caption: ADREC.chart_caption, name: guide.h1, area: { ...ad, label: null } })
   : '';
 ---
 <Base title={guide.h1} description={guide.meta_description ?? guide.one_liner}>
@@ -31,14 +33,14 @@ const adCard = ad
       <h1>{guide.h1}</h1>
       <p class="lede">{guide.one_liner}</p>
 
-      {guide.emirate === 'abu_dhabi' && adCard && <div class="mk-guide-card" set:html={adCard} />}
+      {guide.emirate === 'abu_dhabi' && adCard && <div class="mk-guide-card" data-chart-gap={ad?.prior_value_bn ? undefined : 'prior-period-not-in-data'}><DataCard html={adCard} /></div>}
 
       <h2 class="guide-h2">What it is</h2>
       <p>{guide.what_it_is}</p>
       {/* Dubai figures arrive from the Worker after load: placed below the first section, not above it, so the text a
           reader starts on does not move when they appear (audit item 26). */}
       {guide.emirate === 'dubai' && (
-        <div class="mk-guide-card" id="guide-figures" hidden data-worker={SITE.workerUrl} data-area={guide.dld_area} data-period={DUBAI_PERIOD}></div>
+        <div class="mk-guide-card" id="guide-figures" hidden data-worker={SITE.workerUrl} data-area={guide.dld_area} data-period={DUBAI_PERIOD} data-name={guide.h1}></div>
       )}
       <h2 class="guide-h2">Who buys here</h2>
       <p>{guide.who_buys}</p>
@@ -97,6 +99,7 @@ const adCard = ad
         // The label comes from the period the body names, and only when its months match it (servedPeriod).
         const html = renderGuideCard('dubai', {
           period: servedPeriod(b),
+          name: card.dataset.name,
           dldArea: area,
           area: { rank: b.area.rank, area: b.area.area_en, label: b.area.label, value_bn: b.area.value_bn, prior_value_bn: b.area.prior_value_bn, share_pct: b.area.share_pct, change_pct: b.area.change_pct, prior_zero: b.area.prior_zero },
         });

@@ -4,7 +4,7 @@
 // Sources are named, never linked (owner decision 2026-11-06, "remove source links only"): the URLs below and any
 // source_url in a response or data file are kept as data for verification and are never rendered as an <a href>.
 
-import { changeAgrees, renderCompareChart } from './chart.mjs';
+import { changeAgrees, renderCardGrid, renderDataCard, sortOrder } from './chart.mjs';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const SPANS = { H1: [1, 6], H2: [7, 12], Q1: [1, 3], Q2: [4, 6], Q3: [7, 9], Q4: [10, 12] };
@@ -160,91 +160,110 @@ export function renderYtd(emirate, ytd) {
 </section>`;
 }
 
-// ---- Comparison chart (Rules 1c v6.6) --------------------------------------------------------------------------------
+// ---- Data cards (Rules 1c v6.9, "Brand data standard") ----------------------------------------------------------------
+
+const GAP = ' data-chart-gap="prior-period-not-in-data"';
+const OFFICIAL = { dubai: 'DLD', abu_dhabi: 'ADREC' };
+
+/** The bar pair for one area: '' (null) unless both periods are in the data; the prior is never estimated in code. */
+function areaPair(period, a, name) {
+  if (!pos(a.prior_value_bn) || !pos(a.value_bn)) return null;
+  const prior = priorPeriodId(period);
+  return {
+    name, earlierLabel: String(parsePeriod(prior).year), laterLabel: String(parsePeriod(period).year),
+    earlierName: periodLabel(prior), laterName: periodLabel(period),
+    earlier: a.prior_value_bn, later: a.value_bn, earlierText: fmtBn(a.prior_value_bn), laterText: fmtBn(a.value_bn), change: formatChange(a).text,
+  };
+}
 
 /**
- * Paired bars for the rows that carry both periods: prior_value_bn (the same months a year earlier) and value_bn. The
- * Worker and src/data/adrec-areas.json return prior_value_bn only where it is known; a row without it is left out of the
- * chart (never estimated from the rounded change), and with no such row there is no chart. The figures are the ones the
- * cards and the table show (fmtBn and formatChange).
- * @param {'dubai'|'abu_dhabi'} emirate @param {string} id @param {string} period @param {AreaRow[]} rows
+ * The /areas cards, in sales value order. Common name first (the Worker's label), the DLD or ADREC name under it when
+ * they differ; a row with no common name (e.g. Al Yelayiss 1) shows its official name only. A card with both periods
+ * carries the bar pair (its current value is printed on the bar); a card without them shows the value and records the
+ * gap. The rank label reads "#n" and, for the sort toggle, "#n by change" ('' for a row with no comparable change).
+ * @param {'dubai'|'abu_dhabi'} emirate @param {string} period @param {AreaRow[]} areas
  */
-export function renderAreaChart(emirate, id, period, rows) {
-  const both = rows.filter((a) => pos(a.prior_value_bn) && pos(a.value_bn));
-  if (!both.length || !parsePeriod(period)) return '';
-  const label = periodLabel(period);
-  const prior = periodLabel(priorPeriodId(period));
-  const source = emirate === 'dubai' ? 'Dubai Land Department, Real Estate Transactions open data' : `Abu Dhabi Real Estate Centre (ADREC), ${reportName(period)} market report`;
-  return renderCompareChart({
-    id,
-    title: `Residential sales value by area, ${prior} against ${label}, ${EMIRATES[emirate]}`,
-    earlierLabel: prior,
-    laterLabel: label,
-    rows: both.map((a) => ({
-      label: a.label ? `${a.area} (${a.label})` : a.area,
-      earlier: a.prior_value_bn, later: a.value_bn, earlierText: fmtBn(a.prior_value_bn), laterText: fmtBn(a.value_bn), change: formatChange(a).text,
-    })),
-    caption: `Source: ${esc(source)}. Residential sales value, ${esc(prior)} against ${esc(label)}.`,
+export function areaCards(emirate, period, areas) {
+  const order = sortOrder(areas.map((a) => ({ changeRank: formatChange(a).rank })), 'change');
+  const byChange = new Map(order.filter((i) => formatChange(areas[i]).rank).map((i, n) => [i, n + 1]));
+  return areas.map((a, i) => {
+    const c = formatChange(a);
+    const name = a.label || a.area;
+    const pair = areaPair(period, a, name);
+    return {
+      name, official: a.label && a.label !== a.area ? `${OFFICIAL[emirate]}: ${a.area}` : '',
+      rank: { value: `#${a.rank}`, change: byChange.has(i) ? `#${byChange.get(i)} by change` : '' },
+      value: pair ? '' : fmtBn(a.value_bn), pair,
+      foot: { left: `${pct1(a.share_pct)} of ${EMIRATES[emirate]} total`, change: c.text, dir: c.dir },
+      attrs: ` data-order-value="${i}" data-order-change="${order.indexOf(i)}"${pair ? '' : GAP}`,
+    };
   });
 }
 
-// ---- /areas sections 4 and 5: top areas and change -------------------------------------------------------------------
+// ---- /areas: top areas ------------------------------------------------------------------------------------------------
 
 /**
- * @typedef {{rank: number, area: string, label?: string|null, value_bn: number, prior_value_bn?: number|null, share_pct: number, change_pct?: number|null, prior_zero?: boolean, change_text?: string, guide?: string}} AreaRow
+ * Dubai: one section, "Top areas · Dubai", with the sort toggle (Sales value, the default and the order in the markup;
+ * Change vs last year) over one grid of the 8 cards (lib/card-sort.mjs reorders them). Abu Dhabi: the cards for ADREC's
+ * period with the approved chart caption under the grid; its change table follows in renderChange.
  * @param {'dubai'|'abu_dhabi'} emirate
- * @param {{period: string, areas: AreaRow[], published?: string|null}} d
+ * @param {{period: string, areas: AreaRow[], published?: string|null, chart_caption?: string}} d
  */
 export function renderTop(emirate, d) {
   const areas = (d?.areas ?? []).filter((a) => a.value_bn > 0);
   if (!areas.length || !parsePeriod(d.period)) return '';
   const label = periodLabel(d.period);
   const prior = periodLabel(priorPeriodId(d.period));
-  const top = Math.max(...areas.map((a) => a.value_bn));
+  const cards = areaCards(emirate, d.period, areas);
+  const charted = cards.some((c) => c.pair);
   // One sentence per emirate, naming its own period (owner decision 2026-11-05): Dubai shows its latest year to date
   // from DLD, Abu Dhabi ADREC's latest by-area period. The two never claim to share a period.
   const note = emirate === 'dubai'
     ? (isYtd(d.period) ? `<p class="mk-note">Dubai: ${esc(label)} against the same months of ${esc(String(parsePeriod(d.period).year - 1))}, from DLD open data, updated weekly.</p>` : '')
     : `<p class="mk-note">Abu Dhabi: ${esc(label)}, the latest period ADREC publishes by area.</p>`;
-  const cards = areas.map((a) => {
-    const c = formatChange(a);
-    return `<article class="mk-card">
-<p class="mk-rank">#${esc(a.rank)}</p>
-<h3 class="mk-area">${esc(a.area)}</h3>${a.label ? `<p class="mk-label">${esc(a.label)}</p>` : ''}
-<p class="mk-value">${fmtBn(a.value_bn)}</p>
-<div class="mk-bar" aria-hidden="true"><span style="width:${Math.max(2, Math.round((a.value_bn / top) * 100))}%"></span></div>
-<p class="mk-foot"><span>${pct1(a.share_pct)} of total</span>${changeSpan(c)}</p>
-</article>`;
-  }).join('');
+  if (emirate === 'dubai') {
+    const sort = charted || cards.some((c) => c.rank.change)
+      ? `<div class="dc-sort" role="group" aria-labelledby="dc-sort-dubai"><span class="dc-sort-label" id="dc-sort-dubai">Sort by</span><div class="dc-sort-buttons">`
+        + `<button type="button" data-sort="value" aria-pressed="true">Sales value</button><button type="button" data-sort="change" aria-pressed="false">Change vs last year</button></div></div>`
+      : '';
+    return `<section class="mk-block" aria-labelledby="mk-top-dubai">
+<h2 id="mk-top-dubai" class="mk-h2">Top areas · Dubai</h2>
+<p class="mk-chip">${esc(label)} vs ${esc(prior)}</p>${note}
+${sort}${renderCardGrid(cards, { cols: 4, attrs: ' data-sortable="yes"' })}
+<p class="mk-src">Source: Dubai Land Department, Real Estate Transactions open data via Data.Dubai (Open Data Licence). Residential sales value. Area names as registered by DLD.</p>
+</section>`;
+  }
+  const caption = charted && d.chart_caption ? `<p class="dc-src">${esc(d.chart_caption)}</p>` : '';
   return `<section class="mk-block" aria-labelledby="mk-top-${emirate}">
 <h2 id="mk-top-${emirate}" class="mk-h2">Top areas by sales value · ${EMIRATES[emirate]}</h2>
 <p class="mk-chip">${esc(label)} vs ${esc(prior)}</p>${note}
-${renderAreaChart(emirate, `cmp-top-${emirate}`, d.period, areas)}<div class="mk-cards">${cards}</div>
+${renderCardGrid(cards, { cols: 4 })}${caption}
 </section>`;
 }
 
 /**
+ * Abu Dhabi's change table (its cards and their charts are in renderTop, directly above). Dubai has no separate change
+ * section: its cards sort by change in renderTop, so this returns ''.
  * @param {'dubai'|'abu_dhabi'} emirate
- * @param {{period: string, areas: AreaRow[], published?: string|null}} d
+ * @param {{period: string, areas: AreaRow[], published?: string|null, chart_caption?: string}} d
  */
 export function renderChange(emirate, d) {
+  if (emirate !== 'abu_dhabi') return '';
   const areas = (d?.areas ?? []).filter((a) => a.value_bn > 0);
   const ranked = rankByChange(areas);
   if (!ranked.length || !parsePeriod(d.period)) return '';
-  const missing = emirate === 'abu_dhabi' ? areas.length - ranked.length : 0;
-  // Rules 1c v6.6: the chart above the table. With no prior-period value in the data (the Worker and adrec-areas.json do
-  // not carry one yet) there is nothing exact to draw: the table says so in data-chart-gap, which tests/charts.test.mjs reads.
-  const chart = renderAreaChart(emirate, `cmp-chg-${emirate}`, d.period, ranked.map((x) => x.a));
+  const missing = areas.length - ranked.length;
+  // Rules 1c v6.9: the comparison is charted in the cards above (renderTop). With no prior-period value for any area the
+  // table records the gap in data-chart-gap, which tests/charts.test.mjs reads.
+  const charted = areas.some((a) => pos(a.prior_value_bn));
   const rows = ranked.map(({ a, c }, i) => `<tr><td class="mk-num">${i + 1}</td><td><span class="mk-tarea">${esc(a.area)}</span>${a.label ? `<span class="mk-label">${esc(a.label)}</span>` : ''}</td><td class="mk-num">${fmtBn(a.value_bn)}</td><td class="mk-num">${changeSpan(c)}</td></tr>`).join('');
   const np = missing > 0
     ? `<p class="mk-src">ADREC did not publish a year-on-year change for ${missing} of the top areas (n/p = not published). They are left out of this ranking rather than estimated.</p>`
     : '';
-  const source = emirate === 'dubai'
-    ? `Source: Dubai Land Department, Real Estate Transactions open data via Data.Dubai (Open Data Licence). Residential sales value. Area names as registered by DLD.`
-    : `Source: Abu Dhabi Real Estate Centre (ADREC), ${esc(reportName(d.period))} market report${d.published ? ` (published ${esc(fmtDate(d.published))})` : ''}. Residential sales value.`;
+  const source = `Source: Abu Dhabi Real Estate Centre (ADREC), ${esc(reportName(d.period))} market report${d.published ? ` (published ${esc(fmtDate(d.published))})` : ''}. Residential sales value.`;
   return `<section class="mk-block" aria-labelledby="mk-chg-${emirate}">
 <h2 id="mk-chg-${emirate}" class="mk-h2">Change vs last year · ${EMIRATES[emirate]}</h2>
-${chart}<div class="mk-table-card"${chart ? '' : ' data-chart-gap="prior-period-not-in-data"'}><div class="mk-table-scroll" tabindex="0"><table class="mk-table">
+<div class="mk-table-card"${charted ? ' data-charted-by="cards"' : GAP}><div class="mk-table-scroll" tabindex="0"><table class="mk-table">
 <thead><tr><th scope="col" class="mk-num">#</th><th scope="col">Area</th><th scope="col" class="mk-num">Sales value</th><th scope="col" class="mk-num">Change</th></tr></thead>
 <tbody>${rows}</tbody></table></div></div>
 ${np}<p class="mk-src">${source}</p>
@@ -277,8 +296,11 @@ export function dubaiRows(body) {
 // ---- Area guide: live figures card ----------------------------------------------------------------------------------
 
 /**
+ * The figures card on a guide page: one data card (value, share, the DLD or ADREC name when it differs from the guide's
+ * name, the bar pair, change). On an Abu Dhabi guide with a chart the source line is the approved chart caption, which
+ * names the same ADREC report (Coordinator decision 2026-11-07: one source line); otherwise the report line as before.
  * @param {'dubai'|'abu_dhabi'} emirate
- * @param {{period: string, area: AreaRow, dldArea?: string, published?: string|null, source_url?: string}|null} d
+ * @param {{period: string, area: AreaRow, name?: string, dldArea?: string, published?: string|null, source_url?: string, chart_caption?: string}|null} d
  */
 export function renderGuideCard(emirate, d) {
   const a = d?.area;
@@ -286,14 +308,23 @@ export function renderGuideCard(emirate, d) {
   const label = periodLabel(d.period);
   const prior = periodLabel(priorPeriodId(d.period));
   const c = formatChange(a);
+  const officialName = emirate === 'dubai' ? d.dldArea : a.area;
+  const name = d.name || officialName || a.area;
+  const pair = areaPair(d.period, a, name);
   const source = emirate === 'dubai'
     ? `Source: Dubai Land Department, Real Estate Transactions open data via Data.Dubai (Open Data Licence). Residential sales value${d.dldArea ? ` for the DLD area ${esc(d.dldArea)}` : ''}.`
-    : `Source: Abu Dhabi Real Estate Centre (ADREC), ${esc(reportName(d.period))} market report${d.published ? ` (published ${esc(fmtDate(d.published))})` : ''}. Residential sales value.`;
-  return `<p class="mk-chip">${esc(label)} vs ${esc(prior)}</p>
-<p class="mk-value">${fmtBn(a.value_bn)}</p>
-<p class="mk-tile-label">residential sales value, ${esc(label)}</p>
-<p class="mk-foot"><span>${pct1(a.share_pct)} of ${EMIRATES[emirate]}'s total</span>${changeSpan(c)}</p>
-${renderAreaChart(emirate, `cmp-guide-${emirate}`, d.period, [a])}<p class="mk-src">${source}</p>`;
+    : pair && d.chart_caption
+      ? esc(d.chart_caption)
+      : `Source: Abu Dhabi Real Estate Centre (ADREC), ${esc(reportName(d.period))} market report${d.published ? ` (published ${esc(fmtDate(d.published))})` : ''}. Residential sales value.`;
+  return renderDataCard({
+    single: true, heading: 'none', name,
+    top: `<p class="mk-chip">${esc(label)} vs ${esc(prior)}</p>`,
+    official: officialName && officialName !== name ? `${OFFICIAL[emirate]}: ${officialName}` : '',
+    value: fmtBn(a.value_bn), valueLabel: `residential sales value, ${label}`,
+    pair,
+    foot: { left: `${pct1(a.share_pct)} of ${EMIRATES[emirate]} total`, change: c.text, dir: c.dir },
+    src: `<p class="mk-src">${source}</p>`,
+  });
 }
 
 // ---- /new-launches: Launch activity ---------------------------------------------------------------------------------
@@ -344,6 +375,14 @@ export function renderLaunchPanel(body, today = todayIso()) {
 // ---- Build-time checks for the two hand-maintained data files ------------------------------------------------------
 
 /**
+ * A prior derived from ADREC's published change (owner decision 2026-11-07, AD option B): value_bn / (1 + change_pct / 100),
+ * rounded to one decimal. That rounding moves it by at most 0.05bn, so the stored prior must lie within 0.05bn of the
+ * quotient (plus 1e-9 for floating point). This is the only tolerance added; changeAgrees keeps its own bounds.
+ * @param {number} prior @param {number} value @param {number} pct
+ */
+export const derivedPriorAgrees = (prior, value, pct) => Math.abs(prior - value / (1 + pct / 100)) <= 0.05 + 1e-9;
+
+/**
  * site/src/data/adrec-areas.json. Figures enter only when confirmed against ADREC's own report (Rules 3, relay rule);
  * the card count stays even. Returns the problems; the build fails on any.
  * @param {any} f @param {string[]} guideSlugs
@@ -374,16 +413,19 @@ export function checkAdrecAreas(f, guideSlugs) {
     const hasText = typeof a.change_text === 'string';
     if (hasText === ('change_pct' in a)) e.push(`${at}: exactly one of change_pct (number or null) and change_text`);
     if ('change_pct' in a && a.change_pct !== null && typeof a.change_pct !== 'number') e.push(`${at}: change_pct`);
-    // Optional: the same period a year earlier, as ADREC publishes it (charted; Rules 1c v6.6). It must agree with the
-    // published change; a row without a published change cannot carry one.
+    // Optional: the same period a year earlier, as ADREC states it or derived from its published change (charted; Rules 1c
+    // v6.6). It must agree with the published change; a row without a published change cannot carry one.
     if ('prior_value_bn' in a) {
       const stated = hasText ? a.change_text : typeof a.change_pct === 'number' ? `${a.change_pct}%` : null;
       if (!pos(a.prior_value_bn)) e.push(`${at}: prior_value_bn must be a number above zero`);
       else if (stated === null) e.push(`${at}: prior_value_bn needs a published change`);
-      else if (!changeAgrees(a.prior_value_bn, a.value_bn, stated)) e.push(`${at}: prior_value_bn ${a.prior_value_bn} does not match value_bn ${a.value_bn} and change ${stated}`);
+      else if (!changeAgrees(a.prior_value_bn, a.value_bn, stated) && !(typeof a.change_pct === 'number' && derivedPriorAgrees(a.prior_value_bn, a.value_bn, a.change_pct))) e.push(`${at}: prior_value_bn ${a.prior_value_bn} does not match value_bn ${a.value_bn} and change ${stated}`);
     }
     if (!guideSlugs.includes(a.guide)) e.push(`${at}: guide ${a.guide} is not an Abu Dhabi guide`);
   });
+  // The chart caption says where the prior values come from: required once any row carries one, plain text, no link.
+  if (f.areas.some((a) => 'prior_value_bn' in a) && !(typeof f.chart_caption === 'string' && f.chart_caption.trim())) e.push('chart_caption is required once a prior_value_bn is listed');
+  if ('chart_caption' in f && (typeof f.chart_caption !== 'string' || /[<>]|https?:|www\./i.test(f.chart_caption))) e.push('chart_caption must be plain text with no link');
   return e;
 }
 

@@ -1,7 +1,10 @@
-// Browser check for the stacked footer lockup (owner 2026-11-07, "Property Consultant has to go below"): at 320, 375, 768
-// and 1280 the title sits on its own line below the "Sharjeel Hashmat" wordmark, its left edge on the start of the
-// wordmark text (within 1px), 4 to 8px under it, the mark centred against both lines, nothing wraps and the page does not
-// scroll sideways. The header lockup is unchanged. Not part of `npm test`: it needs Chromium.
+// Browser check for the footer lockups (owner 2026-11-07, Rules 1c v6.9; Coordinator notes on legibility, 2026-11-07).
+// Both are Brand Package files shown once each and cropped by CSS only. From 704px: logo-horizontal-ivory.svg in a 656px
+// frame, whole ink box (x 217 to 2668, y 235 to 725 of 2880 x 960) unclipped, tagline capitals (38 units) at least 10px.
+// Below 704px: logo-stacked-ivory.svg (Brand Package v3.0 sh_stacked_ivory_transparent.svg) at the footer's full content
+// width, whole ink box (x 204 to 1396, y 374 to 1217 of 1600 x 1600) unclipped; its tagline size (26 to 27 units) is
+// printed. Neither image is stretched, the page does not scroll sideways and the header lockup is unchanged. Not part of
+// `npm test`: it needs Chromium.
 //   PLAYWRIGHT=/path/to/playwright/index.mjs node tests/e2e/footer.e2e.mjs <distDir>
 import path from 'node:path';
 import assert from 'node:assert/strict';
@@ -13,44 +16,60 @@ const server = await start(dist);
 const base = `http://127.0.0.1:${server.address().port}`;
 const browser = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {});
 
-// logo-web-ivory.svg geometry (viewBox 205 225 2480 510): where the wordmark text starts and where its ink ends.
-const VIEW = { x: 205, y: 225, w: 2480, h: 510 };
-const TEXT_X = 880.27;
-const INK_BOTTOM = 586.32;
+const LOCKUPS = {
+  horizontal: { canvas: [2880, 960], ink: { x0: 217, y0: 235, x1: 2668, y1: 725 }, frame: 2480 / 510, caps: [38, 40] },
+  stacked: { canvas: [1600, 1600], ink: { x0: 204, y0: 374, x1: 1396, y1: 1217 }, frame: 1208 / 860, caps: [26, 27] },
+};
+const sizes = [];
 let checks = 0;
 
 try {
-  for (const width of [320, 375, 768, 1280]) {
+  for (const width of [320, 375, 703, 704, 768, 1280]) {
     for (const p of ['/', '/about', '/insights/dubai-2026-so-far-official-numbers']) {
       const page = await browser.newPage({ viewport: { width, height: 800 } });
       await page.route(/^https:\/\//, (r) => r.abort());
       await page.goto(base + p, { waitUntil: 'load' });
-      const m = await page.evaluate(({ VIEW, TEXT_X, INK_BOTTOM }) => {
+      await page.waitForFunction(() => [...document.querySelectorAll('footer img')].every((i) => i.complete));
+      const m = await page.evaluate(() => {
         const f = document.querySelector('footer.site-footer');
         const R = (e) => e.getBoundingClientRect();
-        const word = f.querySelector('.brand-word');
-        const img = word.querySelector('img');
-        const title = f.querySelector('.brand > span');
-        const w = R(word), i = R(img), t = R(title), mk = R(f.querySelector('.brand-mark'));
-        const header = [...document.querySelectorAll('header.site-nav img')];
-        return {
-          title: title.textContent, titleLine: parseFloat(getComputedStyle(title).lineHeight),
-          wordBottom: w.bottom, inkBottom: i.top + (i.height * (INK_BOTTOM - VIEW.y)) / VIEW.h, textLeft: i.left + (i.width * (TEXT_X - VIEW.x)) / VIEW.w,
-          titleTop: t.top, titleLeft: t.left, titleHeight: t.height, blockTop: w.top, blockBottom: t.bottom, markMid: (mk.top + mk.bottom) / 2,
-          wordAlt: img.alt, wordHeight: w.height, scrollWidth: document.documentElement.scrollWidth,
-          header: header.map((x) => [x.getAttribute('src'), x.alt, Math.round(R(x).height)]),
+        const shown = (e) => R(e).width > 0 && getComputedStyle(e).display !== 'none';
+        const one = (frame) => {
+          const img = frame.querySelector('img');
+          return { shown: shown(frame), src: img.getAttribute('src'), alt: img.alt, natural: [img.naturalWidth, img.naturalHeight], frame: R(frame).toJSON(), img: R(img).toJSON() };
         };
-      }, { VIEW, TEXT_X, INK_BOTTOM });
+        const row = f.querySelector('.foot-row');
+        const pad = parseFloat(getComputedStyle(row).paddingLeft) + parseFloat(getComputedStyle(row).paddingRight);
+        return {
+          horizontal: one(f.querySelector('.brand-lockup')), stacked: one(f.querySelector('.brand-stacked')), row: R(row).width - pad,
+          imgs: [...f.querySelectorAll('img')].map((x) => x.getAttribute('src')), typed: /Property Consultant · UAE/.test(f.textContent),
+          scrollWidth: document.documentElement.scrollWidth, header: [...document.querySelectorAll('header.site-nav img')].map((x) => [x.getAttribute('src'), x.alt, Math.round(R(x).height)]),
+        };
+      });
       const at = `${p} @${width}`;
-      assert.equal(m.title, 'Property Consultant · UAE', `${at}: wording`);
-      assert.equal(m.wordAlt, 'Sharjeel Hashmat', `${at}: the wordmark keeps its alt`);
-      assert.ok(m.titleTop >= m.wordBottom, `${at}: title top ${m.titleTop} is below the wordmark bottom ${m.wordBottom}`);
-      const gap = m.titleTop - m.inkBottom;
-      assert.ok(gap >= 4 && gap <= 8, `${at}: gap under the wordmark ink is ${gap.toFixed(2)}px`);
-      assert.ok(Math.abs(m.titleLeft - m.textLeft) <= 1, `${at}: title left ${m.titleLeft} vs wordmark text ${m.textLeft}`);
-      assert.ok(Math.abs(m.markMid - (m.blockTop + m.blockBottom) / 2) <= 1, `${at}: mark centred against the two lines`);
-      assert.equal(m.titleHeight, m.titleLine, `${at}: the title is one line`);
-      assert.equal(m.wordHeight, 25, `${at}: the wordmark is one line`);
+      const kind = width >= 704 ? 'horizontal' : 'stacked';
+      const other = kind === 'horizontal' ? 'stacked' : 'horizontal';
+      assert.deepEqual([m[kind].shown, m[other].shown], [true, false], `${at}: ${kind} lockup shows`);
+      assert.deepEqual(m.imgs, ['/logo-horizontal-ivory.svg', '/logo-stacked-ivory.svg'], `${at}: the two Brand Package files only`);
+      assert.equal(m.typed, false, `${at}: no typed title line`);
+      const L = LOCKUPS[kind], x = m[kind];
+      assert.equal(x.alt, 'Sharjeel Hashmat, Property Consultant · UAE', `${at}: alt`);
+      assert.deepEqual(x.natural, L.canvas, `${at}: the file's own canvas`);
+      const s = x.img.width / L.canvas[0];
+      assert.ok(Math.abs(x.img.height / x.img.width - L.canvas[1] / L.canvas[0]) < 0.002, `${at}: the image is not stretched`);
+      const ink = { left: x.img.left + L.ink.x0 * s, right: x.img.left + L.ink.x1 * s, top: x.img.top + L.ink.y0 * s, bottom: x.img.top + L.ink.y1 * s };
+      for (const [k, ok] of [['left', ink.left >= x.frame.left - 0.5], ['right', ink.right <= x.frame.right + 0.5], ['top', ink.top >= x.frame.top - 0.5], ['bottom', ink.bottom <= x.frame.bottom + 0.5]]) {
+        assert.ok(ok, `${at}: the ${kind} lockup's ${k} edge is clipped`);
+      }
+      assert.ok(Math.abs(x.frame.width / x.frame.height - L.frame) < 0.02, `${at}: frame proportions`);
+      const caps = L.caps.map((u) => (u * s).toFixed(2));
+      if (kind === 'horizontal') {
+        assert.ok(Math.abs(x.frame.width - 656) < 0.5, `${at}: frame ${x.frame.width}px`);
+        assert.ok(L.caps[0] * s >= 10, `${at}: tagline capitals ${caps[0]}px`);
+      } else {
+        assert.ok(Math.abs(x.frame.width - m.row) < 0.5, `${at}: frame ${x.frame.width}px, footer content ${m.row}px`);
+      }
+      if (p === '/') sizes.push(`${width}px: ${kind}, frame ${x.frame.width.toFixed(1)} x ${x.frame.height.toFixed(1)}px, tagline capitals ${caps.join(' to ')}px`);
       assert.ok(m.scrollWidth <= width, `${at}: page is ${m.scrollWidth}px wide`);
       assert.deepEqual(m.header, [['/logo-web-ivory.svg', 'Sharjeel Hashmat', width <= 640 ? 40 : 52]], `${at}: header lockup unchanged`);
       checks++;
@@ -61,4 +80,5 @@ try {
   await browser.close();
   server.close();
 }
+console.log(sizes.join('\n'));
 console.log(`footer e2e: ${checks} checks passed`);

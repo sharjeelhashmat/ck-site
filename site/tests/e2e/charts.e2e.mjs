@@ -1,7 +1,9 @@
-// Browser check for the comparison charts (Rules 1c v6.6) and the homepage alignment fix: at 320px no page scrolls
-// sideways; the Insights charts are on screen; with a Worker response that carries prior_value_bn the /areas and Dubai guide
-// charts are drawn in the same render path and show the same figures as the cards and the table. Not part of `npm test`: it
-// needs Chromium.
+// Browser check for the data cards (Rules 1c v6.9, "Brand data standard") and the homepage alignment fix. At 320, 375 and
+// 1280: no page scrolls sideways (/areas in both sort orders and Abu Dhabi, a Dubai guide, an Abu Dhabi guide, each
+// Insights article, the homepage); every chart sits inside a card and its labels stay inside the card; bar and change
+// colours as the browser computes them are Brass and Brass Deep, Ink and Brass Deep; the Dubai sort toggle reorders the
+// cards (click and keyboard) and sets aria-pressed; card values equal the table and Worker values. Not part of `npm test`:
+// it needs Chromium.
 //   PLAYWRIGHT=/path/to/playwright/index.mjs node tests/e2e/charts.e2e.mjs <distDir>
 // The Worker is replaced by routes inside the browser. The market figures are invented fixtures, never real data.
 import path from 'node:path';
@@ -18,11 +20,14 @@ const top8 = [
   row(4, 'Marsa Dubai', 'Dubai Marina, Dubai Harbour', 9, 18, -50), row(5, 'Wadi Al Safa 3', 'Majan', 8, 10, -20), row(6, 'Al Yelayiss 1', null, 7, 0.5, 1300),
   row(7, 'Wadi Al Safa 5', 'Dubailand Residence Complex', 6, 6, 0), row(8, 'Jabal Ali First', 'Jumeirah Lake Towers', 5, 5.5, -9.1),
 ];
+const VALUE_ORDER = ['Dubai South', 'Dubai Islands', 'Business Bay', 'Dubai Marina, Dubai Harbour', 'Majan', 'Al Yelayiss 1', 'Dubailand Residence Complex', 'Jumeirah Lake Towers'];
+const CHANGE_ORDER = ['Al Yelayiss 1', 'Dubai Islands', 'Dubai South', 'Dubailand Residence Complex', 'Jumeirah Lake Towers', 'Majan', 'Business Bay', 'Dubai Marina, Dubai Harbour'];
 const months = { period: '2026-YTD09', prior_period: '2025-YTD09', first_month: '2026-01', last_month: '2026-09', prior_first_month: '2025-01', prior_last_month: '2025-09' };
 const AREAS = { ...months, dubai: { ytd: { sales_bn: 300, total_bn: 450, mortgages_bn: 120, as_of: '2026-10-30' }, top8, total_res_bn: 180, as_of: '2026-10-30' } };
 const AREA = { ...months, area: top8[3], total_res_bn: 180, as_of: '2026-10-30' };
 const LAUNCHES = { abu_dhabi: { transaction_value_bn: 100, sales_value_bn: 70, mortgage_value_bn: 20, year: 2026, as_of: '2026-10-16', source_label: 'x', source_url: 'https://adrec.gov.ae/en' } };
 const strip = (b) => JSON.parse(JSON.stringify(b, (k, v) => (k === 'prior_value_bn' ? undefined : v)));
+const RGB = { ink: 'rgb(20, 37, 47)', brass: 'rgb(198, 162, 114)', brassDeep: 'rgb(126, 96, 52)', none: 'rgba(0, 0, 0, 0)' };
 
 const server = await start(dist);
 const base = `http://127.0.0.1:${server.address().port}`;
@@ -45,41 +50,72 @@ const noSideScroll = async (page, label, width) => {
   assert.ok(sw <= width, `${label} @${width}: page is ${sw}px wide`);
   checks++;
 };
-// Every chart on screen fits its card and its text does not overflow the chart.
-const chartsFit = async (page, label) => {
-  const bad = await page.$$eval('figure.cmp', (figs) => figs.flatMap((f) => {
-    const box = f.querySelector('svg').getBoundingClientRect();
-    if (box.width === 0) return [];
-    return [...f.querySelectorAll('text')].filter((t) => { const r = t.getBoundingClientRect(); return r.right > box.right + 1 || r.left < box.left - 1; }).map((t) => t.textContent);
+// Every chart is inside a card, its labels stay inside the card, a value label never runs into its bar, and the colours
+// are the standard's.
+const cardsFit = async (page, label) => {
+  const r = await page.$$eval('.dc-chart', (charts) => charts.filter((c) => c.getBoundingClientRect().width > 0).map((c) => {
+    const card = c.closest('article.dc');
+    if (!card) return { outside: true };
+    const box = card.getBoundingClientRect();
+    const out = [...c.querySelectorAll('.dc-period, .dc-val, .dc-bar')].filter((e) => { const q = e.getBoundingClientRect(); return q.left < box.left - 1 || q.right > box.right + 1; }).map((e) => e.textContent || e.className);
+    const clash = [...c.querySelectorAll('.dc-row')].filter((rw) => {
+      const bar = rw.querySelector('.dc-bar').getBoundingClientRect();
+      const val = rw.querySelector('.dc-val').getBoundingClientRect();
+      return Math.abs(bar.top - val.top) < 4 && bar.right > val.left + 0.5; // same line: the value starts after the bar
+    }).map((rw) => rw.textContent);
+    const cs = (sel, p) => getComputedStyle(c.querySelector(sel))[p];
+    const change = card.querySelector('.dc-change, .dc-big-change');
+    return {
+      outside: false, out, clash,
+      later: cs('.dc-bar--later', 'backgroundColor'), earlierBg: cs('.dc-bar--earlier', 'backgroundColor'), earlierBorder: cs('.dc-bar--earlier', 'borderTopColor'),
+      earlierWidth: cs('.dc-bar--earlier', 'borderTopWidth'), height: cs('.dc-bar--later', 'height'),
+      change: change ? [change.textContent, getComputedStyle(change).color] : null,
+    };
   }));
-  assert.deepEqual(bad, [], `${label}: chart text outside the chart`);
-  // In each pair the value labels end before the change label starts.
-  const clash = await page.$$eval('figure.cmp .cmp-row', (rows) => rows.filter((g) => g.getBoundingClientRect().width > 0).flatMap((g) => {
-    const right = Math.max(...[...g.querySelectorAll('.cmp-value')].map((t) => t.getBoundingClientRect().right));
-    const change = g.querySelector('.cmp-change');
-    return right + 4 <= change.getBoundingClientRect().left ? [] : [change.textContent];
-  }));
-  assert.deepEqual(clash, [], `${label}: a value label runs into the change label`);
+  assert.ok(r.length > 0, `${label}: charts on screen`);
+  for (const c of r) {
+    assert.equal(c.outside, false, `${label}: a chart outside a card`);
+    assert.deepEqual(c.out, [], `${label}: chart text outside the card`);
+    assert.deepEqual(c.clash, [], `${label}: a value label runs into its bar`);
+    // The outline is declared 1.5px (tests/charts.test.mjs pins the CSS); Chromium snaps a border to whole device pixels,
+    // so it computes as 1px on a 1x screen and 1.5px on a 2x one.
+    assert.deepEqual([c.later, c.earlierBg, c.earlierBorder, c.height], [RGB.brass, RGB.none, RGB.brassDeep, '10px'], `${label}: bar colours`);
+    assert.ok(['1px', '1.5px'].includes(c.earlierWidth), `${label}: outline ${c.earlierWidth}`);
+    if (c.change) assert.equal(c.change[1], /^[−-]/.test(c.change[0]) ? RGB.brassDeep : RGB.ink, `${label}: change ${c.change[0]}`);
+  }
   checks++;
 };
+const names = (page, panel) => page.$$eval(`.mk-panel[data-emirate="${panel}"] .dc-grid .dc-name`, (h) => h.map((x) => x.textContent));
 
 try {
   for (const width of [320, 375, 1280]) {
-    // Homepage, Insights, the Abu Dhabi side of /areas and an Abu Dhabi guide: built at build time.
+    // Homepage, Insights, an Abu Dhabi guide: built at build time.
     for (const p of ['/', '/insights/dubai-2026-so-far-official-numbers', '/insights/does-rising-transaction-value-mean-rising-prices', '/insights/costs-investors-forget-before-yield', '/areas/saadiyat-island']) {
       const { page, ctx } = await open(p, width);
       await noSideScroll(page, p, width);
-      await chartsFit(page, p);
       if (p === '/insights/dubai-2026-so-far-official-numbers') {
-        assert.equal(await page.locator('figure.cmp svg[role="img"]').count(), 2, 'two charts');
-        // Chart values equal the table values as the browser shows them.
-        const pairs = await page.$$eval('figure.cmp', (figs) => figs.map((f) => {
-          const table = f.nextElementSibling.querySelector('table');
-          return { chart: [...f.querySelectorAll('.cmp-change')].map((t) => t.textContent), table: [...table.querySelectorAll('tbody tr')].map((tr) => tr.children[3].textContent) };
+        await cardsFit(page, p);
+        assert.equal(await page.locator('.dc-grid .dc-chart[role="img"]').count(), 12, 'one card per table row (4 + 8)');
+        // Card changes and values equal the table as the browser shows it.
+        const grids = await page.$$eval('.dc-grid', (gs) => gs.map((g) => {
+          let t = g.nextElementSibling;
+          while (t && !t.classList.contains('table-scroll')) t = t.nextElementSibling;
+          return {
+            cards: [...g.querySelectorAll('.dc-big-change')].map((x) => x.textContent),
+            later: [...g.querySelectorAll('.dc-row--later .dc-val')].map((x) => x.textContent),
+            table: [...t.querySelectorAll('tbody tr')].map((tr) => [...tr.children].map((td) => td.textContent)),
+          };
         }));
-        assert.deepEqual(pairs[0].chart, ['+11%', '−33%', '−46%', '−25%']);
-        assert.deepEqual(pairs[0].table, pairs[0].chart, 'quarter chart changes are the table changes');
+        assert.deepEqual(grids[0].cards, ['+11%', '−33%', '−46%', '−25%']);
+        assert.deepEqual(grids[0].cards, grids[0].table.map((r) => r[3]), 'quarter card changes are the table changes');
+        assert.deepEqual(grids[0].later, grids[0].table.map((r) => r[2]), 'quarter card 2026 values are the table values');
+        assert.deepEqual(grids[1].cards, grids[1].table.map((r) => r[2]), 'Q3 card changes are the table changes');
+        assert.deepEqual(grids[1].later, grids[1].table.map((r) => r[1]), 'Q3 card values are the table values');
         checks++;
+      }
+      if (p === '/areas/saadiyat-island') {
+        await cardsFit(page, p);
+        assert.deepEqual(await page.$$eval('.mk-guide-card .dc-val', (t) => t.map((x) => x.textContent)), ['AED 8.2bn', 'AED 13.3bn']);
       }
       if (p === '/') {
         const align = await page.$$eval('main h2', (hs) => hs.map((h) => [h.textContent.trim(), getComputedStyle(h).textAlign]));
@@ -93,39 +129,49 @@ try {
       }
       await ctx.close();
     }
-    // /areas: Dubai (with and without prior_value_bn) and Abu Dhabi.
+    // /areas: Dubai (with and without prior_value_bn, both sort orders) and Abu Dhabi.
     for (const prior of [true, false]) {
       const { page, ctx } = await open('/areas', width, { prior });
-      await page.waitForSelector('.mk-panel[data-emirate="dubai"]:not([hidden]) [data-slot="change"] table');
+      await page.waitForSelector('.mk-panel[data-emirate="dubai"]:not([hidden]) .dc-grid');
       await noSideScroll(page, `/areas Dubai prior=${prior}`, width);
-      const n = await page.locator('.mk-panel[data-emirate="dubai"] figure.cmp').count();
-      assert.equal(n, prior ? 2 : 0, `/areas Dubai charts with prior=${prior}`);
-      if (prior) {
-        await chartsFit(page, '/areas Dubai');
-        // The change chart shows the table's sales values and changes, in the table's order.
-        const { chart, table } = await page.$eval('#mk-chg-dubai', (h) => {
-          const s = h.closest('section');
-          return {
-            chart: [...s.querySelectorAll('.cmp-change')].map((t) => t.textContent),
-            table: [...s.querySelectorAll('tbody tr')].map((tr) => tr.lastElementChild.textContent),
-          };
-        });
-        assert.deepEqual(chart, table, '/areas change chart = table');
-        checks++;
-      } else {
-        assert.equal(await page.locator('.mk-panel[data-emirate="dubai"] [data-chart-gap="prior-period-not-in-data"]').count(), 1);
-      }
+      assert.equal(await page.locator('.mk-panel[data-emirate="dubai"] .dc-chart').count(), prior ? 8 : 0, `/areas Dubai charts with prior=${prior}`);
+      assert.equal(await page.locator('.mk-panel[data-emirate="dubai"] figure, .mk-panel[data-emirate="dubai"] table').count(), 0, 'no chart block and no change table');
+      if (prior) await cardsFit(page, '/areas Dubai');
+      else assert.equal(await page.locator('.mk-panel[data-emirate="dubai"] article.dc[data-chart-gap="prior-period-not-in-data"]').count(), 8);
+      // The sort toggle: value order without a click; change order with "#n by change"; back again; keyboard too.
+      assert.deepEqual(await names(page, 'dubai'), VALUE_ORDER);
+      const pressed = () => page.$$eval('.dc-sort button', (b) => b.map((x) => [x.textContent, x.getAttribute('aria-pressed')]));
+      assert.deepEqual(await pressed(), [['Sales value', 'true'], ['Change vs last year', 'false']]);
+      await page.click('.dc-sort button[data-sort="change"]');
+      assert.deepEqual(await names(page, 'dubai'), CHANGE_ORDER);
+      assert.deepEqual(await page.$$eval('.mk-panel[data-emirate="dubai"] .dc-rank', (r) => r.map((x) => x.textContent)), CHANGE_ORDER.map((_, i) => `#${i + 1} by change`));
+      assert.deepEqual(await pressed(), [['Sales value', 'false'], ['Change vs last year', 'true']]);
+      await noSideScroll(page, `/areas Dubai by change prior=${prior}`, width);
+      if (prior) await cardsFit(page, '/areas Dubai by change');
+      await page.focus('.dc-sort button[data-sort="value"]');
+      await page.keyboard.press('Enter');
+      assert.deepEqual(await names(page, 'dubai'), VALUE_ORDER, 'Enter on "Sales value" restores value order');
+      assert.deepEqual(await page.$$eval('.mk-panel[data-emirate="dubai"] .dc-rank', (r) => r.map((x) => x.textContent)), VALUE_ORDER.map((_, i) => `#${i + 1}`));
+      await page.focus('.dc-sort button[data-sort="change"]');
+      await page.keyboard.press('Space');
+      assert.deepEqual(await names(page, 'dubai'), CHANGE_ORDER, 'Space on "Change vs last year"');
+      checks++;
       await page.click('.mk-pill[data-emirate="abu_dhabi"]');
       await noSideScroll(page, '/areas Abu Dhabi', width);
+      // Abu Dhabi (adrec-areas.json prior_value_bn, owner decision 2026-11-07): four cards with a chart, four without.
+      assert.equal(await page.locator('.mk-panel[data-emirate="abu_dhabi"] .dc-chart').count(), 4, '/areas Abu Dhabi charts');
+      assert.equal(await page.locator('.mk-panel[data-emirate="abu_dhabi"] article.dc[data-chart-gap]').count(), 4);
+      await cardsFit(page, '/areas Abu Dhabi');
       await ctx.close();
     }
-    // A Dubai guide: one pair when the Worker sends the prior period.
+    // A Dubai guide: one card with the pair when the Worker sends the prior period.
     {
       const { page, ctx } = await open('/areas/dubai-marina', width);
       await page.waitForSelector('#guide-figures:not([hidden])');
       await noSideScroll(page, '/areas/dubai-marina', width);
-      assert.deepEqual(await page.$$eval('#guide-figures .cmp-value', (t) => t.map((x) => x.textContent)), ['AED 18.0bn', 'AED 9.0bn']);
-      await chartsFit(page, '/areas/dubai-marina');
+      assert.deepEqual(await page.$$eval('#guide-figures .dc-val', (t) => t.map((x) => x.textContent)), ['AED 18.0bn', 'AED 9.0bn']);
+      assert.deepEqual(await page.$$eval('#guide-figures .dc-official', (t) => t.map((x) => x.textContent)), ['DLD: Marsa Dubai']);
+      await cardsFit(page, '/areas/dubai-marina');
       await ctx.close();
     }
   }
