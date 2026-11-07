@@ -60,9 +60,12 @@
   .dc-bar { grid-column: 1 / -1; grid-row: 2; width: calc(100% * var(--f, 0)); }
 }
 
-.dc-foot { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); margin-top: var(--space-3); font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); }
-.dc-foot > span:first-child { min-width: 0; }
-.dc-change { font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Card footer (Coordinator review 3): share text left, change right, on one line when both fit at the share text's own
+   one-line width. When they do not, the change moves to its own line, right-aligned, and the share text takes the full
+   width (wrapping only if it is wider than the card itself). Flex wrapping decides per card, from its own text. */
+.dc-foot { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0 var(--space-3); margin-top: var(--space-3); font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); }
+.dc-foot > span:first-child { flex: 1 1 auto; }
+.dc-change { margin-left: auto; text-align: right; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .dc-rise, .dc-flat, .dc-none { color: var(--ink); }
 .dc-fall { color: var(--brass-deep); }
 .dc-src { font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); color: var(--ink); margin: var(--space-4) 0 0; }

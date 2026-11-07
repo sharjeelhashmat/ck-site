@@ -105,6 +105,27 @@ const headingsWhole = async (page, label) => {
   assert.deepEqual(bad, [], `${label}: card headings`);
   checks++;
 };
+// Coordinator review 3: the card footer. The share text is at most 2 lines. If the change shares its line, the share text
+// is one line; otherwise the change is on its own line below, right-aligned to the footer's right edge.
+const footersFit = async (page, label) => {
+  const bad = await page.$$eval('.dc-foot', (fs) => fs.filter((f) => f.getBoundingClientRect().width > 0).flatMap((f) => {
+    const share = f.firstElementChild;
+    const change = f.querySelector('.dc-change');
+    const r = document.createRange();
+    r.selectNodeContents(share);
+    const lines = new Set([...r.getClientRects()].filter((q) => q.width > 0).map((q) => Math.round(q.top))).size;
+    const sr = share.getBoundingClientRect(), cr = change.getBoundingClientRect(), fr = f.getBoundingClientRect();
+    const out = [];
+    if (lines > 2) out.push(`"${share.textContent}" is ${lines} lines`);
+    const sameLine = cr.top < sr.bottom - 1;
+    if (sameLine && lines > 1) out.push(`"${share.textContent}" wraps beside "${change.textContent}"`);
+    if (!sameLine && Math.abs(cr.right - fr.right) > 1) out.push(`"${change.textContent}" below but not right-aligned`);
+    if (cr.right > fr.right + 1 || sr.right > fr.right + 1) out.push(`"${share.textContent}" overflows`);
+    return out;
+  }));
+  assert.deepEqual(bad, [], `${label}: card footers`);
+  checks++;
+};
 const names = (page, panel) => page.$$eval(`.mk-panel[data-emirate="${panel}"] .dc-grid .dc-name`, (h) => h.map((x) => x.textContent));
 
 try {
@@ -216,10 +237,12 @@ try {
       await page.waitForSelector('.mk-panel[data-emirate="dubai"]:not([hidden]) .dc-grid');
       assert.equal(await page.$eval('.dc-name', (h) => getComputedStyle(h).fontSize), '22px', `/areas @${width}: 22px card headings`);
       await headingsWhole(page, `/areas Dubai @${width}`);
+      await footersFit(page, `/areas Dubai @${width}`);
       await page.click('.mk-panel[data-emirate="dubai"] .dc-sort button[data-sort="change"]');
       await headingsWhole(page, `/areas Dubai by change @${width}`);
       await page.click('.mk-pill[data-emirate="abu_dhabi"]');
       await headingsWhole(page, `/areas Abu Dhabi @${width}`);
+      await footersFit(page, `/areas Abu Dhabi @${width}`);
       const cols = await page.$eval('.mk-panel[data-emirate="abu_dhabi"] .dc-grid', (g) => getComputedStyle(g).gridTemplateColumns.split(' ').length);
       assert.equal(cols, width < 336 ? 1 : 2, `/areas @${width}: grid columns`);
       await ctx.close();
