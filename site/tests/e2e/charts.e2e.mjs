@@ -117,6 +117,14 @@ try {
       }
       await page.click('.mk-pill[data-emirate="abu_dhabi"]');
       await noSideScroll(page, '/areas Abu Dhabi', width);
+      // Abu Dhabi (adrec-areas.json prior_value_bn, owner decision 2026-11-07): both charts, the change chart in table order.
+      assert.equal(await page.locator('.mk-panel[data-emirate="abu_dhabi"] figure.cmp').count(), 2, '/areas Abu Dhabi charts');
+      await chartsFit(page, '/areas Abu Dhabi');
+      const ad = await page.$eval('#mk-chg-abu_dhabi', (h) => {
+        const s = h.closest('section');
+        return { chart: [...s.querySelectorAll('.cmp-change')].map((t) => t.textContent), table: [...s.querySelectorAll('tbody tr')].map((tr) => tr.lastElementChild.textContent) };
+      });
+      assert.deepEqual(ad.chart, ad.table, '/areas Abu Dhabi change chart = table');
       await ctx.close();
     }
     // A Dubai guide: one pair when the Worker sends the prior period.

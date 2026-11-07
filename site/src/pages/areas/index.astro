@@ -12,7 +12,7 @@ import { EMIRATES, renderChange, renderTop } from '../../lib/market.mjs';
 import { SITE } from '../../lib/site';
 import { LEAD_CAPTURE } from '../../lib/golive';
 
-const adData = { period: ADREC.period, published: ADREC.published, source_url: ADREC.source_url, areas: ADREC.areas.map((a) => ({ ...a, label: null })) };
+const adData = { period: ADREC.period, published: ADREC.published, source_url: ADREC.source_url, chart_caption: ADREC.chart_caption, areas: ADREC.areas.map((a) => ({ ...a, label: null })) };
 const adTop = renderTop('abu_dhabi', adData);
 const adChange = renderChange('abu_dhabi', adData);
 const emirates: Emirate[] = ['dubai', 'abu_dhabi'];

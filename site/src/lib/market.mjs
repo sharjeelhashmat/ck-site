@@ -165,11 +165,12 @@ export function renderYtd(emirate, ytd) {
 /**
  * Paired bars for the rows that carry both periods: prior_value_bn (the same months a year earlier) and value_bn. The
  * Worker and src/data/adrec-areas.json return prior_value_bn only where it is known; a row without it is left out of the
- * chart (never estimated from the rounded change), and with no such row there is no chart. The figures are the ones the
- * cards and the table show (fmtBn and formatChange).
- * @param {'dubai'|'abu_dhabi'} emirate @param {string} id @param {string} period @param {AreaRow[]} rows
+ * chart (the code never estimates one), and with no such row there is no chart. The figures are the ones the cards and
+ * the table show (fmtBn and formatChange). caption: plain text that replaces the default source line, used where the data
+ * file says how its prior values were obtained (adrec-areas.json chart_caption, owner decision 2026-11-07).
+ * @param {'dubai'|'abu_dhabi'} emirate @param {string} id @param {string} period @param {AreaRow[]} rows @param {string} [caption]
  */
-export function renderAreaChart(emirate, id, period, rows) {
+export function renderAreaChart(emirate, id, period, rows, caption) {
   const both = rows.filter((a) => pos(a.prior_value_bn) && pos(a.value_bn));
   if (!both.length || !parsePeriod(period)) return '';
   const label = periodLabel(period);
@@ -184,7 +185,7 @@ export function renderAreaChart(emirate, id, period, rows) {
       label: a.label ? `${a.area} (${a.label})` : a.area,
       earlier: a.prior_value_bn, later: a.value_bn, earlierText: fmtBn(a.prior_value_bn), laterText: fmtBn(a.value_bn), change: formatChange(a).text,
     })),
-    caption: `Source: ${esc(source)}. Residential sales value, ${esc(prior)} against ${esc(label)}.`,
+    caption: caption ? esc(caption) : `Source: ${esc(source)}. Residential sales value, ${esc(prior)} against ${esc(label)}.`,
   });
 }
 
@@ -193,7 +194,7 @@ export function renderAreaChart(emirate, id, period, rows) {
 /**
  * @typedef {{rank: number, area: string, label?: string|null, value_bn: number, prior_value_bn?: number|null, share_pct: number, change_pct?: number|null, prior_zero?: boolean, change_text?: string, guide?: string}} AreaRow
  * @param {'dubai'|'abu_dhabi'} emirate
- * @param {{period: string, areas: AreaRow[], published?: string|null}} d
+ * @param {{period: string, areas: AreaRow[], published?: string|null, chart_caption?: string}} d
  */
 export function renderTop(emirate, d) {
   const areas = (d?.areas ?? []).filter((a) => a.value_bn > 0);
@@ -219,22 +220,22 @@ export function renderTop(emirate, d) {
   return `<section class="mk-block" aria-labelledby="mk-top-${emirate}">
 <h2 id="mk-top-${emirate}" class="mk-h2">Top areas by sales value · ${EMIRATES[emirate]}</h2>
 <p class="mk-chip">${esc(label)} vs ${esc(prior)}</p>${note}
-${renderAreaChart(emirate, `cmp-top-${emirate}`, d.period, areas)}<div class="mk-cards">${cards}</div>
+${renderAreaChart(emirate, `cmp-top-${emirate}`, d.period, areas, d.chart_caption)}<div class="mk-cards">${cards}</div>
 </section>`;
 }
 
 /**
  * @param {'dubai'|'abu_dhabi'} emirate
- * @param {{period: string, areas: AreaRow[], published?: string|null}} d
+ * @param {{period: string, areas: AreaRow[], published?: string|null, chart_caption?: string}} d
  */
 export function renderChange(emirate, d) {
   const areas = (d?.areas ?? []).filter((a) => a.value_bn > 0);
   const ranked = rankByChange(areas);
   if (!ranked.length || !parsePeriod(d.period)) return '';
   const missing = emirate === 'abu_dhabi' ? areas.length - ranked.length : 0;
-  // Rules 1c v6.6: the chart above the table. With no prior-period value in the data (the Worker and adrec-areas.json do
-  // not carry one yet) there is nothing exact to draw: the table says so in data-chart-gap, which tests/charts.test.mjs reads.
-  const chart = renderAreaChart(emirate, `cmp-chg-${emirate}`, d.period, ranked.map((x) => x.a));
+  // Rules 1c v6.6: the chart above the table. With no prior-period value in the data (a Worker response without
+  // prior_value_bn) there is nothing to draw: the table says so in data-chart-gap, which tests/charts.test.mjs reads.
+  const chart = renderAreaChart(emirate, `cmp-chg-${emirate}`, d.period, ranked.map((x) => x.a), d.chart_caption);
   const rows = ranked.map(({ a, c }, i) => `<tr><td class="mk-num">${i + 1}</td><td><span class="mk-tarea">${esc(a.area)}</span>${a.label ? `<span class="mk-label">${esc(a.label)}</span>` : ''}</td><td class="mk-num">${fmtBn(a.value_bn)}</td><td class="mk-num">${changeSpan(c)}</td></tr>`).join('');
   const np = missing > 0
     ? `<p class="mk-src">ADREC did not publish a year-on-year change for ${missing} of the top areas (n/p = not published). They are left out of this ranking rather than estimated.</p>`
@@ -278,7 +279,7 @@ export function dubaiRows(body) {
 
 /**
  * @param {'dubai'|'abu_dhabi'} emirate
- * @param {{period: string, area: AreaRow, dldArea?: string, published?: string|null, source_url?: string}|null} d
+ * @param {{period: string, area: AreaRow, dldArea?: string, published?: string|null, source_url?: string, chart_caption?: string}|null} d
  */
 export function renderGuideCard(emirate, d) {
   const a = d?.area;
@@ -293,7 +294,7 @@ export function renderGuideCard(emirate, d) {
 <p class="mk-value">${fmtBn(a.value_bn)}</p>
 <p class="mk-tile-label">residential sales value, ${esc(label)}</p>
 <p class="mk-foot"><span>${pct1(a.share_pct)} of ${EMIRATES[emirate]}'s total</span>${changeSpan(c)}</p>
-${renderAreaChart(emirate, `cmp-guide-${emirate}`, d.period, [a])}<p class="mk-src">${source}</p>`;
+${renderAreaChart(emirate, `cmp-guide-${emirate}`, d.period, [a], d.chart_caption)}<p class="mk-src">${source}</p>`;
 }
 
 // ---- /new-launches: Launch activity ---------------------------------------------------------------------------------
@@ -344,6 +345,14 @@ export function renderLaunchPanel(body, today = todayIso()) {
 // ---- Build-time checks for the two hand-maintained data files ------------------------------------------------------
 
 /**
+ * A prior derived from ADREC's published change (owner decision 2026-11-07, AD option B): value_bn / (1 + change_pct / 100),
+ * rounded to one decimal. That rounding moves it by at most 0.05bn, so the stored prior must lie within 0.05bn of the
+ * quotient (plus 1e-9 for floating point). This is the only tolerance added; changeAgrees keeps its own bounds.
+ * @param {number} prior @param {number} value @param {number} pct
+ */
+export const derivedPriorAgrees = (prior, value, pct) => Math.abs(prior - value / (1 + pct / 100)) <= 0.05 + 1e-9;
+
+/**
  * site/src/data/adrec-areas.json. Figures enter only when confirmed against ADREC's own report (Rules 3, relay rule);
  * the card count stays even. Returns the problems; the build fails on any.
  * @param {any} f @param {string[]} guideSlugs
@@ -374,16 +383,19 @@ export function checkAdrecAreas(f, guideSlugs) {
     const hasText = typeof a.change_text === 'string';
     if (hasText === ('change_pct' in a)) e.push(`${at}: exactly one of change_pct (number or null) and change_text`);
     if ('change_pct' in a && a.change_pct !== null && typeof a.change_pct !== 'number') e.push(`${at}: change_pct`);
-    // Optional: the same period a year earlier, as ADREC publishes it (charted; Rules 1c v6.6). It must agree with the
-    // published change; a row without a published change cannot carry one.
+    // Optional: the same period a year earlier, as ADREC states it or derived from its published change (charted; Rules 1c
+    // v6.6). It must agree with the published change; a row without a published change cannot carry one.
     if ('prior_value_bn' in a) {
       const stated = hasText ? a.change_text : typeof a.change_pct === 'number' ? `${a.change_pct}%` : null;
       if (!pos(a.prior_value_bn)) e.push(`${at}: prior_value_bn must be a number above zero`);
       else if (stated === null) e.push(`${at}: prior_value_bn needs a published change`);
-      else if (!changeAgrees(a.prior_value_bn, a.value_bn, stated)) e.push(`${at}: prior_value_bn ${a.prior_value_bn} does not match value_bn ${a.value_bn} and change ${stated}`);
+      else if (!changeAgrees(a.prior_value_bn, a.value_bn, stated) && !(typeof a.change_pct === 'number' && derivedPriorAgrees(a.prior_value_bn, a.value_bn, a.change_pct))) e.push(`${at}: prior_value_bn ${a.prior_value_bn} does not match value_bn ${a.value_bn} and change ${stated}`);
     }
     if (!guideSlugs.includes(a.guide)) e.push(`${at}: guide ${a.guide} is not an Abu Dhabi guide`);
   });
+  // The chart caption says where the prior values come from: required once any row carries one, plain text, no link.
+  if (f.areas.some((a) => 'prior_value_bn' in a) && !(typeof f.chart_caption === 'string' && f.chart_caption.trim())) e.push('chart_caption is required once a prior_value_bn is listed');
+  if ('chart_caption' in f && (typeof f.chart_caption !== 'string' || /[<>]|https?:|www\./i.test(f.chart_caption))) e.push('chart_caption must be plain text with no link');
   return e;
 }
 

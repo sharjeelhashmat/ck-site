@@ -184,6 +184,35 @@ test('guard: no comparison table on any built page ships without a chart (or a r
   assert.ok(tables >= 3, `${tables} comparison tables (2 Insights, /areas Abu Dhabi)`);
 });
 
+test('guard: Abu Dhabi charts draw exactly where adrec-areas.json has prior_value_bn, the gap is recorded everywhere else', () => {
+  const adrec = JSON.parse(read('src/data/adrec-areas.json'));
+  const withPrior = adrec.areas.filter((a) => 'prior_value_bn' in a);
+  assert.deepEqual(withPrior.map((a) => a.guide), ['hudayriyat-island', 'saadiyat-island', 'al-reem-al-maryah-island', 'yas-island']);
+  // /areas, Abu Dhabi panel: the top areas chart and the change chart, one pair per area with a prior value, no gap.
+  const h = readFileSync(join(dist, 'areas.html'), 'utf8');
+  const panel = h.slice(h.indexOf('<div class="mk-panel" data-emirate="abu_dhabi"'), h.indexOf('<section class="mk-guides"'));
+  const figs = [...panel.matchAll(/<figure class="cmp"[\s\S]*?<\/figure>/g)].map((m) => m[0]);
+  assert.equal(figs.length, 2, '/areas Abu Dhabi: two charts');
+  for (const fig of figs) {
+    assert.equal(texts(fig, 'cmp-change').length, withPrior.length);
+    assert.ok(fig.includes(`<figcaption class="cmp-src">${adrec.chart_caption.replace(/'/g, '&#39;')}</figcaption>`), 'approved caption, plain text');
+  }
+  assert.doesNotMatch(panel, /data-chart-gap/);
+  // Each Abu Dhabi guide: a chart and no gap with a prior value; no chart and the gap without one.
+  for (const a of adrec.areas) {
+    const g = readFileSync(join(dist, 'areas', `${a.guide}.html`), 'utf8');
+    const card = g.slice(g.indexOf('<div class="mk-guide-card"'), g.indexOf('</div>', g.indexOf('<div class="mk-guide-card"')));
+    if ('prior_value_bn' in a) {
+      assert.match(card, /<figure class="cmp"/, a.guide);
+      assert.doesNotMatch(card, /data-chart-gap/, a.guide);
+      assert.deepEqual(texts(card, 'cmp-value'), [fmtBn(a.prior_value_bn), fmtBn(a.value_bn)], a.guide);
+    } else {
+      assert.doesNotMatch(card, /<figure/, a.guide);
+      assert.match(card, /^<div class="mk-guide-card" data-chart-gap="prior-period-not-in-data"[ >]/, a.guide);
+    }
+  }
+});
+
 // ---------- /areas and the area guides ----------
 
 const DUBAI = {
@@ -242,6 +271,16 @@ test('adrec-areas.json: an optional prior_value_bn must agree with the published
   assert.deepEqual(checkAdrecAreas(withPrior(1, 8.2), slugs), [], 'Saadiyat 13.3 against 8.2 is +62%, published +63%');
   assert.ok(checkAdrecAreas(withPrior(1, 10), slugs).some((e) => /areas\[1\]: prior_value_bn 10 does not match/.test(e)));
   assert.ok(checkAdrecAreas(withPrior(0, 2.4), slugs).length === 0, 'Hudayriyat 19.0 against 2.4 is about 8 times (≈8×)');
+  // Derived priors (value / (1 + change), 1 dp): accepted within 0.05bn of the quotient, and no further.
+  assert.deepEqual(checkAdrecAreas(withPrior(2, 4.2), slugs), [], 'Al Reem + Al Maryah 10.5 / 2.53 = 4.15, stored 4.2');
+  assert.deepEqual(checkAdrecAreas(withPrior(3, 3.8), slugs), [], 'Yas 7.3 / 1.91 = 3.82, stored 3.8');
+  assert.ok(checkAdrecAreas(withPrior(2, 4.3), slugs).some((e) => /areas\[2\]: prior_value_bn 4\.3 does not match/.test(e)));
+  assert.ok(checkAdrecAreas(withPrior(3, 3.9), slugs).some((e) => /areas\[3\]: prior_value_bn 3\.9 does not match/.test(e)));
+  assert.ok(checkAdrecAreas(withPrior(3, 3.7), slugs).some((e) => /areas\[3\]: prior_value_bn 3\.7 does not match/.test(e)));
+  // The caption is required with a prior value and is plain text.
+  const { chart_caption, ...noCaption } = file;
+  assert.ok(checkAdrecAreas(noCaption, slugs).includes('chart_caption is required once a prior_value_bn is listed'));
+  assert.ok(checkAdrecAreas({ ...file, chart_caption: 'Source: <a href="https://adrec.gov.ae/">ADREC</a>' }, slugs).includes('chart_caption must be plain text with no link'));
   assert.ok(checkAdrecAreas(withPrior(4, 1), slugs).some((e) => /areas\[4\]: prior_value_bn needs a published change/.test(e)));
   assert.ok(checkAdrecAreas(withPrior(2, 0), slugs).some((e) => /areas\[2\]: prior_value_bn must be a number above zero/.test(e)));
 });

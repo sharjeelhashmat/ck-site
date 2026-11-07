@@ -21,7 +21,7 @@ const projectName = (slug: string) => projects.find((p) => p.slug === slug)?.nam
 const emirate = EMIRATES[guide.emirate];
 const ad = guide.emirate === 'abu_dhabi' ? ADREC.areas.find((a) => a.guide === guide.slug) : undefined;
 const adCard = ad
-  ? renderGuideCard('abu_dhabi', { period: ADREC.period, published: ADREC.published, source_url: ADREC.source_url, area: { ...ad, label: null } })
+  ? renderGuideCard('abu_dhabi', { period: ADREC.period, published: ADREC.published, source_url: ADREC.source_url, chart_caption: ADREC.chart_caption, area: { ...ad, label: null } })
   : '';
 ---
 <Base title={guide.h1} description={guide.meta_description ?? guide.one_liner}>
@@ -31,7 +31,7 @@ const adCard = ad
       <h1>{guide.h1}</h1>
       <p class="lede">{guide.one_liner}</p>
 
-      {guide.emirate === 'abu_dhabi' && adCard && <div class="mk-guide-card" set:html={adCard} />}
+      {guide.emirate === 'abu_dhabi' && adCard && <div class="mk-guide-card" data-chart-gap={ad?.prior_value_bn ? undefined : 'prior-period-not-in-data'} set:html={adCard} />}
 
       <h2 class="guide-h2">What it is</h2>
       <p>{guide.what_it_is}</p>

@@ -376,12 +376,15 @@ test('E: /areas title, meta, eyebrow, H1, lede, closing line and switch markup a
 test('E: adrec-areas.json holds exactly the figures confirmed in ADREC\'s own H1 2026 report (Coordinator, 2026-10-16)', () => {
   assert.deepEqual(ADREC, {
     period: '2026-H1', published: '2026-08-18', total_res_bn: 70.4, prior_total_res_bn: 25.3,
+    chart_caption: "Source: Abu Dhabi Real Estate Centre (ADREC), H1 2026 market report. H1 2025 values for Saadiyat, ADGM and Yas calculated from ADREC's published change; Hudayriyat as stated by ADREC.",
     source_url: 'https://adrec.gov.ae/-/media/adrec/market-reports/marketreportslatest/adrec-h1-2026-spread-3.pdf',
     areas: [
-      { rank: 1, area: 'Hudayriyat Island', value_bn: 19.0, share_pct: 27.0, change_text: '≈8×', guide: 'hudayriyat-island' },
-      { rank: 2, area: 'Saadiyat Island', value_bn: 13.3, share_pct: 18.9, change_pct: 63, guide: 'saadiyat-island' },
-      { rank: 3, area: 'Al Reem Island + Al Maryah Island', value_bn: 10.5, share_pct: 14.9, change_pct: 153, guide: 'al-reem-al-maryah-island' },
-      { rank: 4, area: 'Yas Island', value_bn: 7.3, share_pct: 10.4, change_pct: 91, guide: 'yas-island' },
+      // prior_value_bn (owner decision 2026-11-07, AD option B): Hudayriyat as stated by ADREC ("8x up from AED 2.4 Bn",
+      // H1 2026 report p.48); the other three are value_bn / (1 + change_pct / 100), rounded to one decimal.
+      { rank: 1, area: 'Hudayriyat Island', value_bn: 19.0, prior_value_bn: 2.4, share_pct: 27.0, change_text: '≈8×', guide: 'hudayriyat-island' },
+      { rank: 2, area: 'Saadiyat Island', value_bn: 13.3, prior_value_bn: 8.2, share_pct: 18.9, change_pct: 63, guide: 'saadiyat-island' },
+      { rank: 3, area: 'Al Reem Island + Al Maryah Island', value_bn: 10.5, prior_value_bn: 4.2, share_pct: 14.9, change_pct: 153, guide: 'al-reem-al-maryah-island' },
+      { rank: 4, area: 'Yas Island', value_bn: 7.3, prior_value_bn: 3.8, share_pct: 10.4, change_pct: 91, guide: 'yas-island' },
       { rank: 5, area: 'Al Ramhan Island', value_bn: 2.9, share_pct: 4.1, change_pct: null, guide: 'ramhan-island' },
       { rank: 6, area: 'Al Fahid Island', value_bn: 2.9, share_pct: 4.1, change_pct: null, guide: 'fahid-island' },
       { rank: 7, area: 'Ghadeer Al Tayr', value_bn: 2.4, share_pct: 3.4, change_pct: null, guide: 'ghadeer-al-tayr' },
@@ -404,7 +407,8 @@ test('E: adrec-areas.json holds exactly the figures confirmed in ADREC\'s own H1
   // The report is named, never linked (owner decision 2026-11-06); source_url stays in the data file as the record.
   assert.doesNotMatch(panel, /href="https:\/\/adrec\.gov\.ae/);
   // And on each Abu Dhabi guide page.
-  assert.match(text(main('areas/saadiyat-island.html')), /Jan to Jun 2026 vs Jan to Jun 2025 AED 13\.3bn residential sales value, Jan to Jun 2026 18\.9% of Abu Dhabi's total \+63% Source: Abu Dhabi Real Estate Centre \(ADREC\), H1 2026 market report \(published 18 Aug 2026\)\./);
+  // The comparison chart (owner decision 2026-11-07) sits between the figures and the report line, with its own caption.
+  assert.match(text(main('areas/saadiyat-island.html')), /Jan to Jun 2026 vs Jan to Jun 2025 AED 13\.3bn residential sales value, Jan to Jun 2026 18\.9% of Abu Dhabi's total \+63% Residential sales value by area, Jan to Jun 2025 against Jan to Jun 2026, Abu Dhabi Saadiyat Island: AED 8\.2bn in Jan to Jun 2025, AED 13\.3bn in Jan to Jun 2026, change \+63%\. Jan to Jun 2025 Jan to Jun 2026 Saadiyat Island AED 8\.2bn AED 13\.3bn \+63% Source: Abu Dhabi Real Estate Centre \(ADREC\), H1 2026 market report\. H1 2025 values for Saadiyat, ADGM and Yas calculated from ADREC's published change; Hudayriyat as stated by ADREC\. Source: Abu Dhabi Real Estate Centre \(ADREC\), H1 2026 market report \(published 18 Aug 2026\)\./);
   assert.match(text(main('areas/zayed-city.html')), /AED 1\.9bn residential sales value, Jan to Jun 2026 2\.7% of Abu Dhabi's total change n\/p/);
 });
 
