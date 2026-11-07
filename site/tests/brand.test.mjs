@@ -78,7 +78,7 @@ test('logo: the header uses the ivory web lockup; the footer the Brand Package l
     const footer = h.match(/<footer class="site-footer"[^>]*>.*?<\/footer>/s)?.[0] ?? '';
     assert.match(header, img, `${f}: header logo`);
     assert.match(footer, lockup, `${f}: footer lockup`);
-    assert.match(footer, /<div class="brand brand-stacked"> <img class="lockup" src="\/logo-stacked-ivory\.svg" alt="Sharjeel Hashmat, Property Consultant · UAE" width="1600" height="1600"> <\/div>/, `${f}: stacked footer lockup`);
+    assert.match(footer, /<div class="brand brand-stacked"> <span class="lockup-frame"><img class="lockup" src="\/logo-stacked-ivory\.svg" alt="Sharjeel Hashmat, Property Consultant · UAE" width="1600" height="1600"><\/span> <\/div>/, `${f}: stacked footer lockup`);
     assert.deepEqual([...footer.matchAll(/<img\b[^>]*src="([^"]+)"/g)].map((m) => m[1]), ['/logo-horizontal-ivory.svg', '/logo-stacked-ivory.svg'], `${f}: footer images`);
     assert.doesNotMatch(h, /viewBox="0 0 34 34"/, `${f}: old Compass Key mark`);
   }
@@ -377,13 +377,17 @@ test('tab icons: rounded (transparent corners, opaque centre, exact sizes); favi
   assert.equal(existsSync(join(root, 'public/site.webmanifest')) || existsSync(join(root, 'public/manifest.webmanifest')), false, 'no web manifest (nothing marked maskable)');
 });
 
-test('footer lockup legibility: the Brand Package lockup shows only where its tagline is at least 10px tall', () => {
-  // Tagline capitals: 38 to 40 of the frame's 2480 units (logo-horizontal-ivory.svg rendered at 1:1). Frame 41rem = 656px.
-  const rule = css.match(/\.site-footer \.brand-lockup \{([^}]*)\}/)[1];
-  assert.match(rule, /display: none;/);
-  assert.match(rule, /width: 41rem;/);
-  assert.match(rule, /aspect-ratio: 2480 \/ 510;/);
-  assert.ok((38 * 656) / 2480 >= 10, 'a 656px frame gives capitals of at least 10px');
-  // Shown from 44rem (704px): the footer row there is 704 - 2 x 24px = 656px, the whole frame.
+test('footer lockup sizes (owner 2026-11-07, option B): horizontal 320px from 704px, stacked 200px below, same crops', () => {
+  const rule = (sel) => css.match(new RegExp(`${sel.replace(/[.]/g, '\\.')} \\{([^}]*)\\}`))[1];
+  const h = rule('.site-footer .brand-lockup');
+  assert.match(h, /display: none;/);
+  assert.match(h, /width: 20rem;/, 'horizontal frame 320px');
+  assert.match(h, /aspect-ratio: 2480 \/ 510;/);
+  assert.match(rule('.site-footer .brand-lockup .lockup'), /width: 116\.129%;.*transform: translate\(-7\.118%, -23\.4375%\);/);
+  const s = rule('.site-footer .brand-stacked .lockup-frame');
+  assert.match(s, /width: 12\.5rem;/, 'stacked frame 200px');
+  assert.match(s, /aspect-ratio: 1208 \/ 860;/);
+  assert.match(rule('.site-footer .brand-stacked'), /justify-content: center;/, 'stacked lockup centred');
+  assert.match(rule('.site-footer .brand-stacked .lockup'), /width: 132\.45%;.*transform: translate\(-12\.25%, -22\.875%\);/);
   assert.match(css, /@media \(min-width: 44rem\) \{\n  \.site-footer \.brand-lockup \{ display: block; \}\n  \.site-footer \.brand-stacked \{ display: none; \}\n\}/);
 });

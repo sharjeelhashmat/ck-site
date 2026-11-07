@@ -1,11 +1,9 @@
-// Browser check for the footer lockups (owner 2026-11-07, Rules 1c v6.9; Coordinator notes on legibility, 2026-11-07).
-// Both are Brand Package files shown once each and cropped by CSS only. From 704px: logo-horizontal-ivory.svg in a 656px
-// frame, whole ink box (x 217 to 2668, y 235 to 725 of 2880 x 960) unclipped, tagline capitals (38 units) at least 10px.
-// Below 704px: logo-stacked-ivory.svg (Brand Package v3.0 sh_stacked_ivory_transparent.svg) at the footer's full content
-// width up to 360px (at most 257px tall), centred, whole ink box (x 204 to 1396, y 374 to 1217 of 1600 x 1600) unclipped; its tagline size (26 to 27 units) is
-// printed. Neither image is stretched, the page does not scroll sideways and the header lockup is unchanged. Not part of
+// Browser check for the footer lockups (owner 2026-11-07, option B). Both are Brand Package files shown once each and
+// cropped by CSS only. From 704px: logo-horizontal-ivory.svg in a 320px frame, left aligned on the footer row. Below 704px:
+// logo-stacked-ivory.svg (Brand Package v3.0 sh_stacked_ivory_transparent.svg) in a 200px frame, centred. At 320, 375, 703,
+// 704, 768 and 1280: the exact frame width, the crop (the whole ink box inside the frame, the frame's proportions, the
+// image not stretched), nothing overflowing the footer, no sideways scroll, and the header lockup unchanged. Not part of
 // `npm test`: it needs Chromium.
-//   PLAYWRIGHT=/path/to/playwright/index.mjs node tests/e2e/footer.e2e.mjs <distDir>
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import { start } from '../../qa/serve.mjs';
@@ -17,14 +15,14 @@ const base = `http://127.0.0.1:${server.address().port}`;
 const browser = await chromium.launch(process.env.CHROMIUM ? { executablePath: process.env.CHROMIUM } : {});
 
 const LOCKUPS = {
-  horizontal: { canvas: [2880, 960], ink: { x0: 217, y0: 235, x1: 2668, y1: 725 }, frame: 2480 / 510, caps: [38, 40] },
-  stacked: { canvas: [1600, 1600], ink: { x0: 204, y0: 374, x1: 1396, y1: 1217 }, frame: 1208 / 860, caps: [26, 27] },
+  horizontal: { canvas: [2880, 960], ink: { x0: 217, y0: 235, x1: 2668, y1: 725 }, frame: 2480 / 510, width: 320 },
+  stacked: { canvas: [1600, 1600], ink: { x0: 204, y0: 374, x1: 1396, y1: 1217 }, frame: 1208 / 860, width: 200 },
 };
 const sizes = [];
 let checks = 0;
 
 try {
-  for (const width of [320, 375, 600, 703, 704, 1280]) {
+  for (const width of [320, 375, 703, 704, 768, 1280]) {
     for (const p of ['/', '/about', '/insights/dubai-2026-so-far-official-numbers']) {
       const page = await browser.newPage({ viewport: { width, height: 800 } });
       await page.route(/^https:\/\//, (r) => r.abort());
@@ -41,7 +39,7 @@ try {
         const row = f.querySelector('.foot-row');
         const pad = parseFloat(getComputedStyle(row).paddingLeft) + parseFloat(getComputedStyle(row).paddingRight);
         return {
-          horizontal: one(f.querySelector('.brand-lockup')), stacked: one(f.querySelector('.brand-stacked')), row: R(row).width - pad, rowLeft: R(row).left + parseFloat(getComputedStyle(row).paddingLeft),
+          horizontal: one(f.querySelector('.brand-lockup')), stacked: one(f.querySelector('.brand-stacked .lockup-frame')), row: R(row).width - pad, rowLeft: R(row).left + parseFloat(getComputedStyle(row).paddingLeft),
           imgs: [...f.querySelectorAll('img')].map((x) => x.getAttribute('src')), typed: /Property Consultant · UAE/.test(f.textContent),
           scrollWidth: document.documentElement.scrollWidth, header: [...document.querySelectorAll('header.site-nav img')].map((x) => [x.getAttribute('src'), x.alt, Math.round(R(x).height)]),
         };
@@ -62,16 +60,11 @@ try {
         assert.ok(ok, `${at}: the ${kind} lockup's ${k} edge is clipped`);
       }
       assert.ok(Math.abs(x.frame.width / x.frame.height - L.frame) < 0.02, `${at}: frame proportions`);
-      const caps = L.caps.map((u) => (u * s).toFixed(2));
-      if (kind === 'horizontal') {
-        assert.ok(Math.abs(x.frame.width - 656) < 0.5, `${at}: frame ${x.frame.width}px`);
-        assert.ok(L.caps[0] * s >= 10, `${at}: tagline capitals ${caps[0]}px`);
-      } else {
-        assert.ok(Math.abs(x.frame.width - Math.min(m.row, 360)) < 0.5, `${at}: frame ${x.frame.width}px, footer content ${m.row}px`);
-        assert.ok(x.frame.height <= 257, `${at}: frame ${x.frame.height}px tall`);
-        assert.ok(Math.abs((x.frame.left + x.frame.right) / 2 - (m.rowLeft + m.row / 2)) < 0.5, `${at}: centred`);
-      }
-      if (p === '/') sizes.push(`${width}px: ${kind}, frame ${x.frame.width.toFixed(1)} x ${x.frame.height.toFixed(1)}px, tagline capitals ${caps.join(' to ')}px`);
+      assert.ok(Math.abs(x.frame.width - L.width) < 0.5, `${at}: frame ${x.frame.width}px, want ${L.width}px`);
+      assert.ok(x.frame.left >= m.rowLeft - 0.5 && x.frame.right <= m.rowLeft + m.row + 0.5, `${at}: the ${kind} lockup overflows the footer`);
+      if (kind === 'horizontal') assert.ok(Math.abs(x.frame.left - m.rowLeft) < 0.5, `${at}: left aligned`);
+      else assert.ok(Math.abs((x.frame.left + x.frame.right) / 2 - (m.rowLeft + m.row / 2)) < 0.5, `${at}: centred`);
+      if (p === '/') sizes.push(`${width}px: ${kind}, frame ${x.frame.width.toFixed(1)} x ${x.frame.height.toFixed(1)}px`);
       assert.ok(m.scrollWidth <= width, `${at}: page is ${m.scrollWidth}px wide`);
       assert.deepEqual(m.header, [['/logo-web-ivory.svg', 'Sharjeel Hashmat', width <= 640 ? 40 : 52]], `${at}: header lockup unchanged`);
       checks++;
