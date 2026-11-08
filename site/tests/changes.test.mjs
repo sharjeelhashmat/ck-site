@@ -22,8 +22,8 @@ const all = (events, projects = [validProject()]) =>
   checkChanges({ events, projects: projects.map((p) => ({ file: `${p.slug}.json`, record: p })) }, { today: TODAY, areaSlugs: AREAS });
 
 // ---------- rules ----------
-test('the site area list is the 16 area guide slugs', () => {
-  assert.equal(AREAS.length, 16);
+test('the site area list is the 21 area guide slugs', () => {
+  assert.equal(AREAS.length, 21);
   assert.ok(AREAS.includes('dubai-marina') && AREAS.includes('yas-island'));
 });
 

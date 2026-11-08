@@ -1,4 +1,5 @@
-// Area guides (Part F, copy owner-approved 2026-10-16). The copy lives in src/data/area-guides.json exactly as approved;
+// Area guides (Part F, copy owner-approved 2026-10-16; five Dubai guides added 2026-11-08, Rules 8d v6.7). The copy lives
+// in src/data/area-guides.json exactly as approved;
 // it carries no figures: every number on a guide page comes from the live figures card (DLD via the Worker, or ADREC via
 // src/data/adrec-areas.json). The build fails if a copy field contains a digit (only the proper noun "Pier 7" is allowed).
 import data from '../data/area-guides.json';
@@ -18,6 +19,8 @@ export interface Guide {
   things_to_consider: string[];
   my_view: string;
   dld_area?: string;
+  // The "My view" heading when it differs from the file's view_heading (e.g. "My view, November 2026" on guides written then).
+  view_heading?: string;
 }
 export interface AdrecArea {
   rank: number;
@@ -43,6 +46,8 @@ export interface AdrecFile {
 }
 
 export const VIEW_HEADING: string = data.view_heading;
+/** The "My view" heading of one guide: its own view_heading, else the file's. */
+export const viewHeading = (g: Guide): string => g.view_heading ?? VIEW_HEADING;
 export const GUIDES = data.guides as Guide[];
 export const ADREC = adrec as AdrecFile;
 /** Abu Dhabi's period: the latest one ADREC publishes by area (src/data/adrec-areas.json). */
@@ -65,7 +70,10 @@ export function digitProblems(): string[] {
 
 const problems = [
   ...digitProblems(),
-  ...(GUIDES.length === 16 ? [] : [`expected 16 guides, found ${GUIDES.length}`]),
+  ...(GUIDES.length === 21 ? [] : [`expected 21 guides, found ${GUIDES.length}`]),
+  ...GUIDES.filter((g) => g.view_heading !== undefined && !/^My view, [A-Z][a-z]+ \d{4}$/.test(g.view_heading)).map((g) => `${g.slug}: view_heading must read "My view, <Month> <year>"`),
+  ...[...new Set(GUIDES.map((g) => g.slug))].length === GUIDES.length ? [] : ['duplicate guide slug'],
+  ...[...new Set(GUIDES.filter((g) => g.dld_area).map((g) => g.dld_area))].length === GUIDES.filter((g) => g.dld_area).length ? [] : ['two guides share a dld_area'],
   ...GUIDES.filter((g) => g.emirate === 'dubai' && !g.dld_area).map((g) => `${g.slug}: dld_area missing`),
   ...checkAdrecAreas(ADREC, guidesFor('abu_dhabi').map((g) => g.slug)).map((p) => `adrec-areas.json: ${p}`),
 ];

@@ -446,9 +446,11 @@ test('E: Rules 1c only: no #B3261E, no green, no Slate text on light in the mark
 });
 
 // ---------- F. Area guides ----------
-test('F: 16 guides in the approved order; every copy field has no digit except the proper noun "Pier 7"', () => {
+test('F: 21 guides in the approved order; every copy field has no digit except the proper noun "Pier 7"', () => {
+  // The five Dubai guides of 2026-11-08 (Rules 8d v6.7) follow the first eight in the file; /areas orders the cards.
   assert.deepEqual(GUIDES.map((g) => g.slug), [
     'downtown-dubai', 'dubai-marina', 'dubai-hills', 'dubai-creek-harbour', 'dubai-islands', 'palm-jumeirah', 'palm-jebel-ali', 'dubai-maritime-city',
+    'dubai-south', 'business-bay', 'majan', 'dubailand-residence-complex', 'al-yelayiss',
     'hudayriyat-island', 'saadiyat-island', 'al-reem-al-maryah-island', 'yas-island', 'ramhan-island', 'fahid-island', 'ghadeer-al-tayr', 'zayed-city',
   ]);
   for (const g of GUIDES) {
@@ -460,6 +462,7 @@ test('F: 16 guides in the approved order; every copy field has no digit except t
   assert.deepEqual(Object.fromEntries(GUIDES.filter((g) => g.dld_area).map((g) => [g.slug, g.dld_area])), {
     'downtown-dubai': 'Burj Khalifa', 'dubai-marina': 'Marsa Dubai', 'dubai-hills': 'Hadaeq Sheikh Mohammed Bin Rashid', 'dubai-creek-harbour': 'Al Khairan First',
     'dubai-islands': 'Palm Deira', 'palm-jumeirah': 'Palm Jumeirah', 'palm-jebel-ali': 'Palm Jabal Ali', 'dubai-maritime-city': 'Madinat Dubai Almelaheyah',
+    'dubai-south': 'Madinat Al Mataar', 'business-bay': 'Business Bay', majan: 'Wadi Al Safa 3', 'dubailand-residence-complex': 'Wadi Al Safa 5', 'al-yelayiss': 'Al Yelayiss 1',
   });
 });
 
@@ -480,7 +483,8 @@ test('F: every guide page renders the exact approved copy in the template order,
     const expected = [
       `Area guide · ${emirate}`, g.h1, g.one_liner,
       'What it is', g.what_it_is, 'Who buys here', g.who_buys, 'Things to consider', ...g.things_to_consider,
-      'My view, October 2026', g.my_view, ...(lead ? [`Ask me about ${g.h1}.`] : []),
+      // The five guides of 2026-11-08 carry their own heading; the rest the file's.
+      g.view_heading ?? 'My view, October 2026', g.my_view, ...(lead ? [`Ask me about ${g.h1}.`] : []),
     ];
     let at = 0;
     for (const piece of expected) {
@@ -527,7 +531,7 @@ test('F: the old placeholder sections and the old "Ask Sharjeel about" line are 
   for (const f of walk(join(dist, 'areas'))) {
     assert.doesNotMatch(text(readFileSync(f, 'utf8')), /Who Buys Here|Price Range|Rental Profile|Investment Case|Things to Consider|Sharjeel's View/, f);
   }
-  assert.equal(GUIDES.length, 16);
+  assert.equal(GUIDES.length, 21);
   for (const g of GUIDES) assert.ok(existsSync(join(dist, 'areas', `${g.slug}.html`)), g.slug);
 });
 
