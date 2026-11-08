@@ -133,6 +133,86 @@
       "dld_area": "Madinat Dubai Almelaheyah"
     },
     {
+      "slug": "dubai-south",
+      "emirate": "dubai",
+      "h1": "Dubai South",
+      "one_liner": "A master planned district built around Dubai's second airport, where this year's sales were led almost entirely by off plan activity.",
+      "what_it_is": "Dubai South is a large master planned district in the south of the emirate, built around Al Maktoum International Airport and the Expo City Dubai site. Its master developer is Dubai South Properties, with residential clusters such as South Bay delivered alongside logistics, aviation and exhibition zones.",
+      "who_buys": "Off plan investors drawn by lower entry prices than central Dubai, buyers positioning around the airport and Expo City expansion, and end users who want newer stock in a still forming community.",
+      "things_to_consider": [
+        "Nearly all registered sales in this area this year were off plan, so buyers are largely purchasing before completion rather than resale stock.",
+        "The area is still being built out, so community infrastructure, retail and schools are at an earlier stage than in established districts.",
+        "Value registered here rose markedly this year compared with the same period last year, per Dubai Land Department data, so recent momentum should be read alongside the area's early stage of development."
+      ],
+      "my_view": "I like Dubai South for buyers who understand they are buying into a growth story tied to the airport and Expo City, not a finished neighbourhood. The numbers show real momentum, but with off plan activity this dominant, due diligence on the developer and the payment plan matters more than usual.",
+      "dld_area": "Madinat Al Mataar",
+      "view_heading": "My view, November 2026"
+    },
+    {
+      "slug": "business-bay",
+      "emirate": "dubai",
+      "h1": "Business Bay",
+      "one_liner": "An established city centre district where this year's registered sales value fell sharply from a strong prior year.",
+      "what_it_is": "Business Bay is a mature mixed use district along the Dubai Water Canal, next to Downtown Dubai. It combines commercial towers, hotels and residential apartments and has long been one of the city's most actively traded central areas.",
+      "who_buys": "Investors and professionals wanting proximity to Downtown and the wider business district, plus buyers who value an established address with a long trading history.",
+      "things_to_consider": [
+        "Registered sales value here fell substantially this year against the same period last year, per Dubai Land Department data, after a strong prior year.",
+        "Off plan launches sit alongside an active ready resale market, so buyers can compare new and finished homes in the same district.",
+        "As an established district, supply from resale stock and new towers can arrive at the same time, which affects how prices move."
+      ],
+      "my_view": "Business Bay remains a legitimate central option, but the scale of this year's pullback against last year's high base means I would look closely at why a specific building or seller is pricing where they are, rather than assume the area's reputation alone sets the value.",
+      "dld_area": "Business Bay",
+      "view_heading": "My view, November 2026"
+    },
+    {
+      "slug": "majan",
+      "emirate": "dubai",
+      "h1": "Majan",
+      "one_liner": "A mid market Dubailand community built mainly on off plan sales, where this year's registered value eased back.",
+      "what_it_is": "Majan sits within the wider Dubailand area off Emirates Road. It was sold largely as freehold plots, which a range of developers have built out with mid rise apartments and townhouses, and it has grown into one of Dubai's more active mid market off plan corridors.",
+      "who_buys": "Investors and end users seeking more affordable entry points than the city's core districts, often drawn by instalment linked off plan payment plans.",
+      "things_to_consider": [
+        "The large majority of this year's registered sales here were off plan, so resale comparables are thinner than in older communities.",
+        "Dubai Land Department data shows registered value here fell back this year against the same period last year, which is worth weighing against the area's earlier rapid growth.",
+        "As a newer mid market cluster, service charges, handover timing and surrounding infrastructure are still settling."
+      ],
+      "my_view": "Majan suits a buyer prioritising affordability and payment flexibility over an established address. The pullback in this year's figures is a reminder that mid market off plan corridors can move quickly in both directions, so I would check a developer's delivery record closely before committing.",
+      "dld_area": "Wadi Al Safa 3",
+      "view_heading": "My view, November 2026"
+    },
+    {
+      "slug": "dubailand-residence-complex",
+      "emirate": "dubai",
+      "h1": "Dubailand Residence Complex",
+      "one_liner": "A Dubailand apartment and townhouse cluster led by off plan sales, where this year's registered value eased back.",
+      "what_it_is": "Dubailand Residence Complex is a residential cluster within the broader Dubailand area, with apartments and townhouses from a range of developers aimed at the mid market.",
+      "who_buys": "Families and investors seeking larger homes at more accessible price points than central Dubai, often on off plan payment plans.",
+      "things_to_consider": [
+        "The large majority of this year's registered sales here were off plan, so the area's resale history is still thin.",
+        "Dubai Land Department data shows registered value here fell back this year against the same period last year.",
+        "Being further from the city centre, commute times and the pace of surrounding infrastructure delivery are worth checking against a buyer's daily routine."
+      ],
+      "my_view": "This is a community for buyers prioritising space and price over central location. Given how much of this year's activity is off plan, I would weigh a developer's track record on handover timing at least as heavily as the headline price.",
+      "dld_area": "Wadi Al Safa 5",
+      "view_heading": "My view, November 2026"
+    },
+    {
+      "slug": "al-yelayiss",
+      "emirate": "dubai",
+      "h1": "Al Yelayiss",
+      "one_liner": "An emerging area in the south of Dubai where registered sales value jumped this year from a very low base a year earlier.",
+      "what_it_is": "Al Yelayiss is an emerging area in the south of Dubai where large new master planned projects are being launched. Current activity points to villas, townhouses and land plots rather than an established residential community.",
+      "who_buys": "Buyers interested in land plots and early stage off plan opportunities in a still forming part of the city.",
+      "things_to_consider": [
+        "Registered sales value here rose very sharply this year against the same period last year, per Dubai Land Department data, though last year's base was very low, so the scale of the increase should be read with that in mind.",
+        "Almost all of this year's registered sales were off plan, so there is very little resale history to compare against.",
+        "Community facilities and access roads are still being planned and built, so check what has been delivered against what has only been announced."
+      ],
+      "my_view": "I would treat Al Yelayiss as a genuinely early stage area rather than an established community. The data shows real momentum, but with so little track record, I would want an area specific conversation about risk before recommending it to a client.",
+      "dld_area": "Al Yelayiss 1",
+      "view_heading": "My view, November 2026"
+    },
+    {
       "slug": "hudayriyat-island",
       "emirate": "abu_dhabi",
       "h1": "Hudayriyat Island",

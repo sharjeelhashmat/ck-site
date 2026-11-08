@@ -15,8 +15,8 @@ if (indexable && goLiveMissing().length) {
 // Pages that have no real content yet stay out of the sitemap (they are also noindex in their own markup).
 // /new-launches stays out until LAUNCH_CARDS_ALLOWED (agency, ORN, BRN and advertiser permit in golive.ts; audit M2), the same
 // switch its own noindex follows. Insights and Opportunities are gated by data (decision 5, 2026-09-21): they enter
-// the sitemap only when their own rules pass, the same rules the pages use for noindex. The 16 area guides carry
-// owner-approved copy (2026-10-16) and are listed like every other page. /projects enters only once a tracker is current,
+// the sitemap only when their own rules pass, the same rules the pages use for noindex. The area guides carry
+// owner-approved copy (2026-10-16, 2026-11-08) and are listed like every other page. /projects enters only once a tracker is current,
 // and a tracker past its reviewBy date stays out until it is updated (both noindex in their own markup too). The sitemap
 // is only advertised (robots.txt) and pages are only indexable when GOLIVE.indexing is on for a public build (golive.ts).
 const THIN = [...(LAUNCH_CARDS_ALLOWED ? [] : ['/new-launches']), '/investor-profile'];

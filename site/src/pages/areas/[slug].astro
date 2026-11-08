@@ -1,5 +1,5 @@
 ---
-// Area guide (Part F): the same template for all 16 guides. The copy is owner-approved (2026-10-16) and has no figures;
+// Area guide (Part F): the same template for every guide. The copy is owner-approved (2026-10-16) and has no figures;
 // the live figures card carries every number. Abu Dhabi figures come from src/data/adrec-areas.json at build time; Dubai
 // figures come from the Worker (/market/area/<DLD area>?period=ytd, Dubai's latest year to date) in the browser, labelled
 // with the months the response names. The card stays hidden when there is no data.
@@ -7,7 +7,7 @@ import Base from '../../layouts/Base.astro';
 import '../../styles/market.css';
 import '../../styles/data-card.css';
 import DataCard from '../../components/DataCard.astro';
-import { ADREC, DUBAI_PERIOD, GUIDES, VIEW_HEADING, type Guide } from '../../lib/area-guides';
+import { ADREC, DUBAI_PERIOD, GUIDES, viewHeading, type Guide } from '../../lib/area-guides';
 import { EMIRATES, renderGuideCard } from '../../lib/market.mjs';
 import { SITE } from '../../lib/site';
 import { LEAD_CAPTURE } from '../../lib/golive';
@@ -46,7 +46,7 @@ const adCard = ad
       <p>{guide.who_buys}</p>
       <h2 class="guide-h2">Things to consider</h2>
       <ul class="guide-list">{guide.things_to_consider.map((t) => <li>{t}</li>)}</ul>
-      <h2 class="guide-h2">{VIEW_HEADING}</h2>
+      <h2 class="guide-h2">{viewHeading(guide)}</h2>
       <p>{guide.my_view}</p>
 
       {/* What's changing here (PR 3): official announcements that name this area, newest first. Absent with no events. */}
