@@ -6,7 +6,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { applyGuideOrder, guideOrder, rankedAreas, TOP } from '../src/lib/guide-order.mjs';
+import { applyGuideSections, guideSections, rankedAreas, TOP } from '../src/lib/guide-order.mjs';
 import { dubaiRows, renderGuideCard } from '../src/lib/market.mjs';
 import { decodeEntities, stripScripts, stripStyles, stripTags } from '../scripts/html-text.mjs';
 
@@ -91,50 +91,79 @@ test('the Dubai figures card on a new guide is the data card (Rules 1c v6.9): co
   assert.match(renderGuideCard('dubai', { period: '2026-YTD09', name: 'Al Yelayiss', dldArea: 'Al Yelayiss 1', area: { ...area, area: 'Al Yelayiss 1', label: null } }), /<p class="dc-official">DLD: Al Yelayiss 1<\/p>/);
 });
 
-// ---------- guide order on /areas ----------
+// ---------- guide sections on /areas (Rules 8d v6.7: "More areas") ----------
 
-test('guide order: the top 8 areas by sales value first, in rank order, then the rest in JSON order; nothing dropped', () => {
-  const guides = ['A', 'B', 'C', 'D', 'E', null, 'F'].map((area) => ({ area }));
-  assert.deepEqual(guideOrder(guides, ['E', 'X', 'B']), [4, 1, 0, 2, 3, 5, 6], 'ranked areas with a guide lead; X has none');
-  assert.deepEqual(guideOrder(guides, []), [0, 1, 2, 3, 4, 5, 6], 'no ranking: JSON order');
-  assert.deepEqual(guideOrder(guides, null), [0, 1, 2, 3, 4, 5, 6]);
-  // Only the top 8 lead: a guide ranked ninth keeps its JSON place.
+test('guide sections: the top 8 areas\' guides in rank order, every other guide alphabetical under "More areas"; nothing dropped', () => {
+  const guides = [['A', 'Zeta'], ['B', 'Beta'], ['C', 'Alpha'], ['D', 'Delta'], ['E', 'Echo'], [null, 'Gamma'], ['F', 'Alpha']].map(([area, name]) => ({ area, name }));
+  assert.deepEqual(guideSections(guides, ['E', 'X', 'B']), { top: [4, 1], more: [2, 6, 3, 5, 0] }, 'X has no guide; Alpha (twice, JSON order), Delta, Gamma, Zeta');
+  assert.deepEqual(guideSections(guides, []), { top: [0, 1, 2, 3, 4, 5, 6], more: [] }, 'no ranking: every guide in the first section, JSON order');
+  assert.deepEqual(guideSections(guides, null), { top: [0, 1, 2, 3, 4, 5, 6], more: [] });
+  // Only the top 8: an area ranked ninth goes to "More areas".
   assert.equal(TOP, 8);
-  assert.deepEqual(guideOrder(guides, ['1', '2', '3', '4', '5', '6', '7', '8', 'F']), [0, 1, 2, 3, 4, 5, 6]);
+  assert.deepEqual(guideSections(guides, ['1', '2', '3', '4', '5', '6', '7', '8', 'F']), { top: [], more: [2, 6, 1, 3, 4, 5, 0] }, 'an empty first section');
   assert.deepEqual(rankedAreas([{ rank: 2, area: 'B' }, { rank: 1, area: 'A' }]), ['A', 'B']);
 });
 
-test('guide order in the built /areas: Abu Dhabi by ADREC rank; Dubai in JSON order until the Worker answers; every guide listed once', () => {
+/** One emirate's guide sections in the built /areas: [{group, heading, count, hidden, cards: [{slug, order, area, name}]}]. */
+const builtSections = (h, e) => [...h.matchAll(new RegExp(`<section class="mk-guides" data-emirate="${e}" data-group="(top|more)" data-count="(\\d+)"( hidden)? aria-labelledby="[^"]+">\\s*<h2 class="mk-h2" id="[^"]+">([^<]+)</h2>([\\s\\S]*?)</section>`, 'g'))]
+  .map((m) => ({
+    group: m[1], count: Number(m[2]), hidden: Boolean(m[3]), heading: decodeEntities(m[4]),
+    cards: [...m[5].matchAll(/<a class="card mk-guide" href="\/areas\/([a-z-]+)" data-order="(\d+)"(?: data-area="([^"]*)")? data-name="([^"]*)"/g)].map((c) => ({ slug: c[1], order: Number(c[2]), area: decodeEntities(c[3] ?? ''), name: decodeEntities(c[4]) })),
+  }));
+
+test('guide sections in the built /areas: Abu Dhabi split by ADREC\'s top 8 (no "More areas", none to show); Dubai all in "Area guides" until the Worker answers', () => {
   const h = read('areas.html');
-  const cards = (e) => {
-    const s = h.slice(h.indexOf(`<section class="mk-guides" data-emirate="${e}"`), h.indexOf('</section>', h.indexOf(`<section class="mk-guides" data-emirate="${e}"`)));
-    return [...s.matchAll(/<a class="card mk-guide" href="\/areas\/([a-z-]+)" data-order="(\d+)"(?: data-area="([^"]*)")?/g)].map((m) => ({ slug: m[1], order: Number(m[2]), area: decodeEntities(m[3] ?? '') }));
-  };
-  const dubai = cards('dubai');
-  assert.deepEqual(dubai.map((c) => c.slug), GUIDES.filter((g) => g.emirate === 'dubai').map((g) => g.slug));
-  assert.deepEqual(dubai.map((c) => c.order), dubai.map((_, i) => i));
-  assert.deepEqual(dubai.map((c) => c.area), GUIDES.filter((g) => g.emirate === 'dubai').map((g) => g.dld_area));
   const adrec = JSON.parse(readFileSync(join(root, 'src/data/adrec-areas.json'), 'utf8'));
-  const ad = cards('abu_dhabi');
-  assert.deepEqual(ad.map((c) => c.slug), [...adrec.areas].sort((a, b) => a.rank - b.rank).map((a) => a.guide), 'ADREC rank order');
-  assert.equal(dubai.length + ad.length, GUIDES.length, 'no guide dropped');
-  // The browser applies the Worker's ranking to the Dubai cards.
-  assert.match(readFileSync(join(root, 'src/pages/areas/index.astro'), 'utf8'), /if \(dubaiData\) applyGuideOrder\(document, 'dubai', rankedAreas\(dubaiData\.areas\)\);/);
+  const ad = builtSections(h, 'abu_dhabi');
+  assert.deepEqual(ad.map((s) => [s.group, s.heading, s.count, s.hidden]), [['top', 'Area guides · Abu Dhabi', 8, false]], 'every Abu Dhabi guide is in ADREC\'s top 8, so "More areas · Abu Dhabi" is not rendered');
+  assert.deepEqual(ad[0].cards.map((c) => c.slug), [...adrec.areas].sort((a, b) => a.rank - b.rank).slice(0, TOP).map((a) => a.guide), 'ADREC rank order');
+  assert.doesNotMatch(h, /More areas · Abu Dhabi/);
+  const dubai = builtSections(h, 'dubai');
+  assert.deepEqual(dubai.map((s) => [s.group, s.heading, s.count, s.hidden]), [['top', 'Area guides · Dubai', 13, false], ['more', 'More areas · Dubai', 0, true]], 'the empty "More areas · Dubai" waits hidden for the Worker');
+  assert.deepEqual(dubai[0].cards.map((c) => c.slug), GUIDES.filter((g) => g.emirate === 'dubai').map((g) => g.slug), 'JSON order');
+  assert.deepEqual(dubai[0].cards.map((c) => c.name), GUIDES.filter((g) => g.emirate === 'dubai').map((g) => g.h1));
+  assert.equal(dubai[0].cards.length + ad[0].cards.length, GUIDES.length, 'no guide dropped');
+  // The browser splits the Dubai cards with the Worker's ranking, before initAreasPage decides what shows.
+  const page = readFileSync(join(root, 'src/pages/areas/index.astro'), 'utf8');
+  assert.match(page, /if \(dubaiData\) applyGuideSections\(document, 'dubai', rankedAreas\(dubaiData\.areas\)\);/);
+  assert.ok(page.indexOf('applyGuideSections(document') < page.indexOf('initAreasPage(document, html)'));
 });
 
-test('guide order in a page (DOM): the live Dubai top 8 puts five new guides and three earlier ones first, the rest after', () => {
+/** A fake of the two Dubai guide sections in a page, with the cards as the build writes them. */
+function dubaiDoc() {
   const dubai = GUIDES.filter((g) => g.emirate === 'dubai');
-  const card = (g, i) => ({ slug: g.slug, dataset: { order: String(i), area: g.dld_area } });
-  const grid = { children: [...dubai.map(card)].reverse(), appendChild(c) { this.children = [...this.children.filter((x) => x !== c), c]; } };
-  const doc = { querySelector: (s) => (s === '.mk-guides[data-emirate="dubai"] .mk-guide-grid' ? grid : null) };
-  // The Worker's live top 8 for 2026-YTD09.
-  const top8 = [[1, 'Madinat Al Mataar'], [2, 'Al Yelayiss 1'], [3, 'Palm Deira'], [4, 'Hadaeq Sheikh Mohammed Bin Rashid'], [5, 'Wadi Al Safa 3'], [6, 'Business Bay'], [7, 'Marsa Dubai'], [8, 'Wadi Al Safa 5']]
-    .map(([rank, area_en]) => ({ rank, area_en, label: null, value_bn: 10 - rank / 10, share_pct: 4, change_pct: 1, prior_zero: false }));
-  const want = ['dubai-south', 'al-yelayiss', 'dubai-islands', 'dubai-hills', 'majan', 'business-bay', 'dubai-marina', 'dubailand-residence-complex', 'downtown-dubai', 'dubai-creek-harbour', 'palm-jumeirah', 'palm-jebel-ali', 'dubai-maritime-city'];
-  applyGuideOrder(doc, 'dubai', rankedAreas(dubaiRows({ dubai: { top8 } })));
-  assert.deepEqual(grid.children.map((c) => c.slug), want);
-  applyGuideOrder(doc, 'dubai', rankedAreas(dubaiRows({ dubai: { top8 } })));
-  assert.deepEqual(grid.children.map((c) => c.slug), want, 'applying twice gives the same order');
-  applyGuideOrder(doc, 'dubai', []);
-  assert.deepEqual(grid.children.map((c) => c.slug), dubai.map((g) => g.slug), 'no ranking: back to the JSON order');
+  const card = (g, i) => ({ slug: g.slug, dataset: { order: String(i), area: g.dld_area, name: g.h1 } });
+  const grid = (children) => ({ children, appendChild(c) { for (const s of grids) s.children = s.children.filter((x) => x !== c); this.children.push(c); } });
+  const grids = [grid([...dubai.map(card)].reverse()), grid([])];
+  const sections = ['top', 'more'].map((group, k) => ({ group, dataset: { count: k ? '0' : String(dubai.length) }, hidden: k === 1, querySelector: (s) => (s === '.mk-guide-grid' ? grids[k] : null) }));
+  return {
+    sections, grids, dubai,
+    querySelector: (sel) => sections.find((s) => sel === `.mk-guides[data-emirate="dubai"][data-group="${s.group}"]`) ?? null,
+  };
+}
+const TOP8 = [[1, 'Madinat Al Mataar'], [2, 'Al Yelayiss 1'], [3, 'Palm Deira'], [4, 'Hadaeq Sheikh Mohammed Bin Rashid'], [5, 'Wadi Al Safa 3'], [6, 'Business Bay'], [7, 'Marsa Dubai'], [8, 'Wadi Al Safa 5']]
+  .map(([rank, area_en]) => ({ rank, area_en, label: null, value_bn: 10 - rank / 10, share_pct: 4, change_pct: 1, prior_zero: false }));
+
+test('guide sections in a page (DOM): the live Dubai top 8 under "Area guides" in rank order, the other five alphabetical under "More areas"', () => {
+  const doc = dubaiDoc();
+  const slugs = (k) => doc.grids[k].children.map((c) => c.slug);
+  const top = ['dubai-south', 'al-yelayiss', 'dubai-islands', 'dubai-hills', 'majan', 'business-bay', 'dubai-marina', 'dubailand-residence-complex'];
+  // Alphabetical by name: Downtown Dubai, Dubai Creek Harbour, Dubai Maritime City, Palm Jebel Ali, Palm Jumeirah.
+  const more = ['downtown-dubai', 'dubai-creek-harbour', 'dubai-maritime-city', 'palm-jebel-ali', 'palm-jumeirah'];
+  applyGuideSections(doc, 'dubai', rankedAreas(dubaiRows({ dubai: { top8: TOP8 } })));
+  assert.deepEqual([slugs(0), slugs(1)], [top, more]);
+  assert.deepEqual(doc.sections.map((s) => s.dataset.count), ['8', '5']);
+  applyGuideSections(doc, 'dubai', rankedAreas(dubaiRows({ dubai: { top8: TOP8 } })));
+  assert.deepEqual([slugs(0), slugs(1)], [top, more], 'applying twice gives the same sections');
+  // No ranking: every guide back in the first section, JSON order, and the empty "More areas" hidden.
+  applyGuideSections(doc, 'dubai', []);
+  assert.deepEqual([slugs(0), slugs(1)], [doc.dubai.map((g) => g.slug), []]);
+  assert.equal(doc.sections[1].hidden, true);
+  assert.deepEqual(doc.sections.map((s) => s.dataset.count), ['13', '0']);
+  // A ranking with none of the guides' areas: the first section empties and is hidden; all guides alphabetical below.
+  const other = dubaiDoc();
+  applyGuideSections(other, 'dubai', ['Nowhere 1', 'Nowhere 2']);
+  assert.equal(other.sections[0].hidden, true);
+  assert.equal(other.sections[0].dataset.count, '0');
+  assert.deepEqual(other.grids[1].children.map((c) => c.dataset.name), [...other.dubai.map((g) => g.h1)].sort((a, b) => a.localeCompare(b, 'en')));
 });
