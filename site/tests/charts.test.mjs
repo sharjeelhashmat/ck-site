@@ -565,13 +565,15 @@ test('no chart library, script or dependency: the cards are strings built by lib
 
 test('homepage: "Buying in the UAE from abroad" is centred in the same column as "Numbers, not headlines"', () => {
   const h = readFileSync(join(dist, 'index.html'), 'utf8');
-  const block = (heading) => {
+  // The section body is the shared AbroadSteps component (owner 2026-11-08, option B; tests/abroad-steps.test.mjs), inside
+  // the same .narrow column as "Numbers, not headlines".
+  assert.match(h, /<div class="narrow center"[^>]*>\s*<div class="abroad"[^>]*data-abroad-steps[^>]*>\s*<p class="eyebrow both"[^>]*>For international clients<\/p>\s*<h2[^>]*>Buying in the UAE <em[^>]*>from abroad\.<\/em><\/h2>/);
+  const column = (heading) => {
     const i = h.indexOf(heading);
-    const open = h.lastIndexOf('<div class="', i);
-    return h.slice(open, h.indexOf('>', open) + 1);
+    const open = h.lastIndexOf('<div class="narrow center"', i);
+    return h.slice(open, h.indexOf('>', open) + 1).replace(/ data-astro-cid-\w+/g, '');
   };
-  assert.match(h, /<div class="narrow center"[^>]*>\s*<p class="eyebrow both"[^>]*>For international clients<\/p>\s*<h2[^>]*>Buying in the UAE <em[^>]*>from abroad\.<\/em><\/h2>/);
-  assert.equal(block('Buying in the UAE').replace(/ data-astro-cid-\w+/g, ''), block('Numbers, not').replace(/ data-astro-cid-\w+/g, ''), 'the same column element');
-  assert.match(h, /You don't need to be in the UAE to make a well-informed property decision\. Briefing, virtual shortlist, remote viewings, due diligence, negotiation, transaction coordination and handover, all managed on your behalf\./, 'wording unchanged');
+  assert.equal(column('Buying in the UAE'), column('Numbers, not'), 'the same column element');
+  assert.doesNotMatch(h, /make a well-informed property decision/, 'the earlier homepage wording is replaced by the shared body');
   assert.doesNotMatch(h, /class="wrap split"/);
 });

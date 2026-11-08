@@ -2,6 +2,7 @@
 import Base from '../layouts/Base.astro';
 import { BLURBS, INTENTS, waLink } from '../lib/site';
 import { LEAD_CAPTURE } from '../lib/golive';
+import AbroadSteps from '../components/AbroadSteps.astro';
 const intents = INTENTS.filter((i) => i.value !== 'other');
 // The four ways: number, audience label and a generic line icon per intent (Brand v3.1; labels owner-approved 2026-10-10).
 // Cards 2 and 3 are Ink, so the 2-column grid reads as a checkerboard. In soft launch (LEAD_CAPTURE false) the cards are not
@@ -71,13 +72,17 @@ const WAYS: Record<string, { n: string; label: string; icon: string }> = {
   </section>
 
   {/* Centred like its neighbours (owner decision 2026-11-06): the same .narrow column as "Numbers, not headlines", so the
-      paragraph has the same maximum width; the eyebrow takes a rule on both sides like every centred eyebrow. */}
+      paragraph has the same maximum width; the eyebrow takes a rule on both sides like every centred eyebrow. The body is
+      the shared AbroadSteps component (owner 2026-11-08, option B), identical to /buy. */}
   <section class="section">
     <div class="narrow center">
-      <p class="eyebrow both">For international clients</p>
-      <h2>Buying in the UAE <em>from abroad.</em></h2>
-      <p>You don't need to be in the UAE to make a well-informed property decision. Briefing, virtual shortlist, remote viewings, due diligence, negotiation, transaction coordination and handover, all managed on your behalf.</p>
-      {LEAD_CAPTURE && <div class="actions"><a class="btn btn--ghost" href="/contact?intent=abroad">Start the conversation →</a></div>}
+      <AbroadSteps>
+        <Fragment slot="heading">
+          <p class="eyebrow both">For international clients</p>
+          <h2>Buying in the UAE <em>from abroad.</em></h2>
+        </Fragment>
+        {LEAD_CAPTURE && <div class="actions"><a class="btn btn--ghost" href="/contact?intent=abroad">Start the conversation →</a></div>}
+      </AbroadSteps>
     </div>
   </section>
 
