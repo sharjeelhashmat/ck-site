@@ -44,7 +44,8 @@ test('the five new Dubai guides: schema, slugs, DLD areas, "My view, November 20
     assert.equal(g.meta_description, undefined, g.slug);
     for (const t of [g.h1, g.one_liner, g.what_it_is, g.who_buys, ...g.things_to_consider, g.my_view]) {
       assert.doesNotMatch(t, /\d/, `${g.slug}: no digit in "${t.slice(0, 40)}"`);
-      assert.doesNotMatch(t, /[‘’“”—–]/, `${g.slug}: straight quotes, no dashes`);
+      // Curly quotes and em or en dashes, written as escapes so this file holds none of them itself.
+      assert.doesNotMatch(t, /[\u2018\u2019\u201c\u201d\u2014\u2013]/, `${g.slug}: straight quotes, no dashes`);
       assert.doesNotMatch(t, /https?:|www\.|<a\b/, `${g.slug}: no link in the copy`);
     }
   }
