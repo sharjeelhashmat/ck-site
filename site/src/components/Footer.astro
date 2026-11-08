@@ -18,17 +18,17 @@ const social = [
     <div class="foot-row">
       {/* Brand Package lockup (owner 2026-11-07, Rules 1c v6.9): the approved logo-horizontal-ivory.svg exactly as
           delivered (compass-key mark, "Sharjeel Hashmat" in Ivory serif, the Brass rule, "PROPERTY CONSULTANT · UAE" in
-          Brass spaced capitals), on Ink. CSS only crops the empty canvas around it (global.css, footer lockup). Its tagline
-          must be at least 10px tall (Coordinator note 2026-11-07), so it shows at 656px wide, on screens 704px and wider.
-          Narrower screens show the Brand Package v3.0 stacked lockup below, at the footer's full width. */}
+          Brass spaced capitals), on Ink. CSS only crops the empty canvas around it (global.css, footer lockups). 320px
+          wide, left aligned, on screens 704px and wider (owner 2026-11-07, option B); narrower screens show the Brand
+          Package v3.0 stacked lockup below. */}
       <div class="brand brand-lockup">
         <img class="lockup" src="/logo-horizontal-ivory.svg" alt={`${SITE.name}, ${SITE.title} · UAE`} width="2880" height="960" />
       </div>
       {/* Stacked lockup (owner's Brand Package v3.0, 01_Logos/sh_stacked_ivory_transparent.svg, kept byte for byte as
           logo-stacked-ivory.svg): mark over "Sharjeel Hashmat", the Brass rule and the tagline. Below 704px, cropped by CSS to
-          its content box at the footer's full width, 360px at most, centred. */}
+          its content box in a 200px frame, centred on its own row (owner 2026-11-07, option B). */}
       <div class="brand brand-stacked">
-        <img class="lockup" src="/logo-stacked-ivory.svg" alt={`${SITE.name}, ${SITE.title} · UAE`} width="1600" height="1600" />
+        <span class="lockup-frame"><img class="lockup" src="/logo-stacked-ivory.svg" alt={`${SITE.name}, ${SITE.title} · UAE`} width="1600" height="1600" /></span>
       </div>
       <div class="social">
         <span class="social-label">Follow</span>
