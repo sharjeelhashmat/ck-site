@@ -8,13 +8,14 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyGuideOrder, guideOrder, rankedAreas, TOP } from '../src/lib/guide-order.mjs';
 import { dubaiRows, renderGuideCard } from '../src/lib/market.mjs';
-import { decodeEntities } from '../scripts/html-text.mjs';
+import { decodeEntities, stripScripts, stripStyles, stripTags } from '../scripts/html-text.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const dist = join(root, 'dist');
 const read = (p) => readFileSync(join(dist, p), 'utf8');
 const mainOf = (h) => h.slice(h.indexOf('<main'), h.indexOf('</main>'));
-const text = (h) => decodeEntities(h.replace(/<script[\s\S]*?<\/script>/g, ' ').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ');
+// Page text through the repo's own HTML helpers (any case, repeated until stable), as tests/finish-all.test.mjs does.
+const text = (h) => decodeEntities(stripTags(stripStyles(stripScripts(h, ' '), ' '), ' ')).replace(/\s+/g, ' ');
 
 // The data file as the build reads it (lib/area-guides.ts: a guide's own view_heading, else the file's).
 const DATA = JSON.parse(readFileSync(join(root, 'src/data/area-guides.json'), 'utf8'));
