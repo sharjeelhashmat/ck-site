@@ -43,7 +43,8 @@ export function initAreasPage(doc, html) {
   }
   const filled = (e) => [...(panel(e)?.querySelectorAll('[data-slot]') ?? [])].some((el) => el.innerHTML.trim() !== '');
   const state = decide({ dubai: filled('dubai'), abu_dhabi: filled('abu_dhabi') });
-  const guides = (e) => doc.querySelector(`.mk-guides[data-emirate="${e}"]`);
+  // An emirate's guide sections ("Area guides" and "More areas"); one left empty (data-count "0") stays hidden.
+  const guides = (e) => [...doc.querySelectorAll(`.mk-guides[data-emirate="${e}"]`)];
   const pills = [...doc.querySelectorAll('.mk-pill')];
   const bar = doc.getElementById('mk-switch');
   const ask = doc.getElementById('mk-ask');
@@ -52,8 +53,7 @@ export function initAreasPage(doc, html) {
     for (const e of EMIRATE_IDS) {
       const p = panel(e);
       if (p) p.hidden = !v[e].panel;
-      const g = guides(e);
-      if (g) g.hidden = !v[e].guides;
+      for (const g of guides(e)) g.hidden = !v[e].guides || g.dataset.count === '0';
     }
     for (const b of pills) {
       const on = b.dataset.emirate === selected;

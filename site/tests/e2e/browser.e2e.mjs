@@ -76,7 +76,7 @@ for (const width of [1280, 360]) {
     assert.equal(await p.getAttribute('.mk-pill[data-emirate="dubai"]', 'aria-checked'), 'true');
     assert.ok(await visible(p, '.mk-panel[data-emirate="dubai"]'));
     assert.ok(!(await visible(p, '.mk-panel[data-emirate="abu_dhabi"]')));
-    assert.ok(await visible(p, '.mk-guides[data-emirate="dubai"]') && !(await visible(p, '.mk-guides[data-emirate="abu_dhabi"]')));
+    assert.ok(await visible(p, '.mk-guides[data-emirate="dubai"][data-group="top"]') && !(await visible(p, '.mk-guides[data-emirate="abu_dhabi"][data-group="top"]')));
     assert.equal(await p.locator('.mk-panel[data-emirate="dubai"] article.dc').count(), 8);
     if (LEAD) assert.ok(await visible(p, '#mk-ask'));
     else assert.equal(await p.locator('#mk-ask').count(), 0, 'soft launch: no "Ask me" line');
@@ -85,7 +85,7 @@ for (const width of [1280, 360]) {
     await p.click('.mk-pill[data-emirate="abu_dhabi"]');
     assert.equal(await p.getAttribute('.mk-pill[data-emirate="abu_dhabi"]', 'aria-checked'), 'true');
     assert.ok(!(await visible(p, '.mk-panel[data-emirate="dubai"]')) && await visible(p, '.mk-panel[data-emirate="abu_dhabi"]'));
-    assert.ok(!(await visible(p, '.mk-guides[data-emirate="dubai"]')) && await visible(p, '.mk-guides[data-emirate="abu_dhabi"]'));
+    assert.ok(!(await visible(p, '.mk-guides[data-emirate="dubai"][data-group="top"]')) && await visible(p, '.mk-guides[data-emirate="abu_dhabi"][data-group="top"]'));
     await noSideScroll(p);
     await shot(p, `areas-abu-dhabi-${width}`);
     await p.evaluate(() => window.scrollTo({ top: 1600, behavior: 'instant' }));
@@ -106,7 +106,7 @@ for (const width of [1280, 360]) {
     assert.ok(!(await visible(p, '#mk-switch')));
     assert.ok(!(await visible(p, '.mk-panel[data-emirate="dubai"]')));
     // Audit H10: with no switch there is no way to reach the Dubai guides, so they stay visible.
-    assert.ok(await visible(p, '.mk-guides[data-emirate="abu_dhabi"]') && await visible(p, '.mk-guides[data-emirate="dubai"]'));
+    assert.ok(await visible(p, '.mk-guides[data-emirate="abu_dhabi"][data-group="top"]') && await visible(p, '.mk-guides[data-emirate="dubai"][data-group="top"]'));
     await noSideScroll(p);
     await shot(p, `areas-no-dubai-${width}`);
     await p.close();
@@ -119,10 +119,10 @@ for (const width of [1280, 360]) {
     assert.ok(!(await visible(p, '#mk-switch')));
     if ((await p.getAttribute('.mk-panel[data-emirate="abu_dhabi"]', 'data-static')) === 'yes') {
       assert.ok(await visible(p, '.mk-panel[data-emirate="abu_dhabi"]') && !(await visible(p, '.mk-panel[data-emirate="dubai"]')));
-      assert.ok(await visible(p, '.mk-guides[data-emirate="abu_dhabi"]') && await visible(p, '.mk-guides[data-emirate="dubai"]'), 'H10: no switch, every guide list');
+      assert.ok(await visible(p, '.mk-guides[data-emirate="abu_dhabi"][data-group="top"]') && await visible(p, '.mk-guides[data-emirate="dubai"][data-group="top"]'), 'H10: no switch, every guide list');
     } else {
       assert.ok(!(await visible(p, '#mk-ask')));
-      assert.ok(await visible(p, '.mk-guides[data-emirate="dubai"]') && await visible(p, '.mk-guides[data-emirate="abu_dhabi"]'));
+      assert.ok(await visible(p, '.mk-guides[data-emirate="dubai"][data-group="top"]') && await visible(p, '.mk-guides[data-emirate="abu_dhabi"][data-group="top"]'));
       assert.equal(await p.locator('.mk-panel:not([hidden])').count(), 0);
     }
     await p.close();
@@ -221,7 +221,7 @@ for (const width of [320, 375, 1280]) {
       await noBadText(p);
       if (route === '/areas') {
         assert.ok(!(await visible(p, '#mk-switch')), 'no switch');
-        assert.ok(await visible(p, '.mk-guides[data-emirate="dubai"]'), 'Dubai guides visible when there is no switch');
+        assert.ok(await visible(p, '.mk-guides[data-emirate="dubai"][data-group="top"]'), 'Dubai guides visible when there is no switch');
         if ((await p.getAttribute('.mk-panel[data-emirate="abu_dhabi"]', 'data-static')) === 'yes') assert.ok(await visible(p, '.mk-panel[data-emirate="abu_dhabi"]'), 'Abu Dhabi panel visible');
       }
       await p.close();
@@ -251,7 +251,7 @@ for (const width of [320, 375, 1280]) {
     await noSideScroll(p);
     assert.ok(!(await visible(p, '#mk-switch')));
     assert.ok(!(await visible(p, '.mk-panel[data-emirate="dubai"]')));
-    assert.ok(await visible(p, '.mk-guides[data-emirate="dubai"]') && await visible(p, '.mk-guides[data-emirate="abu_dhabi"]'));
+    assert.ok(await visible(p, '.mk-guides[data-emirate="dubai"][data-group="top"]') && await visible(p, '.mk-guides[data-emirate="abu_dhabi"][data-group="top"]'));
     if ((await p.getAttribute('.mk-panel[data-emirate="abu_dhabi"]', 'data-static')) === 'yes') assert.ok(await visible(p, '.mk-panel[data-emirate="abu_dhabi"]'));
     await p.close();
   });
@@ -263,7 +263,7 @@ for (const width of [320, 375, 1280]) {
     if ((await p.getAttribute('.mk-panel[data-emirate="abu_dhabi"]', 'data-static')) === 'yes') {
       assert.ok(await p.locator('.mk-panel[data-emirate="abu_dhabi"] article.dc').first().isVisible(), 'Abu Dhabi figures without JS');
     }
-    assert.ok(await visible(p, '.mk-guides[data-emirate="dubai"]') && await visible(p, '.mk-guides[data-emirate="abu_dhabi"]'));
+    assert.ok(await visible(p, '.mk-guides[data-emirate="dubai"][data-group="top"]') && await visible(p, '.mk-guides[data-emirate="abu_dhabi"][data-group="top"]'));
     await noSideScroll(p);
     await ctx.close();
   });

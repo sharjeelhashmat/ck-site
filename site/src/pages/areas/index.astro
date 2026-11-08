@@ -11,20 +11,23 @@ import '../../styles/data-card.css';
 import DataCard from '../../components/DataCard.astro';
 import { ADREC, DUBAI_PERIOD, guidesFor, type Emirate } from '../../lib/area-guides';
 import { EMIRATES, renderTop } from '../../lib/market.mjs';
-import { guideOrder } from '../../lib/guide-order.mjs';
+import { guideSections } from '../../lib/guide-order.mjs';
 import { SITE } from '../../lib/site';
 import { LEAD_CAPTURE } from '../../lib/golive';
 
 const adData = { period: ADREC.period, published: ADREC.published, source_url: ADREC.source_url, chart_caption: ADREC.chart_caption, areas: ADREC.areas.map((a) => ({ ...a, label: null })) };
 const adTop = renderTop('abu_dhabi', adData);
 const emirates: Emirate[] = ['dubai', 'abu_dhabi'];
-// The guide cards per emirate (lib/guide-order.mjs): each carries its area name (Dubai: the DLD area; Abu Dhabi: the ADREC
-// area) and its place in the JSON. Abu Dhabi is ordered here by ADREC's ranking; Dubai keeps the JSON order until the
-// Worker's year to date arrives in the browser.
-const guideCards = (e: Emirate) => {
-  const list = guidesFor(e).map((g, i) => ({ g, i, area: e === 'dubai' ? g.dld_area ?? null : ADREC.areas.find((a) => a.guide === g.slug)?.area ?? null }));
+// The guide sections per emirate (lib/guide-order.mjs, Rules 8d v6.7): "Area guides" for this year's top 8 areas in rank
+// order, "More areas" for every other guide, alphabetical; an empty section is hidden. Each card carries its area name
+// (Dubai: the DLD area; Abu Dhabi: the ADREC area), its name and its place in the JSON. Abu Dhabi is split here by ADREC's
+// ranking; Dubai keeps every guide in the first section, in JSON order, until the Worker's year to date arrives in the
+// browser and splits it.
+const guideSectionsFor = (e: Emirate) => {
+  const list = guidesFor(e).map((g, i) => ({ g, i, name: g.h1, area: e === 'dubai' ? g.dld_area ?? null : ADREC.areas.find((a) => a.guide === g.slug)?.area ?? null }));
   const ranked = e === 'abu_dhabi' ? [...ADREC.areas].sort((a, b) => a.rank - b.rank).map((a) => a.area) : [];
-  return guideOrder(list, ranked).map((k) => list[k]);
+  const s = guideSections(list, ranked);
+  return { top: s.top.map((k) => list[k]), more: s.more.map((k) => list[k]) };
 };
 ---
 <Base title="Areas: Dubai and Abu Dhabi" description="Where Dubai and Abu Dhabi property money is going: top areas by residential sales value, change against last year, and area guides. From official records.">
@@ -59,16 +62,24 @@ const guideCards = (e: Emirate) => {
       {/* Soft launch (LEAD_CAPTURE false): no "Ask me" line; lib/areas-page.mjs skips a missing #mk-ask. */}
       {LEAD_CAPTURE && <p class="mk-ask" id="mk-ask" hidden>Want to know what these numbers mean for a specific unit? <a href="/contact">Ask me.</a></p>}
 
-      {emirates.map((e) => (
-        <section class="mk-guides" data-emirate={e} aria-labelledby={`mk-guides-${e}`}>
-          <h2 class="mk-h2" id={`mk-guides-${e}`}>Area guides · {EMIRATES[e]}</h2>
-          <div class="mk-guide-grid">
-            {guideCards(e).map(({ g, i, area }) => (
-              <a class="card mk-guide" href={`/areas/${g.slug}`} data-order={i} data-area={area ?? undefined}><h3>{g.h1}</h3><p>{g.one_liner}</p></a>
-            ))}
-          </div>
-        </section>
-      ))}
+      {emirates.map((e) => {
+        const s = guideSectionsFor(e);
+        const sections = [
+          { group: 'top', id: `mk-guides-${e}`, heading: `Area guides · ${EMIRATES[e]}`, cards: s.top },
+          { group: 'more', id: `mk-more-${e}`, heading: `More areas · ${EMIRATES[e]}`, cards: s.more },
+        ];
+        // An empty section is not rendered, except Dubai's: the browser fills them from the Worker (hidden until then).
+        return sections.filter(({ cards }) => cards.length > 0 || e === 'dubai').map(({ group, id, heading, cards }) => (
+          <section class="mk-guides" data-emirate={e} data-group={group} data-count={String(cards.length)} hidden={cards.length === 0} aria-labelledby={id}>
+            <h2 class="mk-h2" id={id}>{heading}</h2>
+            <div class="mk-guide-grid">
+              {cards.map(({ g, i, area }) => (
+                <a class="card mk-guide" href={`/areas/${g.slug}`} data-order={i} data-area={area ?? undefined} data-name={g.h1}><h3>{g.h1}</h3><p>{g.one_liner}</p></a>
+              ))}
+            </div>
+          </section>
+        ));
+      })}
     </div>
   </section>
 </Base>
@@ -77,7 +88,7 @@ const guideCards = (e: Emirate) => {
   import { dubaiRows, renderTop, renderYtd, servedPeriod } from '../../lib/market.mjs';
   import { initAreasPage } from '../../lib/areas-page.mjs';
   import { initCardSort } from '../../lib/card-sort.mjs';
-  import { applyGuideOrder, rankedAreas } from '../../lib/guide-order.mjs';
+  import { applyGuideSections, rankedAreas } from '../../lib/guide-order.mjs';
 
   const root = document.getElementById('mk-root')!;
   const worker = root.dataset.worker;
@@ -94,8 +105,9 @@ const guideCards = (e: Emirate) => {
       const dubai = areas?.dubai ?? null;
       // The Dubai label is built from the period the response names, and only when its months match it.
       const dubaiData = dubai && servedPeriod(areas) ? { period: servedPeriod(areas), areas: dubaiRows(areas) } : null;
-      // Dubai guide cards: this year's top 8 areas first, in rank order (lib/guide-order.mjs); otherwise the JSON order stays.
-      if (dubaiData) applyGuideOrder(document, 'dubai', rankedAreas(dubaiData.areas));
+      // Dubai guide cards: this year's top 8 areas under "Area guides", the rest under "More areas" (lib/guide-order.mjs);
+      // without the Worker's ranking every guide stays in the first section, in JSON order.
+      if (dubaiData) applyGuideSections(document, 'dubai', rankedAreas(dubaiData.areas));
       const ad = launches?.abu_dhabi ?? null;
       return {
         dubai: {

@@ -1,6 +1,7 @@
-// Browser check for the five Dubai guides of 2026-11-08 and the guide order on /areas. With a Worker response the Dubai
-// guide cards put this year's top 8 areas first, in rank order, then the rest in the file's order; without one the
-// file's order stays. Each new guide page shows its figures card (the data card for its DLD area) and does not scroll
+// Browser check for the five Dubai guides of 2026-11-08 and the guide sections on /areas (Rules 8d v6.7). With a Worker
+// response the Dubai guides for this year's top 8 areas show under "Area guides · Dubai" in rank order and the rest under
+// "More areas · Dubai", alphabetical; without one every guide stays under "Area guides · Dubai" in the file's order and
+// "More areas" stays hidden. Abu Dhabi: ADREC's top 8 under "Area guides · Abu Dhabi", no "More areas" (none to show). Each new guide page shows its figures card (the data card for its DLD area) and does not scroll
 // sideways at 320, 375 and 1280. Not part of `npm test`: it needs Chromium.
 //   PLAYWRIGHT=/path/to/playwright/index.mjs node tests/e2e/guides.e2e.mjs <distDir>
 // The Worker is replaced by routes inside the browser. The figures are invented fixtures shaped like its responses.
@@ -21,7 +22,8 @@ const top8 = [
 ];
 const AREAS = { ...months, dubai: { ytd: { sales_bn: 400, total_bn: 600, mortgages_bn: 160, as_of: '2026-10-30' }, top8, total_res_bn: 250, as_of: '2026-10-30' } };
 const NEW = { 'dubai-south': 'Madinat Al Mataar', 'business-bay': 'Business Bay', majan: 'Wadi Al Safa 3', 'dubailand-residence-complex': 'Wadi Al Safa 5', 'al-yelayiss': 'Al Yelayiss 1' };
-const RANKED = ['dubai-south', 'al-yelayiss', 'dubai-islands', 'dubai-hills', 'majan', 'business-bay', 'dubai-marina', 'dubailand-residence-complex', 'downtown-dubai', 'dubai-creek-harbour', 'palm-jumeirah', 'palm-jebel-ali', 'dubai-maritime-city'];
+const TOP_8 = ['dubai-south', 'al-yelayiss', 'dubai-islands', 'dubai-hills', 'majan', 'business-bay', 'dubai-marina', 'dubailand-residence-complex'];
+const MORE = ['downtown-dubai', 'dubai-creek-harbour', 'dubai-maritime-city', 'palm-jebel-ali', 'palm-jumeirah']; // alphabetical by name
 const FILE_ORDER = ['downtown-dubai', 'dubai-marina', 'dubai-hills', 'dubai-creek-harbour', 'dubai-islands', 'palm-jumeirah', 'palm-jebel-ali', 'dubai-maritime-city', 'dubai-south', 'business-bay', 'majan', 'dubailand-residence-complex', 'al-yelayiss'];
 const AD_ORDER = ['hudayriyat-island', 'saadiyat-island', 'al-reem-al-maryah-island', 'yas-island', 'ramhan-island', 'fahid-island', 'ghadeer-al-tayr', 'zayed-city'];
 
@@ -52,7 +54,9 @@ const noSideScroll = async (page, label, width) => {
   assert.ok(sw <= width, `${label} @${width}: page is ${sw}px wide`);
   checks++;
 };
-const order = (page, e) => page.$$eval(`.mk-guides[data-emirate="${e}"] .mk-guide`, (a) => a.map((x) => x.getAttribute('href').replace('/areas/', '')));
+const order = (page, e, group) => page.$$eval(`.mk-guides[data-emirate="${e}"][data-group="${group}"] .mk-guide`, (a) => a.map((x) => x.getAttribute('href').replace('/areas/', '')));
+/** Each guide section of an emirate as shown: [group, heading, visible]. */
+const shownSections = (page, e) => page.$$eval(`.mk-guides[data-emirate="${e}"]`, (ss) => ss.map((s) => [s.dataset.group, s.querySelector('h2').textContent, !s.hidden && s.getBoundingClientRect().height > 0]));
 
 try {
   for (const width of [320, 375, 1280]) {
@@ -60,15 +64,26 @@ try {
     {
       const { page, ctx } = await open('/areas', width);
       await page.waitForSelector('.mk-panel[data-emirate="dubai"]:not([hidden]) .dc-grid');
-      assert.deepEqual(await order(page, 'dubai'), RANKED, `/areas @${width}: Dubai guides, top 8 first`);
-      assert.deepEqual(await order(page, 'abu_dhabi'), AD_ORDER, `/areas @${width}: Abu Dhabi guides by ADREC rank`);
+      assert.deepEqual(await order(page, 'dubai', 'top'), TOP_8, `/areas @${width}: "Area guides · Dubai", top 8 in rank order`);
+      assert.deepEqual(await order(page, 'dubai', 'more'), MORE, `/areas @${width}: "More areas · Dubai", alphabetical`);
+      assert.deepEqual(await shownSections(page, 'dubai'), [['top', 'Area guides · Dubai', true], ['more', 'More areas · Dubai', true]]);
+      assert.deepEqual(await order(page, 'abu_dhabi', 'top'), AD_ORDER, `/areas @${width}: Abu Dhabi guides by ADREC rank`);
       await noSideScroll(page, '/areas', width);
+      // The emirate switch: Abu Dhabi shows its one section; Dubai's two are hidden.
+      await page.click('.mk-pill[data-emirate="abu_dhabi"]');
+      assert.deepEqual(await shownSections(page, 'abu_dhabi'), [['top', 'Area guides · Abu Dhabi', true]], 'no "More areas · Abu Dhabi"');
+      assert.deepEqual(await shownSections(page, 'dubai'), [['top', 'Area guides · Dubai', false], ['more', 'More areas · Dubai', false]]);
+      await noSideScroll(page, '/areas Abu Dhabi', width);
+      await page.click('.mk-pill[data-emirate="dubai"]');
+      assert.deepEqual(await shownSections(page, 'dubai'), [['top', 'Area guides · Dubai', true], ['more', 'More areas · Dubai', true]]);
       await ctx.close();
     }
     // /areas without the Worker: the file's order.
     {
       const { page, ctx } = await open('/areas', width, { worker: false });
-      assert.deepEqual(await order(page, 'dubai'), FILE_ORDER, `/areas @${width}: no Worker, the file's order`);
+      assert.deepEqual(await order(page, 'dubai', 'top'), FILE_ORDER, `/areas @${width}: no Worker, every guide under "Area guides", the file's order`);
+      assert.deepEqual(await order(page, 'dubai', 'more'), [], `/areas @${width}: no Worker, "More areas" empty`);
+      assert.deepEqual((await shownSections(page, 'dubai')).map(([g, , v]) => [g, v]), [['top', true], ['more', false]], 'the empty section is not shown');
       checks++;
       await ctx.close();
     }
