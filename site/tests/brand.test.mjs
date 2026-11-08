@@ -378,7 +378,14 @@ test('tab icons: rounded (transparent corners, opaque centre, exact sizes); favi
 });
 
 test('footer lockup sizes (owner 2026-11-07, option B): horizontal 320px from 704px, stacked 200px below, same crops', () => {
-  const rule = (sel) => css.match(new RegExp(`${sel.replace(/[.]/g, '\\.')} \\{([^}]*)\\}`))[1];
+  // The body of the first rule written exactly as "<selector> {": a plain string search, so no selector text is turned into
+  // a regular expression (CodeQL js/incomplete-sanitization).
+  const rule = (sel) => {
+    const start = css.indexOf(`${sel} {`);
+    assert.ok(start >= 0, `${sel}: rule not found`);
+    const open = start + sel.length + 2;
+    return css.slice(open, css.indexOf('}', open));
+  };
   const h = rule('.site-footer .brand-lockup');
   assert.match(h, /display: none;/);
   assert.match(h, /width: 20rem;/, 'horizontal frame 320px');
