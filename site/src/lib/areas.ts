@@ -1,4 +1,4 @@
-// The eight Dubai areas used by the investor profile form and the /buy page list. Slugs and names must stay as they are:
+// The eight Dubai areas used by the investor profile form (its "Areas you prefer" options). Slugs and names must stay as they are:
 // the Worker validates the profile's area values (worker/src/profile.ts; tests/profile.test.mjs checks they agree).
 // The area guide pages themselves (16, Dubai and Abu Dhabi) read src/data/area-guides.json through area-guides.ts.
 

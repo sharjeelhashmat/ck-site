@@ -379,11 +379,16 @@ test('H14: every auto-fit / auto-fill grid uses minmax(min(X, 100%), 1fr) with i
   for (const f of files) {
     for (const m of readFileSync(f, 'utf8').matchAll(/repeat\(\s*auto-(?:fit|fill)\s*,\s*(minmax\([^;"]*?\))\s*\)/g)) found.push([f.slice(root.length), m[1].replace(/\s+/g, '')]);
   }
-  assert.ok(found.length >= 7, `${found.length} grids`); // .grid--4 was unused and removed (audit item 27)
+  // .grid--4 was unused and removed (audit item 27); .list-plain went with the /buy "Areas I cover" card (Sept 2026).
+  assert.ok(found.length >= 6, `${found.length} grids`);
   for (const [f, mm] of found) assert.match(mm, /^minmax\(min\(\d+(\.\d+)?rem,100%\),1fr\)$/, `${f}: ${mm}`);
   const css = src('src/styles/global.css');
-  for (const [sel, x] of [['.grid--2', 17], ['.grid--3', 15], ['.split', 19], ['.list-plain', 10], ['.fields', 14]]) {
-    assert.match(css, new RegExp(`${sel.replace('.', '\\.')} \\{[^}]*repeat\\(auto-fit, minmax\\(min\\(${x}rem, 100%\\), 1fr\\)\\)`), sel);
+  // .list-plain went with the /buy "Areas I cover" card (owner decision, Sept 2026). Rules found by a plain string search
+  // for "<selector> {", so no selector text becomes a regular expression.
+  for (const [sel, x] of [['.grid--2', 17], ['.grid--3', 15], ['.split', 19], ['.fields', 14]]) {
+    const at = css.indexOf(`${sel} {`);
+    assert.ok(at >= 0, `${sel}: rule not found`);
+    assert.ok(css.slice(at, css.indexOf('}', at)).includes(`repeat(auto-fit, minmax(min(${x}rem, 100%), 1fr))`), sel);
   }
   assert.match(src('src/styles/market.css'), /\.lw-grid \{[^}]*minmax\(min\(16rem, 100%\), 1fr\)/);
 });

@@ -1,6 +1,5 @@
 ---
 import Base from '../layouts/Base.astro';
-import { AREAS } from '../lib/areas';
 import { waLink } from '../lib/site';
 import { LEAD_CAPTURE } from '../lib/golive';
 ---
@@ -30,13 +29,6 @@ import { LEAD_CAPTURE } from '../lib/golive';
           <h2>Off-Plan Properties</h2>
           <p>New launches from major developers, reviewed for payment structure, handover timeline and developer track record. See <a href="/new-launches">New Launches</a>.</p>
         </div>
-      </div>
-
-      <div class="card" style="margin-top:var(--space-6)">
-        <p class="kicker" style="margin:0">Areas I cover</p>
-        <ul class="list-plain">
-          {AREAS.map((a) => <li><a href={`/areas/${a.slug}`}>{a.name}</a></li>)}
-        </ul>
       </div>
 
       <div style="margin-top:var(--space-12);padding-top:var(--space-8);border-top:1px solid var(--line)">
