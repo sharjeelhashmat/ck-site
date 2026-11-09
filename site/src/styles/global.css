@@ -439,3 +439,9 @@ form.card { padding: var(--space-8); }
 }
 .abroad-num { color: var(--brass-deep); font-weight: 500; font-variant-numeric: lining-nums tabular-nums; }
 .abroad-note { margin: var(--space-4) auto 0; font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); color: var(--ink); }
+/* /invest, the five checks (owner 2026-11-08): one row of five equal cards on a desktop, three then two (centred, no
+   orphan gap) on a tablet, stacked on a phone. Flex wrap with a fixed share per breakpoint, so a short last row centres. */
+.checks-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-4); }
+.checks-grid > .card { flex: 0 0 calc((100% - 4 * var(--space-4)) / 5); min-width: 0; }
+@media (max-width: 68rem) { .checks-grid > .card { flex-basis: calc((100% - 2 * var(--space-4)) / 3); } }
+@media (max-width: 40rem) { .checks-grid > .card { flex-basis: 100%; } }

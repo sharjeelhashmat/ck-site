@@ -7,16 +7,17 @@ const fields = [
   ['annualServiceCharges', 'Annual Service Charges (AED)', 15000],
   ['holdingPeriodYears', 'Holding Period (years)', 5],
   ['acquisitionCostPct', 'Acquisition Costs (% of price)', 7],
-  ['expectedAnnualAppreciationPct', 'Expected Annual Appreciation (%)', 3],
+  // 0 by default (owner rule, 2026-11-08: no price predictions; any growth is the visitor's own assumption).
+  ['expectedAnnualAppreciationPct', 'Expected Annual Appreciation (%)', 0],
 ] as const;
 const stats = [
   ['grossYieldPct', 'Gross Yield'], ['netYieldPct', 'Net Yield'], ['annualNetIncome', 'Annual Net Income'],
-  ['acquisitionCosts', 'Acquisition Costs'], ['projectedExitValue', 'Projected Exit Value'], ['annualizedReturnPct', 'Annualised Return'],
+  ['acquisitionCosts', 'Acquisition Costs'], ['projectedExitValue', 'Projected Exit Value'], ['annualizedReturnPct', 'Annualised return (IRR)'],
 ] as const;
 ---
 <div class="card" id="roi">
-  <p class="kicker" style="margin:0">ROI Calculator</p>
-  <p class="small">A quick, directional estimate, not a substitute for the property-specific analysis in a Compass Key Brief once a listing is attached to it.</p>
+  <h2>ROI calculator</h2>
+  <p class="small">A quick, directional estimate, not a substitute for a property-specific analysis.</p>
   <div class="fields" style="margin-top:var(--space-6)">
     {fields.map(([k, label, v]) => (
       <div class="field">
@@ -47,7 +48,7 @@ const stats = [
     const r = computeROI(v as unknown as ROIInputs);
     root.querySelectorAll<HTMLElement>('[data-out]').forEach((el) => {
       const k = el.dataset.out as keyof typeof r;
-      el.textContent = pct.has(k) ? formatPct(r[k]) : formatAED(r[k]);
+      el.textContent = pct.has(k) ? formatPct(r[k]) : formatAED(r[k] as number);
     });
     if (announce) live.textContent = `Net yield ${formatPct(r.netYieldPct)}`;
   }
