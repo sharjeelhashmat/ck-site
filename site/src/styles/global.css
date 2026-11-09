@@ -18,6 +18,7 @@
   --line: #cfd2ce;        /* tint: Slate 25% over Ivory */
   --band: #eae8e0;        /* tint: Ink 4% over Ivory */
   --brass-tint: #ece4d5;  /* tint: Brass 15% over Ivory */
+  --chip-line: #e3ddcf;   /* tint: the step chips' border ("Buying in the UAE from abroad", owner 2026-11-08) */
   --wa: #1fa855;          /* WhatsApp utility green (icon only, 3:1) */
   --wa-hover: #178a45;
   /* Corners (Rules 1c v5.8). Only these five, and 0. --radius-full only on avatars, the headshot frame and the
@@ -422,3 +423,19 @@ form.card { padding: var(--space-8); }
 
 /* Screen-reader only text (ROI calculator's live net-yield line). */
 .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+
+/* Abroad steps (components/AbroadSteps.astro; owner 2026-11-08, option B): "Buying in the UAE from abroad" on /buy and
+   the homepage. Centred; 43rem wide at most, the width of the homepage paragraphs inside .narrow (46rem less its 1.5rem
+   padding each side). The seven steps are chips that wrap and centre: white, a 1px --chip-line border, fully rounded
+   (--radius-xl on a 30px chip), 13px Inter (a clamp between the 12px and 14px steps, fixed at 13px), the number in
+   Brass Deep at Inter's heavier weight, 500 (Inter is 400 and 500 only). */
+.abroad { max-width: 43rem; margin: 0 auto; text-align: center; }
+.abroad-lead { margin-left: auto; margin-right: auto; }
+.abroad-steps { list-style: none; margin: var(--space-4) 0 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); }
+.abroad-step {
+  display: inline-flex; align-items: center; gap: var(--space-2); margin: 0; padding: var(--space-1) var(--space-3);
+  background: var(--paper); border: 1px solid var(--chip-line); border-radius: var(--radius-xl); color: var(--ink);
+  font-family: var(--sans); font-weight: 400; font-size: clamp(var(--fs-label), 0.8125rem, var(--fs-small)); line-height: var(--lh-small); letter-spacing: 0;
+}
+.abroad-num { color: var(--brass-deep); font-weight: 500; font-variant-numeric: lining-nums tabular-nums; }
+.abroad-note { margin: var(--space-4) auto 0; font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); color: var(--ink); }
