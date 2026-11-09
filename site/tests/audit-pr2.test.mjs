@@ -260,7 +260,7 @@ test('24: html lang en-GB; the ROI grid is not live, one polite line announces t
   const roi = h.match(/<div class="card" id="roi">[\s\S]*?<\/div>\s*<script/)[0];
   assert.equal((roi.match(/aria-live/g) ?? []).length, 1);
   assert.match(roi, /<p class="sr-only" aria-live="polite" data-live><\/p>/);
-  assert.match(roi, /Annualised Return/);
+  assert.match(roi, /Annualised return \(IRR\)/);
   assert.doesNotMatch(h, /Annualized/);
 });
 
