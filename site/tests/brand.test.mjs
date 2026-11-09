@@ -324,7 +324,7 @@ test('built CSS: buttons, fields, the country-code box, cards and checkboxes res
   assert.equal(radius('.stale-banner'), 'var(--radius-lg)', 'stale banner');
   assert.match(rule('.card.way'), /overflow:hidden/, 'Brass bar clipped to the rounded corner');
   assert.equal(radius(".check input[type=checkbox]"), 'var(--radius-sm)', 'checkboxes');
-  assert.equal(radius('.steps li'), 'var(--radius-sm)', 'sell process steps (tags)');
+  assert.equal(radius('.step-chip'), 'var(--radius-xl)', 'step chips (the abroad steps and the /sell process)');
   // --radius-full only on the floating WhatsApp button; the back-to-top button is a button (md).
   assert.equal(radius('.fab--wa'), 'var(--radius-full)', 'WhatsApp button stays round');
   assert.equal(radius('.fab--top'), 'var(--radius-md)', 'back to top');

@@ -3,17 +3,15 @@
 // (/buy and the homepage), so they stay identical. Each page passes its own heading in the "heading" slot; anything in
 // the default slot (the homepage's lead-capture button) follows the body. The words are the section's own, split: the
 // lead line, the seven steps as numbered chips in an ordered list (the arrows are gone), and the closing line.
-// Centred, at the width of the homepage paragraphs (PR 109). Styles: global.css, "Abroad steps".
+// Centred, at the width of the homepage paragraphs (PR 109). The chips are the shared StepChips component (also /sell).
+// Styles: global.css, "Abroad steps" and "Step chips".
+import StepChips from './StepChips.astro';
 export const STEPS = ['Briefing', 'Virtual shortlist', 'Remote viewings', 'Due diligence', 'Negotiation', 'Transaction coordination', 'Handover or leasing'];
 ---
 <div class="abroad" data-abroad-steps>
   <slot name="heading" />
   <p class="abroad-lead">You don't need to be in the UAE to buy well here.</p>
-  {/* role="list" keeps the list semantics where list-style: none would drop them (Safari); the visible number repeats
-      the list's own order, so it is hidden from assistive technology. */}
-  <ol class="abroad-steps" role="list">
-    {STEPS.map((s, i) => <li class="abroad-step"><span class="abroad-num" aria-hidden="true">{i + 1}</span>{s}</li>)}
-  </ol>
+  <StepChips steps={STEPS} />
   <p class="abroad-note">Managed on your behalf from wherever you are.</p>
   <slot />
 </div>

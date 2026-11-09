@@ -51,7 +51,7 @@ const QUESTIONS = [
     <div class="narrow launches">
       <p class="eyebrow">New Launches</p>
       <h1>New launches, checked.</h1>
-      <p class="lede">Every launch comes with a brochure. Few come with straight answers. Ask me anything about a launch.</p>
+      <p class="lede">Every launch comes with a brochure. Few come with straight answers.{LEAD_CAPTURE && ' Ask me anything about a launch.'}</p>
       {LEAD_CAPTURE && <div class="actions"><a class="btn" href="#ask">Ask me about a launch →</a></div>}
 
       {/* Launch activity (Part A): aggregated public figures only, loaded from the Worker. Hidden when neither emirate has data. */}
@@ -89,7 +89,8 @@ const QUESTIONS = [
       <ol class="nl-list">
         {QUESTIONS.map((q) => <li>{q}</li>)}
       </ol>
-      <p><strong>Not sure of the answer for the launch you're looking at? Ask me.</strong></p>
+      {/* Soft launch (site sweep, owner 2026-11-08): the invitation in the lede and this line return with LEAD_CAPTURE. */}
+      {LEAD_CAPTURE && <p><strong>Not sure of the answer for the launch you're looking at? Ask me.</strong></p>}
 
       {/* Compliance: this form and "Send my question" are a service call to action. They are rendered only with
           LEAD_CAPTURE, never in soft launch (Rules v5.9 section 8d). */}

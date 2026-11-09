@@ -29,7 +29,7 @@ try {
         const chips = [...ol.querySelectorAll('li')].map((li) => {
           const r = li.getBoundingClientRect();
           const cs = getComputedStyle(li);
-          const n = getComputedStyle(li.querySelector('.abroad-num'));
+          const n = getComputedStyle(li.querySelector('.step-num'));
           return {
             label: li.textContent.replace(/^\d/, ''), left: r.left, right: r.right, top: r.top, height: r.height,
             bg: cs.backgroundColor, border: [cs.borderTopWidth, cs.borderTopStyle, cs.borderTopColor].join(' '), radius: parseFloat(cs.borderTopLeftRadius),
