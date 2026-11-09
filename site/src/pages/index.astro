@@ -64,9 +64,15 @@ const WAYS: Record<string, { n: string; label: string; icon: string }> = {
       <p class="lede" style="margin-inline:auto">My job isn't to convince you to buy something. It's to help you decide whether it deserves your money.</p>
       <p>Before I recommend anything, I run five checks: price against real DLD sales, net yield after costs, the developer and the risk, the exit, and my honest view. If I don't think it's right for you, I'll tell you.</p>
       <div class="card" style="max-width:28rem;margin:var(--space-8) auto 0;text-align:left">
-        <h3 style="color:var(--navy)">The Compass Key Brief</h3>
+        {/* Soft launch (site sweep, owner 2026-11-08): the block is "The Compass Key Method", without the invitation to send a
+            property; the Brief returns with LEAD_CAPTURE. */}
+        <h3 style="color:var(--navy)">{LEAD_CAPTURE ? 'The Compass Key Brief' : 'The Compass Key Method'}</h3>
         <p class="kicker" style="margin-top:var(--space-2)">Price · Returns · Risk · Exit · My View</p>
-        <p class="small">Send me any UAE property and I'll run the numbers: price, returns, risk, exit, my view. You can also run your own numbers on the <a href="/invest">ROI Calculator</a>. My method is set out on the <a href="/investment-approach">investment approach</a> page.</p>
+        {LEAD_CAPTURE ? (
+          <p class="small">Send me any UAE property and I'll run the numbers: price, returns, risk, exit, my view. You can also run your own numbers on the <a href="/invest">ROI Calculator</a>. My method is set out on the <a href="/investment-approach">investment approach</a> page.</p>
+        ) : (
+          <p class="small">You can run your own numbers on the <a href="/invest">ROI Calculator</a>. My method is set out on the <a href="/investment-approach">investment approach</a> page.</p>
+        )}
       </div>
     </div>
   </section>

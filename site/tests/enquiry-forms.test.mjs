@@ -278,11 +278,10 @@ test('soft launch: /new-launches keeps every approved line except the ask-me but
   const t = text(m);
   const lines = [
     'New Launches', 'New launches, checked.',
-    'Every launch comes with a brochure. Few come with straight answers. Ask me anything about a launch.',
+    'Every launch comes with a brochure. Few come with straight answers.',
     'Launch activity', 'Updated weekly.',
     'Why a launch needs a different check',
     'Questions worth asking before you commit',
-    "Not sure of the answer for the launch you're looking at? Ask me.",
     'Sources',
     'General information on new launches in Dubai, citing the law as at October 2026.',
   ];
@@ -293,6 +292,9 @@ test('soft launch: /new-launches keeps every approved line except the ask-me but
     at = i + l.length;
   }
   assert.match(m, /<p class="launch-close">Updated weekly\.<\/p>/, 'launch activity: only "Updated weekly."');
+  // Site sweep (owner 2026-11-08): the lede's invitation and the "Ask me." line return with LEAD_CAPTURE.
+  assert.match(m, /<p class="lede">Every launch comes with a brochure\. Few come with straight answers\.<\/p>/);
+  assert.doesNotMatch(m, /Ask me anything about a launch|Not sure of the answer/);
   assert.doesNotMatch(m, /href="#ask"|id="ask"|Ask me about a launch|Tell me what you want to know|Send my question|Want to know what they mean/);
   assert.doesNotMatch(m, /<form\b|lead-form|launch-form|class="btn"/);
   const h2 = [...m.matchAll(/<h2([^>]*)>([^<]*)<\/h2>/g)].map((x) => x[2]);
@@ -303,10 +305,12 @@ test('soft launch: /new-launches keeps every approved line except the ask-me but
   assert.match(h, BUILD.indexable && BUILD.launchCards ? /<meta name="robots" content="index,follow,max-image-preview:large">/ : /<meta name="robots" content="noindex,nofollow">/);
 });
 
-test('soft launch: /contact keeps its intro and shows the footer phone and email links instead of the form; the FAQ answer is hidden', () => {
+test('soft launch: /contact reads "Contact" and shows the footer phone and email links instead of the form; the FAQ answer is hidden', () => {
   if (BUILD.leadCapture) return;
   const m = main('contact.html', siteDist);
-  assert.match(m, /<p class="lede">Your budget\. Your objective\. Your timeline\. I'll take it from there, within 24 hours\.<\/p>/);
+  // Site sweep (owner 2026-11-08): a plain "Contact" heading; "Get in touch" and its lede return with LEAD_CAPTURE.
+  assert.match(m, /<p class="eyebrow">Contact<\/p>\s*<h1>Contact<\/h1>\s*<p class="lede">You can reach me directly by phone or email\.<\/p>/);
+  assert.doesNotMatch(m, /Get in touch|Tell me what you're|within 24 hours/);
   assert.match(m, /<div class="foot-links"[^>]*>\s*<a href="tel:\+971555414468">\+971 55 541 4468<\/a>\s*<a href="mailto:hello@sharjeelhashmat\.com">hello@sharjeelhashmat\.com<\/a>\s*<\/div>/);
   assert.doesNotMatch(m, /<form\b|lead-form|wa\.me/);
   const faq = readFileSync(join(siteDist, 'faq.html'), 'utf8');

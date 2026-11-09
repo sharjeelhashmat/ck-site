@@ -8,9 +8,21 @@ import { LEAD_CAPTURE } from '../lib/golive';
 <Base title="Contact" description="Tell me what you're looking for: your budget, your objective, your timeline.">
   <section class="section">
     <div class="narrow">
-      <p class="eyebrow">Get in touch</p>
-      <h1>Tell me what you're <em>looking for.</em></h1>
-      <p class="lede">Your budget. Your objective. Your timeline. I'll take it from there, within 24 hours.</p>
+      {/* Soft launch (site sweep, owner 2026-11-08): a plain "Contact" heading and the direct phone and email links; the
+          "Get in touch" heading and lede return with LEAD_CAPTURE. */}
+      {LEAD_CAPTURE ? (
+        <>
+          <p class="eyebrow">Get in touch</p>
+          <h1>Tell me what you're <em>looking for.</em></h1>
+          <p class="lede">Your budget. Your objective. Your timeline. I'll take it from there, within 24 hours.</p>
+        </>
+      ) : (
+        <>
+          <p class="eyebrow">Contact</p>
+          <h1>Contact</h1>
+          <p class="lede">You can reach me directly by phone or email.</p>
+        </>
+      )}
       {LEAD_CAPTURE ? (
         <div style="margin-top:var(--space-8)"><LeadForm mode="general" /></div>
       ) : (

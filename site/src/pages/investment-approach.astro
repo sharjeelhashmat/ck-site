@@ -15,18 +15,27 @@ import { LEAD_CAPTURE } from '../lib/golive';
 
       <h2>The five checks</h2>
       <ol style="margin-top:var(--space-6)">
-        {FIVE_CHECKS.map((c) => <li><strong>{c.name}{c.sep}</strong> {c.text}</li>)}
+        {FIVE_CHECKS.map((c) => <li><strong>{c.name}.</strong> {c.text}</li>)}
       </ol>
 
-      <h2>How a Compass Key Brief is built</h2>
-      <p>Send me any UAE property, by link or name. I run it through the five checks using sourced, dated figures and send you a short brief with the numbers and my recommendation. There is no obligation.</p>
+      {/* Soft launch (site sweep, owner 2026-11-08): the Brief section and the closing invitation return with LEAD_CAPTURE. */}
+      {LEAD_CAPTURE && (
+        <>
+          <h2>How a Compass Key Brief is built</h2>
+          <p>Send me any UAE property, by link or name. I run it through the five checks using sourced, dated figures and send you a short brief with the numbers and my recommendation. There is no obligation.</p>
+        </>
+      )}
 
       <h2>Why this approach</h2>
       <p>In UAE real estate since 2018, with a decade of experience across banking sales and senior management behind me, I read the cash flow before the brochure. That is the discipline behind every brief.</p>
 
       <div class="card" style="margin-top:var(--space-8)">
         <h3 style="color:var(--navy)">The Compass Key Brief</h3>
-        <p class="small">Send me any UAE property and I'll run the numbers: price, returns, risk, exit, my view. You can also run your own numbers on the <a href="/invest">ROI Calculator</a>.</p>
+        {LEAD_CAPTURE ? (
+          <p class="small">Send me any UAE property and I'll run the numbers: price, returns, risk, exit, my view. You can also run your own numbers on the <a href="/invest">ROI Calculator</a>.</p>
+        ) : (
+          <p class="small">You can run your own numbers on the <a href="/invest">ROI Calculator</a>.</p>
+        )}
       </div>
 
       {LEAD_CAPTURE && <div class="actions"><a href="/contact" class="btn">Get the numbers on a property</a></div>}
