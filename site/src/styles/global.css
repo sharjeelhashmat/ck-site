@@ -181,8 +181,6 @@ a.card:hover { border-color: var(--navy); }
   background: var(--paper); border: 1px solid var(--line); color: var(--ink); font-family: var(--sans); font-weight: 400; font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small);
 }
 .trust span::before { content: ''; width: 6px; height: 6px; border-radius: var(--radius-sm); background: var(--gold); flex: none; }
-.steps { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-8); padding: 0; list-style: none; }
-.steps li { border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--paper); padding: var(--space-2) var(--space-3); font-size: var(--fs-label); line-height: var(--lh-label); letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--muted); }
 /* ROI calculator outputs: amounts the visitor types have no upper bound, so they use the data style, not the 48px stat. */
 .stat { font-family: var(--sans); font-weight: 500; font-size: var(--fs-data); line-height: var(--lh-data); letter-spacing: var(--ls-data); font-variant-numeric: lining-nums tabular-nums; color: var(--navy-deep); }
 .stat-label { font-size: var(--fs-label); line-height: var(--lh-label); letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--muted); margin-top: var(--space-1); }
@@ -426,18 +424,22 @@ form.card { padding: var(--space-8); }
 
 /* Abroad steps (components/AbroadSteps.astro; owner 2026-11-08, option B): "Buying in the UAE from abroad" on /buy and
    the homepage. Centred; 43rem wide at most, the width of the homepage paragraphs inside .narrow (46rem less its 1.5rem
-   padding each side). The seven steps are chips that wrap and centre: white, a 1px --chip-line border, fully rounded
-   (--radius-xl on a 30px chip), 13px Inter (a clamp between the 12px and 14px steps, fixed at 13px), the number in
-   Brass Deep at Inter's heavier weight, 500 (Inter is 400 and 500 only). */
+   padding each side). */
 .abroad { max-width: 43rem; margin: 0 auto; text-align: center; }
 .abroad-lead { margin-left: auto; margin-right: auto; }
-.abroad-steps { list-style: none; margin: var(--space-4) 0 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); }
-.abroad-step {
+/* Step chips (components/StepChips.astro): the abroad steps (centred) and the /sell process (left aligned, site sweep
+   2026-11-08). Chips that wrap: white, a 1px --chip-line border, fully rounded (--radius-xl on a 30px chip), 13px Inter
+   (a clamp between the 12px and 14px steps, fixed at 13px), the number in Brass Deep at Inter's heavier weight, 500
+   (Inter is 400 and 500 only). */
+.step-chips { list-style: none; margin: var(--space-4) 0 0; padding: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: var(--space-2); }
+.step-chips--start { justify-content: flex-start; }
+.sell-steps > .step-chips { margin-top: var(--space-8); }
+.step-chip {
   display: inline-flex; align-items: center; gap: var(--space-2); margin: 0; padding: var(--space-1) var(--space-3);
   background: var(--paper); border: 1px solid var(--chip-line); border-radius: var(--radius-xl); color: var(--ink);
   font-family: var(--sans); font-weight: 400; font-size: clamp(var(--fs-label), 0.8125rem, var(--fs-small)); line-height: var(--lh-small); letter-spacing: 0;
 }
-.abroad-num { color: var(--brass-deep); font-weight: 500; font-variant-numeric: lining-nums tabular-nums; }
+.step-num { color: var(--brass-deep); font-weight: 500; font-variant-numeric: lining-nums tabular-nums; }
 .abroad-note { margin: var(--space-4) auto 0; font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); color: var(--ink); }
 /* /invest, the five checks (owner 2026-11-08): one row of five equal cards on a desktop, three then two (centred, no
    orphan gap) on a tablet, stacked on a phone. Flex wrap with a fixed share per breakpoint, so a short last row centres. */

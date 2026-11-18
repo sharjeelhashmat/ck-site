@@ -32,12 +32,12 @@ export const FAQS: Faq[] = [
   },
   {
     q: "What's the difference between off-plan and secondary market?",
-    a: 'Off-plan is bought directly from a developer before/during construction, typically on a payment plan; secondary market is an existing, completed or resale unit. Trade-offs (price, timeline, certainty) are covered in the Insights articles.',
-    links: { 'Insights articles': '/insights' },
+    a: 'Off-plan is bought directly from a developer before/during construction, typically on a payment plan; secondary market is an existing, completed or resale unit. Trade-offs (price, timeline, certainty) are covered on the New Launches page.',
+    links: { 'New Launches page': '/new-launches' },
   },
   {
     q: 'How do I get a mortgage as a non-resident?',
-    a: 'Non-resident mortgages are available through several UAE banks with different down-payment and eligibility rules than resident buyers; assessed case-by-case during consultation.',
+    a: 'Non-resident mortgages are available through several UAE banks with different down-payment and eligibility rules than resident buyers; assessed case by case for each buyer.',
   },
   {
     q: 'How quickly do you respond to enquiries?',

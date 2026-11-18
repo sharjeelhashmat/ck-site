@@ -18,7 +18,8 @@ const noindex = !insightsLive;
       <p class="lede">Property decisions should be based on more than headlines.</p>
       {list.length === 0 ? (
         <div class="card empty" style="margin-top:var(--space-12)">
-          <p>The first Insights articles are being written. Check back soon, or ask Sharjeel directly in the meantime.</p>
+          {/* Soft launch (Coordinator 2026-11-18): no invitation to ask; the original line returns with LEAD_CAPTURE. */}
+          <p>{LEAD_CAPTURE ? 'The first Insights articles are being written. Check back soon, or ask Sharjeel directly in the meantime.' : 'New articles are on the way.'}</p>
           {LEAD_CAPTURE && <div class="actions" style="justify-content:center"><a class="btn btn--ghost" href={waLink('Hi Sharjeel, do you have any market insights you can share?')} target="_blank" rel="noopener">Ask Sharjeel →</a></div>}
         </div>
       ) : (

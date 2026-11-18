@@ -1,0 +1,11 @@
+---
+// Numbered step chips (owner 2026-11-08): the one component for every list of steps shown as chips, so they stay
+// identical: "Buying in the UAE from abroad" (AbroadSteps, centred) and the /sell process (left aligned with the page).
+// role="list" keeps the list semantics where list-style: none would drop them (Safari); the visible number repeats the
+// list's own order, so it is hidden from assistive technology. Styles: global.css, "Step chips".
+interface Props { steps: readonly string[]; align?: 'center' | 'start' }
+const { steps, align = 'center' } = Astro.props;
+---
+<ol class:list={['step-chips', { 'step-chips--start': align === 'start' }]} role="list">
+  {steps.map((s, i) => <li class="step-chip"><span class="step-num" aria-hidden="true">{i + 1}</span>{s}</li>)}
+</ol>

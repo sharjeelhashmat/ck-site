@@ -41,8 +41,8 @@ test('the body: the lead line, an ordered list of the 7 steps in order as number
     const s = section(read(p));
     assert.ok(decodeEntities(s).includes(`<p class="abroad-lead">${LEAD}</p>`), `${p}: lead line`);
     const ol = s.slice(s.indexOf('<ol'), s.indexOf('</ol>') + 5);
-    assert.match(ol, /^<ol class="abroad-steps" role="list">/, `${p}: a semantic ordered list`);
-    const items = [...ol.matchAll(/<li class="abroad-step"><span class="abroad-num" aria-hidden="true">(\d)<\/span>([^<]+)<\/li>/g)].map((m) => [Number(m[1]), m[2]]);
+    assert.match(ol, /^<ol class="step-chips" role="list">/, `${p}: a semantic ordered list (the shared StepChips, centred)`);
+    const items = [...ol.matchAll(/<li class="step-chip"><span class="step-num" aria-hidden="true">(\d)<\/span>([^<]+)<\/li>/g)].map((m) => [Number(m[1]), m[2]]);
     assert.deepEqual(items, STEPS.map((x, i) => [i + 1, x]), `${p}: 7 steps, numbered, in order`);
     assert.equal((ol.match(/<li\b/g) ?? []).length, 7);
     assert.ok(s.includes(`<p class="abroad-note">${NOTE}</p>`), `${p}: closing line`);
@@ -58,9 +58,9 @@ test('each page keeps its own heading; the section is centred at the homepage pa
   const css = readFileSync(join(root, 'src/styles/global.css'), 'utf8');
   const rule = (sel) => { const at = css.indexOf(`${sel} {`); assert.ok(at >= 0, sel); return css.slice(at, css.indexOf('}', at)); };
   assert.match(rule('.abroad'), /max-width: 43rem;.*text-align: center;/, '46rem .narrow less its 1.5rem padding each side');
-  assert.match(rule('.abroad-steps'), /list-style: none;.*display: flex; flex-wrap: wrap; justify-content: center;/);
-  const chip = rule('.abroad-step');
+  assert.match(rule('.step-chips'), /list-style: none;.*display: flex; flex-wrap: wrap; justify-content: center;/);
+  const chip = rule('.step-chip');
   for (const d of ['background: var(--paper);', 'border: 1px solid var(--chip-line);', 'border-radius: var(--radius-xl);', 'font-family: var(--sans);', 'font-size: clamp(var(--fs-label), 0.8125rem, var(--fs-small));']) assert.ok(chip.includes(d), d);
-  assert.match(rule('.abroad-num'), /color: var\(--brass-deep\); font-weight: 500;/);
+  assert.match(rule('.step-num'), /color: var\(--brass-deep\); font-weight: 500;/);
   assert.match(css, /--chip-line: #e3ddcf;/);
 });
