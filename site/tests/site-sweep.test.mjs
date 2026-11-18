@@ -4,7 +4,7 @@
 // stop. Run after `npm run build`; the lead-capture assertions read leadCaptureDist() (tests/helpers/build-mode.mjs).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { decodeEntities, stripScripts, stripStyles, stripTags } from '../scripts/html-text.mjs';
@@ -43,7 +43,7 @@ test('soft launch: none of the hidden sentences render; the replacements do', ()
   // /investment-approach: "Why this approach", the closing card's one sentence, the source line.
   const ia = main('investment-approach.html');
   assert.deepEqual([...ia.matchAll(/<h2[^>]*>([^<]+)<\/h2>/g)].map((m) => m[1]), ['The five checks', 'Why this approach']);
-  assert.match(ia, /<h3 style="color:var\(--navy\)">The Compass Key Brief<\/h3>\s*<p class="small">You can run your own numbers on the <a href="\/invest">ROI Calculator<\/a>\.<\/p>/);
+  assert.match(ia, /<h3 style="color:var\(--navy\)">Run your own numbers<\/h3>\s*<p class="small">You can run your own numbers on the <a href="\/invest">ROI Calculator<\/a>\.<\/p>/);
   assert.ok(text(ia).includes('Figures are sourced and dated. This is property analysis, not financial advice.'));
   // /new-launches: the lede keeps its first two sentences.
   assert.match(main('new-launches.html'), /<p class="lede">Every launch comes with a brochure\. Few come with straight answers\.<\/p>/);
@@ -109,4 +109,45 @@ test('the swept pages: no external links but the three profiles, no em or en das
     assert.deepEqual(disallowedExternalHrefs(h, { whatsapp: BUILD.leadCapture }), [], p);
     assert.doesNotMatch(text(main(p)), /[\u2013\u2014]/, `${p}: no dashes`);
   }
+});
+
+// Final fixes (Coordinator 2026-11-18).
+const desc = (p, dir = siteDist) => decodeEntities(read(p, dir).match(/<meta name="description" content="([^"]*)"/)[1]);
+const SOFT_DESC = {
+  'contact.html': 'Contact details for Sharjeel Hashmat, Property Consultant, UAE: phone and email.',
+  'new-launches.html': 'What to check before committing to a new launch in Dubai: escrow, registration, payment plans and service charges.',
+};
+const LEAD_DESC = {
+  'contact.html': "Tell me what you're looking for: your budget, your objective, your timeline.",
+  'new-launches.html': 'Thinking about a Dubai off-plan launch? The facts every buyer should know, the questions worth asking, and a straight answer within 24 hours.',
+};
+
+test('no bold lead-in runs into the next word: every </strong> or </b> followed directly by a letter fails, on every built page', () => {
+  const walk = (d) => readdirSync(d, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(join(d, e.name)) : e.name.endsWith('.html') ? [join(d, e.name)] : []));
+  for (const dir of [siteDist, leadDist]) {
+    const bad = walk(dir).flatMap((f) => [...readFileSync(f, 'utf8').matchAll(/<\/(strong|b)>([A-Za-z])/g)].map((m) => `${f.slice(dir.length)}: </${m[1]}>${m[2]}`));
+    assert.deepEqual(bad, [], dir);
+  }
+  // The four lead-ins on /new-launches, each followed by one space.
+  const items = [...main('new-launches.html').matchAll(/<li><strong>([^<]+)<\/strong> ([A-Z])/g)].map((m) => m[1]);
+  assert.deepEqual(items, ['You pay before it is built.', 'The sale must be registered.', 'Paying late has a cost.', 'The service charge is not final.']);
+});
+
+test('soft launch: the /contact and /new-launches descriptions carry no invitation; the closing card on /investment-approach reads "Run your own numbers"', () => {
+  if (BUILD.leadCapture) return;
+  for (const [p, d] of Object.entries(SOFT_DESC)) assert.equal(desc(p), d, p);
+  for (const p of Object.keys(SOFT_DESC)) assert.doesNotMatch(read(p), /24 hours|Tell me what you|ask Sharjeel/i, p);
+  assert.doesNotMatch(main('investment-approach.html'), /The Compass Key Brief/);
+});
+
+test('lead capture on: the original descriptions and the "The Compass Key Brief" card heading return', () => {
+  for (const [p, d] of Object.entries(LEAD_DESC)) assert.equal(desc(p, leadDist), d, p);
+  assert.match(main('investment-approach.html', leadDist), /<h3 style="color:var\(--navy\)">The Compass Key Brief<\/h3>/);
+});
+
+test('/insights empty state: "New articles are on the way." in soft launch, the original line with lead capture', () => {
+  // The empty state renders only when no article is published, which no build has today, so the source is checked.
+  const src = readFileSync(join(root, 'src/pages/insights.astro'), 'utf8');
+  assert.ok(src.includes("<p>{LEAD_CAPTURE ? 'The first Insights articles are being written. Check back soon, or ask Sharjeel directly in the meantime.' : 'New articles are on the way.'}</p>"));
+  assert.equal((src.match(/ask Sharjeel directly/g) ?? []).length, 1, 'only behind LEAD_CAPTURE');
 });

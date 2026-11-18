@@ -46,7 +46,7 @@ const QUESTIONS = [
 ---
 {/* Indexing (audit M2): noindex until LAUNCH_CARDS_ALLOWED (agency, ORN, BRN and advertiser permit in golive.ts); from then on
     the page follows the site-wide switch and enters the sitemap (astro.config.mjs). */}
-<Base title="New Launches: Ask Before You Commit" description="Thinking about a Dubai off-plan launch? The facts every buyer should know, the questions worth asking, and a straight answer within 24 hours." noindex={!LAUNCH_CARDS_ALLOWED}>
+<Base title="New Launches: Ask Before You Commit" description={LEAD_CAPTURE ? 'Thinking about a Dubai off-plan launch? The facts every buyer should know, the questions worth asking, and a straight answer within 24 hours.' : 'What to check before committing to a new launch in Dubai: escrow, registration, payment plans and service charges.'} noindex={!LAUNCH_CARDS_ALLOWED}>
   <section class="section">
     <div class="narrow launches">
       <p class="eyebrow">New Launches</p>
@@ -80,8 +80,10 @@ const QUESTIONS = [
       <h2 class="nl-h2">Why a launch needs a different check</h2>
       <p>With a ready home, you can see what you are buying. With a launch, you are paying for a building that does not exist yet. In Dubai, four things change:</p>
       <ul class="nl-list">
+        {/* The space after each bold lead-in is an explicit {' '}: the compiler drops a bare space between </strong> and an
+            expression (the live text read "built.Payments", Coordinator 2026-11-18; tests/site-sweep.test.mjs). */}
         {FACTS.map((f, i) => (
-          <li><strong>{f.lead}</strong> {f.text}<sup class="nl-ref"><a href={`#source-${i + 1}`} id={`ref-${i + 1}`} aria-label={`Source ${i + 1}`}>{i + 1}</a></sup></li>
+          <li><strong>{f.lead}</strong>{' '}{f.text}<sup class="nl-ref"><a href={`#source-${i + 1}`} id={`ref-${i + 1}`} aria-label={`Source ${i + 1}`}>{i + 1}</a></sup></li>
         ))}
       </ul>
 

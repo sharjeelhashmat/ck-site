@@ -5,7 +5,9 @@ import { SITE } from '../lib/site';
 import { LEAD_CAPTURE } from '../lib/golive';
 // Soft launch (LEAD_CAPTURE false): no enquiry form; the footer's phone and email links instead, same text.
 ---
-<Base title="Contact" description="Tell me what you're looking for: your budget, your objective, your timeline.">
+{/* Soft launch (Coordinator 2026-11-18, wording lengthened by the owner to meet the 70 to 160 character rule): a plain
+    description, no invitation; the original returns with LEAD_CAPTURE. */}
+<Base title="Contact" description={LEAD_CAPTURE ? "Tell me what you're looking for: your budget, your objective, your timeline." : 'Contact details for Sharjeel Hashmat, Property Consultant, UAE: phone and email.'}>
   <section class="section">
     <div class="narrow">
       {/* Soft launch (site sweep, owner 2026-11-08): a plain "Contact" heading and the direct phone and email links; the
