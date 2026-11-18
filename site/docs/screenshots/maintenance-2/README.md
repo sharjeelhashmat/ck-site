@@ -69,4 +69,26 @@ Print layout (the print-only header and footer): /, /contact, /new-launches, /ar
 
 ## Lighthouse
 
-LIGHTHOUSE_TABLE
+Mobile, simulated throttling, 3 runs per page, median run; the CI config (`qa/lighthouserc.cjs`) plus nine more pages, run on
+the before and after builds one after the other. SEO is 0.66 on both because a noindex build fails "is crawlable" by design.
+
+| page | performance | accessibility | best practices | SEO | LCP ms | CLS | bytes |
+|---|---|---|---|---|---|---|---|
+| / | 1 | 1 | 1 | 0.66 | 896 to 846 | 0.000 | 145324 to 145354 |
+| /about | 1 | 1 | 1 | 0.66 | 903 to 872 | 0.000 | 145198 to 145208 |
+| /contact | 0.99 | 1 | 1 | 0.66 | 1996 to 1965 | 0.000 | 144484 to 144500 |
+| /new-launches | 1 | 1 | 1 | 0.66 | 1076 to 1067 | 0.000 | 154031 to 154213 |
+| /areas/downtown-dubai | 1 | 1 | 1 | 0.66 | 1051 to 1050 | 0.000 | 155635 to 155825 |
+| /insights/costs-investors-forget-before-yield | 1 | 1 | 1 | 0.66 | 1046 to 1028 | 0.000 | 147761 to 147772 |
+| /buy | 1 | 1 | 1 | 0.66 | 892 to 860 | 0.000 | 144531 to 144560 |
+| /invest | 1 | 1 | 1 | 0.66 | 855 to 860 | 0.000 | 145873 to 145885 |
+| /sell | 1 | 1 | 1 | 0.66 | 851 to 889 | 0.000 | 144638 to 144655 |
+| /areas | 1 | 1 | 1 | 0.66 | 1039 to 1041 | 0.000 | 159041 to 159123 |
+| /areas/saadiyat-island | 1 | 1 | 1 | 0.66 | 1063 to 1048 | 0.000 | 155830 to 155992 |
+| /insights | 1 | 1 | 1 | 0.66 | 873 to 890 | 0.000 | 144474 to 144502 |
+| /investment-approach | 1 | 1 | 1 | 0.66 | 876 to 860 | 0.000 | 144657 to 144690 |
+| /faq | 1 | 1 | 1 | 0.66 | 880 to 897 | 0.000 | 144482 to 144510 |
+| /404 | 0.99 | 1 | 1 | 0.66 | 1955 to 1959 | 0.000 | 144110 to 144134 |
+
+Every score is the same before and after. LCP moves within run-to-run noise in both directions. Each page is 10 to 190
+bytes heavier, all of it in the inline scripts and JavaScript chunks that Vite 8 minifies differently.
