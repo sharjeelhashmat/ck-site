@@ -37,10 +37,10 @@ jobs:
           cache: npm
           cache-dependency-path: worker/package-lock.json
       - run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Assert wrangler 4.152.0
+      - name: Assert wrangler 4.160.1
         run: |
           v=$(npx --no-install wrangler --version | tr -d '[:space:]')
-          [ "$v" = "4.152.0" ] || { echo "wrangler version: FAIL"; exit 1; }
+          [ "$v" = "4.160.1" ] || { echo "wrangler version: FAIL"; exit 1; }
           echo "wrangler version: PASS"
       # Fail closed, never print a secret value.
       - name: Preflight
