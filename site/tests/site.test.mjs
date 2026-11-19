@@ -135,10 +135,15 @@ test('analytics: a default build has no beacon and the CSP does not allow Cloudf
   if (BUILD.analyticsToken) {
     // The deploy-site public build with PUBLIC_CF_ANALYTICS_TOKEN set: exactly one beacon on every page, and the CSP allows
     // exactly its two origins after the data-worker origins (script-src and connect-src), nowhere else.
-    const beacon = `<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon="{&#34;token&#34;:&#34;${BUILD.analyticsToken}&#34;}"></script>`;
+    // The tag is matched by its structure and its token compared after decoding: Astro 5 escaped the quotes in the
+    // attribute as &#34;, Astro 7 as &quot;, and a browser reads both as the same JSON (data-cf-beacon is what the
+    // beacon script parses).
+    const beacon = /<script defer src="https:\/\/static\.cloudflareinsights\.com\/beacon\.min\.js" data-cf-beacon="([^"]*)"><\/script>/g;
     for (const f of htmlFiles) {
       const h = readFileSync(f, 'utf8');
-      assert.equal(h.split(beacon).length - 1, 1, `${f}: exactly one beacon`);
+      const tags = [...h.matchAll(beacon)];
+      assert.equal(tags.length, 1, `${f}: exactly one beacon`);
+      assert.deepEqual(JSON.parse(tags[0][1].replace(/&#34;|&quot;/g, '"')), { token: BUILD.analyticsToken }, `${f}: beacon token`);
       assert.equal((h.match(/cloudflareinsights/g) ?? []).length, 1, `${f}: no other Cloudflare Insights reference`);
     }
     const csp = read('_headers').match(/Content-Security-Policy: (.*)/)[1];
