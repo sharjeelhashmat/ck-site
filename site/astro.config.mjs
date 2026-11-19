@@ -58,4 +58,7 @@ export default defineConfig({
     }),
   ] : [])],
   devToolbar: { enabled: false },
+  // Astro 7 changed the default to 'jsx' (whitespace stripped between inline elements, as in React). The site's markup
+  // relies on HTML whitespace rules (one space kept between inline elements), so the Astro 5 and 6 behaviour is kept.
+  compressHTML: true,
 });

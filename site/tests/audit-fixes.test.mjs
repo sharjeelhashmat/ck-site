@@ -403,7 +403,8 @@ test('H15: /contact loads neither libphonenumber nor Turnstile with the page', (
   const js = readFileSync(join(LEAD, entry[0]), 'utf8');
   assert.ok(js.length < 30000, `entry is ${js.length} bytes`);
   assert.doesNotMatch(js, /^import\s.*phone\./m, 'no static import of the phone chunk');
-  assert.match(js, /import\("\.\/phone\.[\w-]+\.js"\)/, 'dynamic import of the phone chunk');
+  // Any quote style: Vite 8 (Astro 7) writes the specifier as a template literal, import(`./phone.x.js`).
+  assert.match(js, /import\((["'`])\.\/phone\.[\w-]+\.js\1\)/, 'dynamic import of the phone chunk');
   const phone = readdirSync(join(LEAD, '_astro')).find((f) => /^phone\.[\w-]+\.js$/.test(f));
   assert.ok(readFileSync(join(LEAD, '_astro', phone), 'utf8').length > 50000, 'the phone chunk holds the metadata');
   assert.doesNotMatch(h, /rel="modulepreload"[^>]*phone\./);
