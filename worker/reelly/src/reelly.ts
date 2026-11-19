@@ -59,7 +59,9 @@ export interface CacheLike { get(key: string): Promise<string | null>; put(key: 
  * keeps only the memory layer). Keys are the upstream URLs, which never contain the key. */
 export function defaultCache(now: () => number = Date.now): CacheLike {
   const mem = new Map<string, { body: string; exp: number }>();
-  const edge = (globalThis as { caches?: { default?: Cache } }).caches?.default;
+  // The Cache API, where the runtime has one (typed here so the module also compiles with Node types).
+  type EdgeCache = { match(r: Request): Promise<Response | undefined>; put(r: Request, res: Response): Promise<void> };
+  const edge = (globalThis as { caches?: { default?: EdgeCache } }).caches?.default;
   const req = (key: string) => new Request(`https://reelly-cache.invalid/${encodeURIComponent(key)}`);
   return {
     async get(key) {

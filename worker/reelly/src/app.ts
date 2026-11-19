@@ -28,7 +28,7 @@ export const SECURITY_HEADERS: Record<string, string> = {
   'X-Content-Type-Options': 'nosniff',
   'X-Frame-Options': 'DENY',
 };
-const send = (body: BodyInit | null, status: number, type: string, extra: Record<string, string> = {}) =>
+const send = (body: ConstructorParameters<typeof Response>[0], status: number, type: string, extra: Record<string, string> = {}) =>
   new Response(body, { status, headers: { ...SECURITY_HEADERS, 'Content-Type': type, ...extra } });
 const html = (body: string, status = 200) => send(body, status, 'text/html; charset=utf-8');
 const json = (body: unknown, status = 200) => send(JSON.stringify(body), status, 'application/json; charset=utf-8');

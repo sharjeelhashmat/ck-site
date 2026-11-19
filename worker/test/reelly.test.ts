@@ -4,6 +4,11 @@ import { describe, expect, it, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readdirSync } from 'node:fs';
+import { webcrypto } from 'node:crypto';
+
+type CryptoKey = webcrypto.CryptoKey;
+type JsonWebKey = webcrypto.JsonWebKey;
+type CryptoKeyPair = webcrypto.CryptoKeyPair;
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createApp, SECURITY_HEADERS, type Env } from '../reelly/src/app';
@@ -43,7 +48,7 @@ interface Call { url: string; headers: Record<string, string> }
 /** A stub fetch: the Access certs, and Reelly answers from a map of URL to a list of responses (consumed in order). */
 function stub(reelly: Record<string, Array<() => Response>>) {
   const calls: Call[] = [];
-  const f = (async (input: RequestInfo | URL, init?: RequestInit) => {
+  const f = (async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
     const headers: Record<string, string> = {};
     new Headers(init?.headers).forEach((v, k) => { headers[k] = v; });
@@ -259,7 +264,7 @@ describe('not configured, demo data, pages', () => {
     expect(h).toContain('Not configured');
     expect(h).toContain('href="/launches?demo=1"');
     const api = await get(app(s), '/api/projects', env);
-    expect([api.status, (await api.json()).error]).toEqual([503, 'not_configured']);
+    expect([api.status, ((await api.json()) as { error?: string }).error]).toEqual([503, 'not_configured']);
     expect(s.reelly()).toEqual([]);
   });
   it('demo mode works without a key and labels everything "Demo data"', async () => {
