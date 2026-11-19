@@ -1,0 +1,32 @@
+# ck-reelly-tool: the owner's private Reelly research tool (owner 2026-11-19). A separate Worker from ck-lead-worker, on its
+# own workers.dev hostname, protected by Cloudflare Access (Zero Trust free plan) restricted to the owner's email. The code
+# also refuses any request without a valid Access token (src/access.ts). See the PR description for the owner's setup.
+#
+# Secret (added by the owner, never in this file): REELLY_API_KEY.
+# Variables (added by the owner in the dashboard; kept across deploys by keep_vars): ACCESS_TEAM_DOMAIN (for example
+# "yourteam.cloudflareaccess.com"), ACCESS_AUD (the Access application's Audience tag), OWNER_EMAIL (optional extra check).
+# Without them the tool answers 503 "not configured"; nothing else is affected.
+name = "ck-reelly-tool"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+workers_dev = true
+preview_urls = false
+keep_vars = true
+
+[observability]
+enabled = true
+head_sampling_rate = 1
+redact_query_string = true
+
+[observability.logs]
+invocation_logs = false
+
+[[rules]]
+type = "Text"
+globs = ["**/*.css"]
+fallthrough = false
+
+[[rules]]
+type = "Data"
+globs = ["**/*.woff2"]
+fallthrough = false

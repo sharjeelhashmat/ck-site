@@ -1,0 +1,20 @@
+---
+// Public Reelly launch cards (owner 2026-11-19): the same renderer and styles as the private research tool's listing
+// (lib/launch-cards.mjs, styles/launch-cards.css), so what the owner previews is what would go public. Receives only the
+// projects lib/reelly-gate.mjs lets through: none until GOLIVE allows launch cards and each project has its permit
+// number and QR, agency and ORN. With none, it renders nothing at all, not even its stylesheets: they are linked here,
+// only with cards, instead of being bundled into the /new-launches page.
+import dataCardCss from '../styles/data-card.css?url';
+import launchCss from '../styles/launch-cards.css?url';
+import { renderLaunchGrid } from '../lib/launch-cards.mjs';
+interface Props { items: { view: any }[] }
+const { items } = Astro.props;
+const html = items.length ? renderLaunchGrid(items.map((x) => x.view), (v) => `/new-launches/${v.id}`) : '';
+---
+{items.length > 0 && (
+  <>
+    <link rel="stylesheet" href={dataCardCss} />
+    <link rel="stylesheet" href={launchCss} />
+    <Fragment set:html={html} />
+  </>
+)}

@@ -1,0 +1,9 @@
+/* The private research tool's own chrome (worker/reelly): a plain top bar in place of the public site navigation.
+   Tokens only, from the site's global.css, which this stylesheet follows. */
+.rt-bar { background: var(--ink); color: var(--ivory); border-bottom: 1px solid var(--line); }
+.rt-bar-in { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); min-height: 4rem; flex-wrap: wrap; }
+.rt-brand { font-family: var(--serif); font-weight: 600; font-size: var(--fs-heading); line-height: var(--lh-heading); color: var(--ivory); text-decoration: none; }
+.rt-tag { font-size: var(--fs-label); line-height: var(--lh-label); letter-spacing: var(--ls-label); text-transform: uppercase; color: var(--ivory); }
+.rt-filters { margin-top: var(--space-8); }
+.rt-count { margin-top: var(--space-8); font-size: var(--fs-small); line-height: var(--lh-small); letter-spacing: var(--ls-small); color: var(--muted); }
+.lc-project + .actions, .rt-filters .actions { margin-top: var(--space-6); }
