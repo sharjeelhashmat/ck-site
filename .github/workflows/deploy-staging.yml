@@ -103,10 +103,10 @@ jobs:
           test -f package-lock.json
           test -f wrangler.staging.jsonc
       - run: npm ci --ignore-scripts --no-audit --no-fund
-      - name: Assert wrangler 4.152.0
+      - name: Assert wrangler 4.160.1
         run: |
           v=$(npx --no-install wrangler --version | tr -d '[:space:]')
-          [ "$v" = "4.152.0" ] || { echo "expected wrangler 4.152.0, got: $v"; exit 1; }
+          [ "$v" = "4.160.1" ] || { echo "expected wrangler 4.160.1, got: $v"; exit 1; }
           echo "wrangler $v"
 
       # Preflight: fail closed, never print secret values. The artifact must be a non-indexable build.
