@@ -1,0 +1,30 @@
+---
+// Public project pages for Reelly launches (owner 2026-11-19): built only for the projects lib/reelly-gate.mjs lets
+// through, so none exist until GOLIVE allows launch cards and the project carries its permit number and QR, agency and
+// ORN. The WhatsApp button also needs LEAD_CAPTURE. The same renderer as the private preview (lib/launch-cards.mjs).
+import Base from '../../layouts/Base.astro';
+import dataCardCss from '../../styles/data-card.css?url';
+import launchCss from '../../styles/launch-cards.css?url';
+import launches from '../../data/reelly-launches.json';
+import { GOLIVE, LAUNCH_CARDS_ALLOWED, LEAD_CAPTURE } from '../../lib/golive';
+import { SITE } from '../../lib/site';
+import { publicLaunches } from '../../lib/reelly-gate.mjs';
+import { renderProjectDetail, waHrefFor } from '../../lib/launch-cards.mjs';
+
+export function getStaticPaths() {
+  return publicLaunches(launches as any[], GOLIVE, LAUNCH_CARDS_ALLOWED).map((x) => ({ params: { id: String(x.view.id) }, props: x }));
+}
+const { view, compliance } = Astro.props as { view: any; compliance: any };
+const html = renderProjectDetail(view, { compliance, waHref: LEAD_CAPTURE ? waHrefFor(SITE.phoneE164, view.name) : null });
+---
+<Base title={view.name} description={`${view.name}: payment plans, unit types and price ranges.`}>
+  <link rel="stylesheet" href={dataCardCss} />
+  <link rel="stylesheet" href={launchCss} />
+  <section class="section">
+    <div class="wrap">
+      <p class="eyebrow">New launch</p>
+      <h1>{view.name}</h1>
+      <Fragment set:html={html} />
+    </div>
+  </section>
+</Base>

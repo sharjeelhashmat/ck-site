@@ -8,6 +8,9 @@ import '../styles/market.css';
 import reviews from '../data/launch-reviews.json';
 import { GOLIVE, LAUNCH_CARDS_ALLOWED, LEAD_CAPTURE } from '../lib/golive';
 import { checkLaunchReviews } from '../lib/market.mjs';
+import LaunchCards from '../components/LaunchCards.astro';
+import reellyLaunches from '../data/reelly-launches.json';
+import { publicLaunches } from '../lib/reelly-gate.mjs';
 import { SITE } from '../lib/site';
 
 // "Launches I'm watching" (Part A.9): built now, hidden until the agency, its ORN, the broker's BRN and the advertiser
@@ -17,6 +20,9 @@ interface Review { emirate: 'dubai' | 'abu_dhabi'; project: string; area: string
 const reviewProblems = checkLaunchReviews(reviews, GOLIVE);
 if (reviewProblems.length) throw new Error(`launch-reviews.json:\n- ${reviewProblems.join('\n- ')}`);
 const watching = LAUNCH_CARDS_ALLOWED ? (reviews as Review[]).slice(0, 5) : [];
+// Reelly launch cards (owner 2026-11-19): off until GOLIVE allows launch cards and each project has its permit number and
+// QR, agency and ORN (lib/reelly-gate.mjs). The data file ships empty; nothing renders while the list is empty.
+const reellyCards = publicLaunches(reellyLaunches as any[], GOLIVE, LAUNCH_CARDS_ALLOWED);
 
 // The laws are named, never linked (owner decision 2026-11-06, "remove source links only"); href stays as the record.
 const SOURCES = [
@@ -74,6 +80,13 @@ const QUESTIONS = [
               </article>
             ))}
           </div>
+        </section>
+      )}
+
+      {reellyCards.length > 0 && (
+        <section aria-labelledby="launch-cards-h">
+          <h2 class="nl-h2" id="launch-cards-h">Launch details</h2>
+          <LaunchCards items={reellyCards} />
         </section>
       )}
 
