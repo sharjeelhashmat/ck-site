@@ -167,3 +167,60 @@ jobs:
       # /market/status is unknown, read again after 60 s; two unknown reads in a row also fail. No secrets, plain Node.
       - name: Stale-data check
         run: node scripts/market-sync/stale.ts
+
+  # Snapshot (owner EXECUTE 2026-11-19): after a successful apply, copies the Worker's public read-only /market answers,
+  # unchanged, to the orphan branch market-data (data/market/*.json and a README only), so tools that can read
+  # raw.githubusercontent.com but not the Worker get the same figures. No secrets, no environment, no install. The
+  # workflow token (contents: write, this job only) appears only in the push step, which pushes to market-data only.
+  # Nothing is committed when the data files and README are unchanged.
+  snapshot:
+    needs: apply
+    if: github.ref == 'refs/heads/phase2-site' && needs.apply.result == 'success'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: bash
+        working-directory: worker
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .node-version
+      # Anonymous read of the public branch (no token in this step); the first run starts it as an orphan branch.
+      - name: Check out market-data
+        run: |
+          d="$RUNNER_TEMP/market-data"
+          git init -q -b market-data "$d"
+          cd "$d"
+          git remote add origin "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git"
+          rc=0
+          git ls-remote --exit-code --heads origin market-data >/dev/null || rc=$?
+          case "$rc" in
+            0) git fetch -q --depth=1 origin market-data && git checkout -q -B market-data FETCH_HEAD && echo "market-data checked out" ;;
+            2) echo "market-data does not exist yet: this run creates it as an orphan branch" ;;
+            *) echo "could not read the market-data branch (git exit $rc)"; exit 1 ;;
+          esac
+      # Waits out the Worker's 10 minute memo, reads the three endpoints, checks each exact shape and scans for
+      # credentials, then writes the files (or nothing, when unchanged). Logs shapes only.
+      - name: Write snapshot
+        run: node scripts/market-sync/snapshot.ts --out "$RUNNER_TEMP/market-data" --wait-seconds 660
+      - name: Commit snapshot
+        run: |
+          cd "$RUNNER_TEMP/market-data"
+          git add -A -- README.md data/market
+          if git diff --cached --quiet; then echo "unchanged: nothing to commit"; exit 0; fi
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -q -m "Market data snapshot $(date -u +%Y-%m-%dT%H:%MZ)"
+          git log --oneline -1
+      # A no-op ("Everything up-to-date") when nothing was committed.
+      - name: Push snapshot
+        env:
+          PUSH_TOKEN: ${{ github.token }}
+        run: |
+          cd "$RUNNER_TEMP/market-data"
+          git config --local http.https://github.com/.extraheader "AUTHORIZATION: basic $(printf 'x-access-token:%s' "$PUSH_TOKEN" | base64 -w0)"
+          git push origin HEAD:refs/heads/market-data
