@@ -78,7 +78,16 @@ test('the renderer escapes every value and uses only https links from the data',
   const card = renderLaunchCard(evil, { href: '/x' });
   const page = renderProjectDetail(evil, {});
   for (const h of [card, page]) {
-    assert.doesNotMatch(h, /<script|<img[^>]*onerror|<img src=x|javascript:|http:\/\//);
+    // Every real tag in the output (the text between "<" and the next ">"), lower-cased: no script tag, no event
+    // handler and no image from the data; and no javascript: or http: URL anywhere.
+    const tags = h.split('<').slice(1).map((t) => t.slice(0, t.indexOf('>')).toLowerCase());
+    for (const t of tags) {
+      assert.ok(!t.startsWith('script') && !t.startsWith('/script'), `no script tag: <${t}>`);
+      assert.ok(!t.includes('onerror') && !t.includes('onload'), `no event handler: <${t}>`);
+      assert.ok(!t.startsWith('img src=x'), `no image from the data: <${t}>`);
+    }
+    const lower = h.toLowerCase();
+    assert.ok(!lower.includes('javascript:') && !lower.includes('http://'), 'no javascript: or http: URL');
   }
   assert.match(card, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
   assert.match(page, /No documents in the data\./);

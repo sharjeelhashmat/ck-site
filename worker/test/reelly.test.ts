@@ -212,7 +212,7 @@ describe('Reelly calls: pagination, 429, caching', () => {
     const s = stub({ [`${BASE}/districts`]: [ok({ count: 9, next: 'https://evil.example/steal', previous: null, results: [{ id: 1, name: 'A' }] })] });
     const r = await get(app(s), '/api/districts');
     expect(r.status).toBe(502);
-    expect(s.calls.some((c) => c.url.startsWith('https://evil.example'))).toBe(false);
+    expect(s.calls.some((c) => new URL(c.url).hostname === 'evil.example')).toBe(false);
   });
   it('rewrites a list page\'s next and previous links to this tool', async () => {
     const s = stub({ [`${BASE}/projects?limit=2`]: [ok({ count: 5, next: `${BASE}/projects?limit=2&offset=2`, previous: null, results: [] })] });
