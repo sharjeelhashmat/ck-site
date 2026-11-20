@@ -18,6 +18,15 @@
 // read-only permissions and one output (started, set by a fixed first step before checkout); "apply" may use
 // "<ref guard> && always() && <gate open>" (R4, R12).
 //
+// Market data snapshot (owner EXECUTE 2026-11-19, "two PRs, guard first" 2026-11-20): market-data-sync.yml may also have a
+// fourth job, "snapshot", the only job anywhere allowed a write permission (R5). It copies the Worker's public read-only
+// /market answers to JSON files on the market-data branch, so tools that cannot reach the Worker can read them from
+// raw.githubusercontent.com. Its limits (R12): permissions exactly {contents: write}; needs apply and runs only when apply
+// succeeded (if exactly "<ref guard> && needs.apply.result == 'success'"); GitHub-hosted; no secrets, environment or
+// outputs; only actions/checkout (persist-credentials: false) and actions/setup-node; no npm, npx, yarn, pnpm, curl, wget
+// or wrangler; every git push exactly "git push origin HEAD:refs/heads/market-data" (no force, no other ref); and the
+// workflow token (github.token) only in the env of the step that runs that push.
+//
 // Uptime monitor (audit item 31, Coordinator 2026-10-18): uptime.yml may run on one fixed cron (every 30 minutes) plus
 // workflow_dispatch, on GitHub-hosted runners only, and must not reference secrets or use an environment (R2, R3, R12).
 //
@@ -70,7 +79,7 @@ export const RULES = {
   R9: 'static deploy concurrency',
   R10: 'static working-directory',
   R11: 'rollback.yml structure',
-  R12: 'runner labels; anything not GitHub-hosted is self-hosted, allowed only for market-data-sync job dld',
+  R12: 'runner labels; anything not GitHub-hosted is self-hosted, allowed only for market-data-sync job dld; market-data-sync jobs, and the limits of its snapshot job',
   R13: 'no container: or services: in any job',
   R14: 'shell is bash, cmd or pwsh',
   R15: 'no ${{ github.event.* / github.head_ref / inputs.* }} inside run:',
@@ -138,6 +147,12 @@ const GATE_JOB = 'gate';
 const UAE_JOB = 'dld';
 const UAE_LABELS = ['self-hosted', 'ck-uae'];
 const APPLY_JOB = 'apply';
+const SNAPSHOT_JOB = 'snapshot';
+const SNAPSHOT_IF = "needs.apply.result == 'success'";
+const SNAPSHOT_PUSH = 'git push origin HEAD:refs/heads/market-data';
+const SNAPSHOT_ACTIONS_RE = /^actions\/(checkout|setup-node)@[0-9a-f]{40}$/;
+const SNAPSHOT_TOOLS_RE = /(^|[^\w.-])(npm|npx|yarn|pnpm|corepack|curl|wget|wrangler)(?=\s|$|[;&|)<>])/i;
+const TOKEN_RE = /\bgithub\s*\.\s*token\b|\bGITHUB_TOKEN\b/;
 const GATE_OPEN = "needs.gate.outputs.run == 'true'";
 // dld's only output: a first step, before checkout, that marks the job reached the UAE PC (apply tells "PC offline" from
 // "started and failed" with it). Pinned so the PC cannot hand apply anything else through job outputs.
@@ -211,6 +226,32 @@ function checkConcurrency(c, expected) {
   if (c.group !== expected) return `concurrency group must be "${expected}" (found "${c.group}")`;
   if (c['cancel-in-progress'] !== false) return 'cancel-in-progress must be false';
   return null;
+}
+
+/** R12: the limits of market-data-sync's snapshot job (see the header). `bad(message, ...path)` records a violation. */
+function checkSnapshotJob(job, bad) {
+  if (containsSecret(job)) bad('the snapshot job must not reference secrets');
+  if ('environment' in job) bad('the snapshot job must not use an environment', 'environment');
+  if ('outputs' in job) bad('the snapshot job must not have outputs', 'outputs');
+  if (!same(job.needs, APPLY_JOB) && !same(job.needs, [APPLY_JOB])) bad(`the snapshot job must need exactly ${APPLY_JOB}`, 'needs');
+  if (typeof job.if !== 'string' || unwrapExpr(job.if) !== `${GUARD} && ${SNAPSHOT_IF}`) bad(`the snapshot job if must be exactly: ${GUARD} && ${SNAPSHOT_IF}`, 'if');
+  if (TOKEN_RE.test(JSON.stringify(job.env ?? {})) || TOKEN_RE.test(JSON.stringify(job.defaults ?? {}))) bad('the workflow token may appear only in the env of the push step', 'env');
+  const steps = Array.isArray(job.steps) ? job.steps : [];
+  steps.forEach((step, i) => {
+    if (!isObj(step)) return;
+    if ('uses' in step) {
+      if (!SNAPSHOT_ACTIONS_RE.test(String(step.uses))) bad(`the snapshot job may use only actions/checkout and actions/setup-node: ${step.uses}`, 'steps', i, 'uses');
+      if (/^actions\/checkout@/.test(String(step.uses)) && step.with?.['persist-credentials'] !== false) bad('the snapshot job must check out with persist-credentials: false', 'steps', i, 'with');
+    }
+    const commands = step.run === undefined ? [] : prepRun(step.run).commands;
+    for (const c of commands) {
+      if (SNAPSHOT_TOOLS_RE.test(c)) bad(`the snapshot job must not run package managers, downloaders or wrangler: "${c}"`, 'steps', i, 'run');
+      if (/(^|[^\w.-])git\b.*\bpush\b/.test(c) && c !== SNAPSHOT_PUSH) bad(`every git push must be exactly "${SNAPSHOT_PUSH}": "${c}"`, 'steps', i, 'run');
+    }
+    const pushStep = commands.includes(SNAPSHOT_PUSH);
+    const { env, ...rest } = step;
+    if (TOKEN_RE.test(JSON.stringify(rest)) || (!pushStep && TOKEN_RE.test(JSON.stringify(env ?? {})))) bad('the workflow token may appear only in the env of the push step', 'steps', i);
+  });
 }
 
 export function analyse(fileName, src) {
@@ -394,10 +435,14 @@ export function analyse(fileName, src) {
       if (/\bsecrets\s*\[/.test(JSON.stringify(job))) add('R17', id, 'readiness must name its secrets (no secrets[...] lookups)', J());
     }
 
-    // R5 (job level)
-    if ('permissions' in job && !same(job.permissions, {}) && !same(job.permissions, { contents: 'read' })) {
+    // R5 (job level). The one exception: market-data-sync's snapshot job, whose permissions are exactly {contents: write}.
+    const snapshotJob = stem === MARKET_SYNC && id === SNAPSHOT_JOB;
+    if (snapshotJob) {
+      if (!same(job.permissions, { contents: 'write' })) add('R5', id, `the snapshot job permissions must be exactly {contents: write}; found ${JSON.stringify(job.permissions ?? null)}`, J('permissions'));
+    } else if ('permissions' in job && !same(job.permissions, {}) && !same(job.permissions, { contents: 'read' })) {
       add('R5', id, `job permissions must be {} or {contents: read}; found ${JSON.stringify(job.permissions)}`, J('permissions'));
     }
+    if (snapshotJob) checkSnapshotJob(job, (m, ...p) => add('R12', id, m, J(...p)));
     // R12: runner labels are static; self-hosted only for market-data-sync's UAE job, which must stay credential-free.
     const ro = job['runs-on'];
     const labels = typeof ro === 'string' ? [ro] : Array.isArray(ro) && ro.every((x) => typeof x === 'string') ? ro : null;
@@ -546,8 +591,9 @@ export function analyse(fileName, src) {
   }
 
   // R12 (workflow level)
-  if (stem === MARKET_SYNC && !same(Object.keys(jobs ?? {}).sort(), [APPLY_JOB, UAE_JOB, GATE_JOB].sort())) {
-    add('R12', null, `market-data-sync jobs must be exactly ${GATE_JOB}, ${UAE_JOB}, ${APPLY_JOB}; found ${Object.keys(jobs ?? {}).join(', ')}`, ['jobs']);
+  const syncJobs = Object.keys(jobs ?? {}).sort();
+  if (stem === MARKET_SYNC && !same(syncJobs, [APPLY_JOB, UAE_JOB, GATE_JOB].sort()) && !same(syncJobs, [APPLY_JOB, UAE_JOB, GATE_JOB, SNAPSHOT_JOB].sort())) {
+    add('R12', null, `market-data-sync jobs must be exactly ${GATE_JOB}, ${UAE_JOB}, ${APPLY_JOB} (and optionally ${SNAPSHOT_JOB}); found ${Object.keys(jobs ?? {}).join(', ')}`, ['jobs']);
   }
 
   // R17 (workflow level)
