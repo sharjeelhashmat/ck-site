@@ -14,7 +14,7 @@
     "freshness": "node scripts/freshness.mjs"
   },
   "dependencies": {
-    "@astrojs/sitemap": "^3.6.0",
+    "@astrojs/sitemap": "^3.7.5",
     "@fontsource-variable/inter": "^5.2.0",
     "@fontsource/cormorant-garamond": "^5.2.0",
     "astro": "^7.4.11",
