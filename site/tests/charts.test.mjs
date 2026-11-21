@@ -113,7 +113,7 @@ test('Insights Q3 top 8 cards: common name first, the DLD name under it; no brac
   const h = renderTableCards('q3', b.table, b.chart, b.src);
   const cards = cardsOf(h);
   assert.deepEqual(cards.map((c) => [texts(c, 'dc-name')[0], texts(c, 'dc-official')[0] ?? '']), [
-    ['Dubai South', 'DLD: Madinat Al Mataar'], ['City of Arabia', 'DLD: Wadi Al Safa 4'], ['Jumeirah Lake Towers', 'DLD: Jabal Ali First'],
+    ['Dubai South', 'DLD: Madinat Al Mataar'], ['City of Arabia', 'DLD: Wadi Al Safa 4'], ['Jebel Ali Village, Al Furjan, Discovery Gardens', 'DLD: Jabal Ali First'],
     ['Dubai Marina, Dubai Harbour', 'DLD: Marsa Dubai'], ['Jumeirah Village Circle', 'DLD: Al Barsha South Fourth'], ['Business Bay', ''],
     ['Al Yufrah 1', ''], ['Dubailand Residence Complex', 'DLD: Wadi Al Safa 5'],
   ]);
