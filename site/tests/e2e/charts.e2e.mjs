@@ -18,10 +18,10 @@ const row = (rank, area_en, label, value_bn, prior_value_bn, change_pct) => ({ r
 const top8 = [
   row(1, 'Madinat Al Mataar', 'Dubai South', 12, 10, 20), row(2, 'Palm Deira', 'Dubai Islands', 11, 8, 37.5), row(3, 'Business Bay', null, 10, 20, -50),
   row(4, 'Marsa Dubai', 'Dubai Marina, Dubai Harbour', 9, 18, -50), row(5, 'Wadi Al Safa 3', 'Majan', 8, 10, -20), row(6, 'Al Yelayiss 1', null, 7, 0.5, 1300),
-  row(7, 'Wadi Al Safa 5', 'Dubailand Residence Complex', 6, 6, 0), row(8, 'Jabal Ali First', 'Jumeirah Lake Towers', 5, 5.5, -9.1),
+  row(7, 'Wadi Al Safa 5', 'Dubailand Residence Complex', 6, 6, 0), row(8, 'Jabal Ali First', 'Jebel Ali Village, Al Furjan, Discovery Gardens', 5, 5.5, -9.1),
 ];
-const VALUE_ORDER = ['Dubai South', 'Dubai Islands', 'Business Bay', 'Dubai Marina, Dubai Harbour', 'Majan', 'Al Yelayiss 1', 'Dubailand Residence Complex', 'Jumeirah Lake Towers'];
-const CHANGE_ORDER = ['Al Yelayiss 1', 'Dubai Islands', 'Dubai South', 'Dubailand Residence Complex', 'Jumeirah Lake Towers', 'Majan', 'Business Bay', 'Dubai Marina, Dubai Harbour'];
+const VALUE_ORDER = ['Dubai South', 'Dubai Islands', 'Business Bay', 'Dubai Marina, Dubai Harbour', 'Majan', 'Al Yelayiss 1', 'Dubailand Residence Complex', 'Jebel Ali Village, Al Furjan, Discovery Gardens'];
+const CHANGE_ORDER = ['Al Yelayiss 1', 'Dubai Islands', 'Dubai South', 'Dubailand Residence Complex', 'Jebel Ali Village, Al Furjan, Discovery Gardens', 'Majan', 'Business Bay', 'Dubai Marina, Dubai Harbour'];
 const months = { period: '2026-YTD09', prior_period: '2025-YTD09', first_month: '2026-01', last_month: '2026-09', prior_first_month: '2025-01', prior_last_month: '2025-09' };
 const AREAS = { ...months, dubai: { ytd: { sales_bn: 300, total_bn: 450, mortgages_bn: 120, as_of: '2026-10-30' }, top8, total_res_bn: 180, as_of: '2026-10-30' } };
 const AREA = { ...months, area: top8[3], total_res_bn: 180, as_of: '2026-10-30' };
