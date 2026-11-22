@@ -1,37 +1,67 @@
-# Weekly version updates (audit item 11). Every update waits 7 days after its release (cooldown), so a release that is
-# pulled or compromised in its first week never reaches a PR. @types/node stays on the Node 22 line (the runtime):
-# its semver-major updates are ignored.
+# Version updates (audit item 11; grouped monthly, owner 2026-11-22). One pull request per directory per month: every
+# version update for that directory is grouped into it, so each month brings at most one PR per package (site, site/qa,
+# worker, .github/scripts, GitHub Actions) instead of one per dependency. Every update waits 7 days after its release
+# (cooldown), so a release that is pulled or compromised in its first week never reaches a PR. @types/node stays on the
+# Node 22 line (the runtime): its semver-major updates are ignored.
+#
+# Security updates are not affected: the groups below apply to version updates only (no "applies-to: security-updates"
+# group), the schedule and cooldown apply to version updates only, so a security update still arrives as soon as GitHub
+# raises the alert, as its own pull request.
+#
+# wrangler is left out of the site and worker groups on purpose and arrives as its own pull request. Every workflow that
+# runs it asserts the exact reviewed version ("Assert wrangler X"), and site/tests/workflow-versions.test.mjs fails when
+# a lockfile and those assertions differ. A lockfile-only bump therefore always fails that test until the workflow pins
+# are moved in the same PR, which needs the owner's approval as a workflow change. Keeping wrangler out of the group
+# keeps the monthly group PR green while the version check still blocks any mismatch. It is not in "ignore", because an
+# ignore rule would also stop wrangler's security updates.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /worker
-    schedule: { interval: weekly }
+    schedule: { interval: monthly }
     cooldown: { default-days: 7 }
+    groups:
+      worker:
+        patterns: ['*']
+        exclude-patterns: ['wrangler']
     ignore:
       - dependency-name: '@types/node'
         update-types: ['version-update:semver-major']
   - package-ecosystem: npm
     directory: /site
-    schedule: { interval: weekly }
+    schedule: { interval: monthly }
     cooldown: { default-days: 7 }
+    groups:
+      site:
+        patterns: ['*']
+        exclude-patterns: ['wrangler']
     ignore:
       - dependency-name: '@types/node'
         update-types: ['version-update:semver-major']
   - package-ecosystem: npm
     directory: /site/qa
-    schedule: { interval: weekly }
+    schedule: { interval: monthly }
     cooldown: { default-days: 7 }
+    groups:
+      site-qa:
+        patterns: ['*']
     ignore:
       - dependency-name: '@types/node'
         update-types: ['version-update:semver-major']
   - package-ecosystem: npm
     directory: /.github/scripts
-    schedule: { interval: weekly }
+    schedule: { interval: monthly }
     cooldown: { default-days: 7 }
+    groups:
+      github-scripts:
+        patterns: ['*']
     ignore:
       - dependency-name: '@types/node'
         update-types: ['version-update:semver-major']
   - package-ecosystem: github-actions
     directory: /
-    schedule: { interval: weekly }
+    schedule: { interval: monthly }
     cooldown: { default-days: 7 }
+    groups:
+      github-actions:
+        patterns: ['*']
