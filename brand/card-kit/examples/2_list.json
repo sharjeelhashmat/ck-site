@@ -1,0 +1,15 @@
+{
+  "template": "list",
+  "label": "Before you buy the land",
+  "title": "Check these first.",
+  "items": [
+    "The design guidelines, floor area ratio and approval fees, in writing.",
+    "What the plot is zoned for, and what is planned next door.",
+    "The street at peak hours and on a windy day.",
+    {
+      "text": "A fixed-price build quote from two contractors, before you pay for the plot.",
+      "source": "Source line sits here when a point carries a fact"
+    }
+  ],
+  "page": "2 / 5"
+}
