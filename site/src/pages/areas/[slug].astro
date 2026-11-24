@@ -8,6 +8,7 @@ import '../../styles/market.css';
 import '../../styles/data-card.css';
 import DataCard from '../../components/DataCard.astro';
 import { ADREC, DUBAI_PERIOD, GUIDES, viewHeading, type Guide } from '../../lib/area-guides';
+import DLD_LABELS from '../../data/dld-area-labels.json';
 import { EMIRATES, renderGuideCard } from '../../lib/market.mjs';
 import { SITE } from '../../lib/site';
 import { LEAD_CAPTURE } from '../../lib/golive';
@@ -21,6 +22,10 @@ export function getStaticPaths() {
 const { guide, changes, projects, today } = Astro.props as { guide: Guide; changes: any[]; projects: any[]; today: string };
 const projectName = (slug: string) => projects.find((p) => p.slug === slug)?.name;
 const emirate = EMIRATES[guide.emirate];
+// The Dubai figures card names its area by the DLD label when src/data/dld-area-labels.json has one, else the guide's H1:
+// the figures are for the whole DLD area, e.g. Jebel Ali Hills reads "Saih Shuaib 1 (incl. Jebel Ali Hills)" because DLD's
+// Saih Shuaib 1 covers residential units only and leaves out the plot sales the guide is about (owner, 24 Nov 2026).
+const figuresName = (guide.dld_area && (DLD_LABELS as Record<string, string>)[guide.dld_area]) || guide.h1;
 const ad = guide.emirate === 'abu_dhabi' ? ADREC.areas.find((a) => a.guide === guide.slug) : undefined;
 const adCard = ad
   ? renderGuideCard('abu_dhabi', { period: ADREC.period, published: ADREC.published, source_url: ADREC.source_url, chart_caption: ADREC.chart_caption, name: guide.h1, area: { ...ad, label: null } })
@@ -40,7 +45,7 @@ const adCard = ad
       {/* Dubai figures arrive from the Worker after load: placed below the first section, not above it, so the text a
           reader starts on does not move when they appear (audit item 26). */}
       {guide.emirate === 'dubai' && (
-        <div class="mk-guide-card" id="guide-figures" hidden data-worker={SITE.workerUrl} data-area={guide.dld_area} data-period={DUBAI_PERIOD} data-name={guide.h1}></div>
+        <div class="mk-guide-card" id="guide-figures" hidden data-worker={SITE.workerUrl} data-area={guide.dld_area} data-period={DUBAI_PERIOD} data-name={figuresName}></div>
       )}
       <h2 class="guide-h2">Who buys here</h2>
       <p>{guide.who_buys}</p>
