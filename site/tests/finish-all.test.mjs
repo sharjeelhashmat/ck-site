@@ -446,11 +446,12 @@ test('E: Rules 1c only: no #B3261E, no green, no Slate text on light in the mark
 });
 
 // ---------- F. Area guides ----------
-test('F: 21 guides in the approved order; every copy field has no digit except the proper noun "Pier 7"', () => {
-  // The five Dubai guides of 2026-11-08 (Rules 8d v6.7) follow the first eight in the file; /areas orders the cards.
+test('F: 22 guides in the approved order; every copy field has no digit except the proper noun "Pier 7"', () => {
+  // The five Dubai guides of 2026-11-08 (Rules 8d v6.7) follow the first eight in the file, then Jebel Ali Hills (24 Nov
+  // 2026); /areas orders the cards.
   assert.deepEqual(GUIDES.map((g) => g.slug), [
     'downtown-dubai', 'dubai-marina', 'dubai-hills', 'dubai-creek-harbour', 'dubai-islands', 'palm-jumeirah', 'palm-jebel-ali', 'dubai-maritime-city',
-    'dubai-south', 'business-bay', 'majan', 'dubailand-residence-complex', 'al-yelayiss',
+    'dubai-south', 'business-bay', 'majan', 'dubailand-residence-complex', 'al-yelayiss', 'jebel-ali-hills',
     'hudayriyat-island', 'saadiyat-island', 'al-reem-al-maryah-island', 'yas-island', 'ramhan-island', 'fahid-island', 'ghadeer-al-tayr', 'zayed-city',
   ]);
   for (const g of GUIDES) {
@@ -463,6 +464,7 @@ test('F: 21 guides in the approved order; every copy field has no digit except t
     'downtown-dubai': 'Burj Khalifa', 'dubai-marina': 'Marsa Dubai', 'dubai-hills': 'Hadaeq Sheikh Mohammed Bin Rashid', 'dubai-creek-harbour': 'Al Khairan First',
     'dubai-islands': 'Palm Deira', 'palm-jumeirah': 'Palm Jumeirah', 'palm-jebel-ali': 'Palm Jabal Ali', 'dubai-maritime-city': 'Madinat Dubai Almelaheyah',
     'dubai-south': 'Madinat Al Mataar', 'business-bay': 'Business Bay', majan: 'Wadi Al Safa 3', 'dubailand-residence-complex': 'Wadi Al Safa 5', 'al-yelayiss': 'Al Yelayiss 1',
+    'jebel-ali-hills': 'Saih Shuaib 1',
   });
 });
 
@@ -531,7 +533,7 @@ test('F: the old placeholder sections and the old "Ask Sharjeel about" line are 
   for (const f of walk(join(dist, 'areas'))) {
     assert.doesNotMatch(text(readFileSync(f, 'utf8')), /Who Buys Here|Price Range|Rental Profile|Investment Case|Things to Consider|Sharjeel's View/, f);
   }
-  assert.equal(GUIDES.length, 21);
+  assert.equal(GUIDES.length, 22);
   for (const g of GUIDES) assert.ok(existsSync(join(dist, 'areas', `${g.slug}.html`)), g.slug);
 });
 

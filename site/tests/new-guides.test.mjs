@@ -1,5 +1,5 @@
-// The five Dubai area guides of 2026-11-08 (owner approval, Rules 8d v6.7) and the guide order on /areas (top 8 areas by
-// sales value first). Run after `npm run build`. The 320px checks need Chromium: tests/e2e/guides.e2e.mjs.
+// The five Dubai area guides of 2026-11-08 (owner approval, Rules 8d v6.7), Jebel Ali Hills (owner, 24 Nov 2026) and the
+// guide order on /areas (top 8 areas by sales value first). Run after `npm run build`. The 320px checks need Chromium: tests/e2e/guides.e2e.mjs.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -28,11 +28,16 @@ const NEW = {
   majan: { h1: 'Majan', dld_area: 'Wadi Al Safa 3' },
   'dubailand-residence-complex': { h1: 'Dubailand Residence Complex', dld_area: 'Wadi Al Safa 5' },
   'al-yelayiss': { h1: 'Al Yelayiss', dld_area: 'Al Yelayiss 1' },
+  // The figures card names the DLD area with its label: DLD's Saih Shuaib 1 leaves out plot sales, so it never reads as
+  // plain "Jebel Ali Hills" (owner, 24 Nov 2026).
+  'jebel-ali-hills': { h1: 'Jebel Ali Hills', dld_area: 'Saih Shuaib 1', figures_name: 'Saih Shuaib 1 (incl. Jebel Ali Hills)' },
 };
+const LABELS = JSON.parse(readFileSync(join(root, 'src/data/dld-area-labels.json'), 'utf8'));
+const reEsc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const isNew = (g) => g.slug in NEW;
 const sortKeys = (o) => (Array.isArray(o) ? o.map(sortKeys) : o && typeof o === 'object' ? Object.fromEntries(Object.keys(o).sort().map((k) => [k, sortKeys(o[k])])) : o);
 
-test('the five new Dubai guides: schema, slugs, DLD areas, "My view, November 2026", no digits, no curly quotes', () => {
+test('the new Dubai guides (five of 2026-11-08, Jebel Ali Hills): schema, slugs, DLD areas, "My view, November 2026", no digits, no curly quotes', () => {
   const added = GUIDES.filter(isNew);
   assert.deepEqual(added.map((g) => g.slug), Object.keys(NEW));
   for (const g of added) {
@@ -52,7 +57,7 @@ test('the five new Dubai guides: schema, slugs, DLD areas, "My view, November 20
   }
 });
 
-test('the 16 earlier guides are unchanged, byte for byte in content, and keep the file\'s "My view" heading', () => {
+test('the 16 earliest guides are unchanged, byte for byte in content, and keep the file\'s "My view" heading', () => {
   const old = GUIDES.filter((g) => !isNew(g));
   assert.equal(old.length, 16);
   // sha256 of the 16 guides (keys sorted) as they stood on phase2-site before this change.
@@ -67,7 +72,7 @@ test('each new guide page renders at /areas/<slug> with its copy and the Dubai f
     const h = read(f);
     const m = mainOf(h);
     assert.match(h, new RegExp(`<title>${g.h1} · Sharjeel Hashmat</title>`), g.slug);
-    assert.match(m, new RegExp(`<div class="mk-guide-card" id="guide-figures" hidden data-worker="https://ck-lead-worker\\.sharjeelhashmat\\.workers\\.dev" data-area="${g.dld_area}" data-period="ytd" data-name="${g.h1}"`), `${g.slug}: the live card asks the Worker for ${g.dld_area}`);
+    assert.match(m, new RegExp(`<div class="mk-guide-card" id="guide-figures" hidden data-worker="https://ck-lead-worker\\.sharjeelhashmat\\.workers\\.dev" data-area="${g.dld_area}" data-period="ytd" data-name="${reEsc(NEW[g.slug].figures_name ?? g.h1)}"`), `${g.slug}: the live card asks the Worker for ${g.dld_area}`);
     const t = text(m);
     for (const piece of ['Area guide · Dubai', g.h1, g.one_liner, 'What it is', g.what_it_is, 'Who buys here', g.who_buys, 'Things to consider', ...g.things_to_consider, 'My view, November 2026', g.my_view]) {
       assert.ok(t.includes(decodeEntities(piece)), `${g.slug}: ${piece.slice(0, 50)}`);
@@ -89,6 +94,26 @@ test('the Dubai figures card on a new guide is the data card (Rules 1c v6.9): co
   assert.doesNotMatch(bb, /dc-official/);
   // Al Yelayiss: the guide is "Al Yelayiss", the DLD area "Al Yelayiss 1", so the DLD name shows.
   assert.match(renderGuideCard('dubai', { period: '2026-YTD09', name: 'Al Yelayiss', dldArea: 'Al Yelayiss 1', area: { ...area, area: 'Al Yelayiss 1', label: null } }), /<p class="dc-official">DLD: Al Yelayiss 1<\/p>/);
+});
+
+test('Jebel Ali Hills: DLD figures are labelled "Saih Shuaib 1 (incl. Jebel Ali Hills)", never plain "Jebel Ali Hills"', () => {
+  assert.equal(LABELS['Saih Shuaib 1'], 'Saih Shuaib 1 (incl. Jebel Ali Hills)');
+  // Every Dubai guide's figures card is named by its DLD label when there is one, else by its H1.
+  for (const g of GUIDES.filter((x) => x.emirate === 'dubai')) {
+    const name = mainOf(read(join('areas', `${g.slug}.html`))).match(/id="guide-figures"[^>]*data-name="([^"]*)"/)[1];
+    assert.equal(decodeEntities(name), LABELS[g.dld_area] ?? g.h1, g.slug);
+  }
+  const area = { rank: 40, area: 'Saih Shuaib 1', label: 'Saih Shuaib 1 (incl. Jebel Ali Hills)', value_bn: 1.2, prior_value_bn: 0.8, share_pct: 0.5, change_pct: 50, prior_zero: false };
+  const h = renderGuideCard('dubai', { period: '2026-YTD10', name: 'Saih Shuaib 1 (incl. Jebel Ali Hills)', dldArea: 'Saih Shuaib 1', area });
+  assert.match(h, /<p class="dc-official">DLD: Saih Shuaib 1 \(incl\. Jebel Ali Hills\)<\/p>/);
+  assert.match(h, /aria-label="Saih Shuaib 1 \(incl\. Jebel Ali Hills\): /);
+  // The Worker's live 2026-YTD10 row: no prior year, so no chart; the DLD line still carries the full label.
+  const live = { rank: 25, area: 'Saih Shuaib 1', label: null, value_bn: 3.43, prior_value_bn: null, share_pct: 1.3, change_pct: null, prior_zero: true };
+  const l = renderGuideCard('dubai', { period: '2026-YTD10', name: 'Saih Shuaib 1 (incl. Jebel Ali Hills)', dldArea: 'Saih Shuaib 1', area: live });
+  assert.doesNotMatch(l, /data-chart=/);
+  assert.match(l, /<p class="dc-official">DLD: Saih Shuaib 1 \(incl\. Jebel Ali Hills\)<\/p>/);
+  // "Jebel Ali Hills" appears in either card only inside the label.
+  for (const c of [h, l]) assert.doesNotMatch(c.replace(/Saih Shuaib 1 \(incl\. Jebel Ali Hills\)/g, ''), /Jebel Ali Hills/);
 });
 
 // ---------- guide sections on /areas (Rules 8d v6.7: "More areas") ----------
@@ -119,7 +144,7 @@ test('guide sections in the built /areas: Abu Dhabi split by ADREC\'s top 8 (no 
   assert.deepEqual(ad[0].cards.map((c) => c.slug), [...adrec.areas].sort((a, b) => a.rank - b.rank).slice(0, TOP).map((a) => a.guide), 'ADREC rank order');
   assert.doesNotMatch(h, /More areas · Abu Dhabi/);
   const dubai = builtSections(h, 'dubai');
-  assert.deepEqual(dubai.map((s) => [s.group, s.heading, s.count, s.hidden]), [['top', 'Area guides · Dubai', 13, false], ['more', 'More areas · Dubai', 0, true]], 'the empty "More areas · Dubai" waits hidden for the Worker');
+  assert.deepEqual(dubai.map((s) => [s.group, s.heading, s.count, s.hidden]), [['top', 'Area guides · Dubai', 14, false], ['more', 'More areas · Dubai', 0, true]], 'the empty "More areas · Dubai" waits hidden for the Worker');
   assert.deepEqual(dubai[0].cards.map((c) => c.slug), GUIDES.filter((g) => g.emirate === 'dubai').map((g) => g.slug), 'JSON order');
   assert.deepEqual(dubai[0].cards.map((c) => c.name), GUIDES.filter((g) => g.emirate === 'dubai').map((g) => g.h1));
   assert.equal(dubai[0].cards.length + ad[0].cards.length, GUIDES.length, 'no guide dropped');
@@ -144,22 +169,23 @@ function dubaiDoc() {
 const TOP8 = [[1, 'Madinat Al Mataar'], [2, 'Al Yelayiss 1'], [3, 'Palm Deira'], [4, 'Hadaeq Sheikh Mohammed Bin Rashid'], [5, 'Wadi Al Safa 3'], [6, 'Business Bay'], [7, 'Marsa Dubai'], [8, 'Wadi Al Safa 5']]
   .map(([rank, area_en]) => ({ rank, area_en, label: null, value_bn: 10 - rank / 10, share_pct: 4, change_pct: 1, prior_zero: false }));
 
-test('guide sections in a page (DOM): the live Dubai top 8 under "Area guides" in rank order, the other five alphabetical under "More areas"', () => {
+test('guide sections in a page (DOM): the live Dubai top 8 under "Area guides" in rank order, the other six alphabetical under "More areas"', () => {
   const doc = dubaiDoc();
   const slugs = (k) => doc.grids[k].children.map((c) => c.slug);
   const top = ['dubai-south', 'al-yelayiss', 'dubai-islands', 'dubai-hills', 'majan', 'business-bay', 'dubai-marina', 'dubailand-residence-complex'];
-  // Alphabetical by name: Downtown Dubai, Dubai Creek Harbour, Dubai Maritime City, Palm Jebel Ali, Palm Jumeirah.
-  const more = ['downtown-dubai', 'dubai-creek-harbour', 'dubai-maritime-city', 'palm-jebel-ali', 'palm-jumeirah'];
+  // Alphabetical by name: Downtown Dubai, Dubai Creek Harbour, Dubai Maritime City, Jebel Ali Hills, Palm Jebel Ali,
+  // Palm Jumeirah.
+  const more = ['downtown-dubai', 'dubai-creek-harbour', 'dubai-maritime-city', 'jebel-ali-hills', 'palm-jebel-ali', 'palm-jumeirah'];
   applyGuideSections(doc, 'dubai', rankedAreas(dubaiRows({ dubai: { top8: TOP8 } })));
   assert.deepEqual([slugs(0), slugs(1)], [top, more]);
-  assert.deepEqual(doc.sections.map((s) => s.dataset.count), ['8', '5']);
+  assert.deepEqual(doc.sections.map((s) => s.dataset.count), ['8', '6']);
   applyGuideSections(doc, 'dubai', rankedAreas(dubaiRows({ dubai: { top8: TOP8 } })));
   assert.deepEqual([slugs(0), slugs(1)], [top, more], 'applying twice gives the same sections');
   // No ranking: every guide back in the first section, JSON order, and the empty "More areas" hidden.
   applyGuideSections(doc, 'dubai', []);
   assert.deepEqual([slugs(0), slugs(1)], [doc.dubai.map((g) => g.slug), []]);
   assert.equal(doc.sections[1].hidden, true);
-  assert.deepEqual(doc.sections.map((s) => s.dataset.count), ['13', '0']);
+  assert.deepEqual(doc.sections.map((s) => s.dataset.count), ['14', '0']);
   // A ranking with none of the guides' areas: the first section empties and is hidden; all guides alphabetical below.
   const other = dubaiDoc();
   applyGuideSections(other, 'dubai', ['Nowhere 1', 'Nowhere 2']);

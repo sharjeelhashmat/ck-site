@@ -70,7 +70,7 @@ export function digitProblems(): string[] {
 
 const problems = [
   ...digitProblems(),
-  ...(GUIDES.length === 21 ? [] : [`expected 21 guides, found ${GUIDES.length}`]),
+  ...(GUIDES.length === 22 ? [] : [`expected 22 guides, found ${GUIDES.length}`]),
   ...GUIDES.filter((g) => g.view_heading !== undefined && !/^My view, [A-Z][a-z]+ \d{4}$/.test(g.view_heading)).map((g) => `${g.slug}: view_heading must read "My view, <Month> <year>"`),
   ...[...new Set(GUIDES.map((g) => g.slug))].length === GUIDES.length ? [] : ['duplicate guide slug'],
   ...[...new Set(GUIDES.filter((g) => g.dld_area).map((g) => g.dld_area))].length === GUIDES.filter((g) => g.dld_area).length ? [] : ['two guides share a dld_area'],

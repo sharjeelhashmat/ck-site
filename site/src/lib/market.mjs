@@ -286,6 +286,9 @@ export function renderGuideCard(emirate, d) {
   const officialName = emirate === 'dubai' ? d.dldArea : a.area;
   const name = d.name || officialName || a.area;
   const pair = areaPair(d.period, a, name);
+  // A Dubai name that is the DLD area plus a qualifier in brackets (its DLD label, e.g. "Saih Shuaib 1 (incl. Jebel Ali
+  // Hills)") is shown in full on the DLD line, so the card says what the figures cover even when there is no chart.
+  const qualified = emirate === 'dubai' && Boolean(d.dldArea) && name.startsWith(`${d.dldArea} (`);
   const source = emirate === 'dubai'
     ? `Source: Dubai Land Department, Real Estate Transactions open data via Data.Dubai (Open Data Licence). Residential sales value${d.dldArea ? ` for the DLD area ${esc(d.dldArea)}` : ''}.`
     : pair && d.chart_caption
@@ -294,7 +297,7 @@ export function renderGuideCard(emirate, d) {
   return renderDataCard({
     single: true, heading: 'none', name,
     top: `<p class="mk-chip">${esc(label)} vs ${esc(prior)}</p>`,
-    official: officialName && officialName !== name ? `${OFFICIAL[emirate]}: ${officialName}` : '',
+    official: qualified ? `${OFFICIAL[emirate]}: ${name}` : officialName && officialName !== name ? `${OFFICIAL[emirate]}: ${officialName}` : '',
     value: fmtBn(a.value_bn), valueLabel: `residential sales value, ${label}`,
     pair,
     foot: { left: `${pct1(a.share_pct)} of ${EMIRATES[emirate]} total`, change: c.text, dir: c.dir },
