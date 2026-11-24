@@ -227,6 +227,11 @@ def check_spec(spec: dict) -> dict:
 
 
 # ---- Layout: one list of drawing operations, used by both engines --------------------------------------------------
+
+def value_text(v: float) -> str:
+    """The chart value at the end of a bar: 'None recorded' for 0 (no bar), else AED to two decimals."""
+    return 'None recorded' if v == 0 else f'AED {v:.2f}bn'
+
 class Layout:
     def __init__(self, spec: dict):
         self.spec = spec
@@ -354,7 +359,7 @@ class Layout:
                 bw = max(bw, 14) if point['value_bn'] > 0 else 0
                 if bw:
                     self.ops.append(('bar', PAD + 90, rt + 21, PAD + 90 + bw, rt + 35, kind))
-                vt = f'AED {point["value_bn"]:.2f}bn'
+                vt = value_text(point['value_bn'])
                 vx = PAD + 90 + bw + 18
                 self.text('areas', vx, rt + (56 - (val.a + val.d)) / 2, vt, val)
                 limit = PAD + CW
@@ -511,7 +516,7 @@ def page_html(spec: dict, lay: Layout) -> str:
             row = {'name': a['name'], 'dld': a['dld']}
             for kind in ('now', 'before'):
                 p = a[kind]
-                row[f'{kind}_year'], row[f'{kind}_text'] = p['year'], f'AED {p["value_bn"]:.2f}bn'
+                row[f'{kind}_year'], row[f'{kind}_text'] = p['year'], value_text(p['value_bn'])
                 row[f'{kind}_w'] = 0
                 if p['value_bn'] > 0:
                     op = next(bars)
@@ -580,7 +585,7 @@ def render(spec: dict, out: Path, engine: str = 'pillow') -> dict:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description='Render Compass Key social cards from a JSON spec.')
     ap.add_argument('spec', help='JSON file: one card (object) or a carousel (list)')
-    ap.add_argument('-o', '--out', help='PNG path for one card, folder for a list (default: next to the spec)')
+    ap.add_argument('-o', '--out', help='PNG path or folder for one card, folder for a list (default: next to the spec)')
     ap.add_argument('--engine', choices=('pillow', 'html'), default='pillow')
     a = ap.parse_args(argv)
     src = Path(a.spec)
@@ -589,6 +594,8 @@ def main(argv=None) -> int:
     if isinstance(data, list):
         folder = Path(a.out) if a.out else src.with_suffix('')
         outs = [folder / ((c.get('name') or '%d_%s' % (i + 1, c.get('template', 'card'))) + '.png') for i, c in enumerate(cards)]
+    elif a.out and (Path(a.out).is_dir() or a.out.endswith(('/', os.sep))):
+        outs = [Path(a.out) / ((data.get('name') or src.stem) + '.png')]
     else:
         outs = [Path(a.out) if a.out else src.with_suffix('.png')]
     try:

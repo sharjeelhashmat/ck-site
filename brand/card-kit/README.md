@@ -19,7 +19,8 @@ python3 render_cards.py examples/1_cover.json -o cover.png
 ```
 
 One card per JSON object; a JSON list renders a carousel into a folder (`-o out/`, files named after each card's `name`
-field, or `1_cover.png`, `2_list.png` and so on). The renderer checks the spec first and refuses, with a reason, when:
+field, or `1_cover.png`, `2_list.png` and so on). For one card, `-o` takes a `.png` file path, or a folder (an existing
+one, or a path ending in `/`), which gets `<name>.png` (the card's `name` field, or the spec file's name). The renderer checks the spec first and refuses, with a reason, when:
 a field is unknown or missing, any text has an em or en dash, a character is not in the kit fonts, or the text does
 not fit the card. Fix the spec; never work around a refusal.
 

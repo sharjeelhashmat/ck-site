@@ -145,6 +145,20 @@ def main() -> int:
         x0, y0, _, _ = rep['chart_area']
         ImageDraw.Draw(img).rectangle((x0 + 600, y0 + 150, x0 + 640, y0 + 170), fill=(128, 128, 128))
         (ok if off_palette(img, rep['chart_area']) else fail)('the palette check catches a grey block in the chart area')
+        # A 0 value reads "None recorded" (no bar), never "AED 0.00bn", in the Pillow card and the HTML page.
+        zero = {**chart, 'areas': [{**chart['areas'][0], 'before': {**chart['areas'][0]['before'], 'value_bn': 0}}]}
+        zero['areas'][0].pop('change_pct', None)
+        rep = rc.render(zero, Path(tmp) / 'zero.png')
+        doc = rc.page_html(zero, rc.layout(zero))
+        bad = [s for s in rep['texts'] if '0.00bn' in s] + (['html'] if '0.00bn' in doc else [])
+        good = 'None recorded' in rep['texts'] and 'None recorded' in doc
+        (fail if bad or not good else ok)(f'a 0 prior value reads None recorded, no 0.00bn ({bad or "clean"})')
+        # -o with a folder for one spec writes <name>.png into it.
+        one = Path(tmp) / 'one.json'
+        one.write_text(json.dumps({**cover, 'name': 'cover_one'}), encoding='utf-8')
+        (Path(tmp) / 'outdir').mkdir()
+        code = rc.main([str(one), '-o', str(Path(tmp) / 'outdir')])
+        (ok if code == 0 and (Path(tmp) / 'outdir' / 'cover_one.png').is_file() else fail)('-o with a folder for one spec writes <name>.png')
 
     # No em or en dash in any kit text file.
     for f in sorted(KIT.rglob('*')):
