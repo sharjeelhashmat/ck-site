@@ -128,6 +128,26 @@ jobs:
           name: lighthouse-reports
           path: site/qa/lhci
           retention-days: 30
+  # Brand card kit (owner 2026-11-23): every example card renders with Python and Pillow only (the pinned,
+  # hash-checked Pillow below), at the right size, with the kit fonts and no fallback, chart colours inside the
+  # palette, no em or en dash, and the approved layout (brand/card-kit/check_kit.py).
+  card-kit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    defaults:
+      run:
+        shell: bash
+        working-directory: brand/card-kit
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Pillow, pinned and hash-checked
+        run: |
+          python3 -m venv "$RUNNER_TEMP/card-kit"
+          "$RUNNER_TEMP/card-kit/bin/pip" install --no-deps --require-hashes -r requirements.txt
+      - name: Render and check every example card
+        run: '"$RUNNER_TEMP/card-kit/bin/python" check_kit.py'
   migrations:
     runs-on: ubuntu-24.04
     timeout-minutes: 15

@@ -1,0 +1,36 @@
+{
+  "template": "chart",
+  "label": "Same city, different markets",
+  "title": "Sales value, two Dubai areas",
+  "period": "Jan to Oct · 2026 vs 2025",
+  "areas": [
+    {
+      "name": "Dubai Marina",
+      "dld": "Marsa Dubai",
+      "now": {
+        "year": 2026,
+        "value_bn": 10.57
+      },
+      "before": {
+        "year": 2025,
+        "value_bn": 24.35
+      },
+      "change_pct": -56.6
+    },
+    {
+      "name": "Dubai Islands",
+      "dld": "Palm Deira",
+      "now": {
+        "year": 2026,
+        "value_bn": 11.94
+      },
+      "before": {
+        "year": 2025,
+        "value_bn": 9.89
+      },
+      "change_pct": 20.7
+    }
+  ],
+  "source": "Source: Dubai Land Department transaction data via the Compass Key DLD sync, as of 18 Nov 2026. Residential sales value, January to October.",
+  "page": "4 / 5"
+}

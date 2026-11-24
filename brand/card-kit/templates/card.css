@@ -1,0 +1,49 @@
+/* Compass Key card kit (owner approved 2026-11-23). The approved reference (kit_reference.html) CSS, unchanged in every
+   value, with only these additions: font files from ../fonts, the mark-only file in the header, classes in place of
+   the reference's inline styles (chart), the 1080 x 1920 reel size, and one fix: the list number column does not
+   shrink (.n flex:none), so every list item's text starts at the same x. Palette: Ink, Ivory, Brass, Brass Deep and
+   Slate Light only (the footer rule #3a4a55 is the approved reference's own). */
+@font-face{font-family:Corm;src:url(../fonts/cormorant-garamond-latin-500-normal.woff2) format("woff2");font-weight:500}
+@font-face{font-family:Corm;src:url(../fonts/cormorant-garamond-latin-600-normal.woff2) format("woff2");font-weight:600}
+@font-face{font-family:Corm;src:url(../fonts/cormorant-garamond-latin-500-italic.woff2) format("woff2");font-style:italic;font-weight:500}
+@font-face{font-family:Inter;src:url(../fonts/inter-latin-wght-normal.woff2) format("woff2");font-weight:100 900}
+:root{--ink:#14252F;--ivory:#F3F0E7;--brass:#C6A272;--bdeep:#7E6034;--slate:#8FA3AB}
+body{margin:0;background:#000}
+.card{width:1080px;height:1350px;background:var(--ink);color:var(--ivory);position:relative;box-sizing:border-box;padding:88px 72px 0;font-family:Inter;overflow:hidden}
+.card.reel{height:1920px}
+.top{display:flex;justify-content:space-between;align-items:center;height:56px;border-bottom:2px solid var(--brass);padding-bottom:28px}
+.mark{width:42px;height:64px;overflow:hidden;position:relative}
+.mark img{position:absolute;left:2px;top:15px;width:36px;height:34px}
+.label{font-size:22px;letter-spacing:.28em;color:var(--brass);font-weight:500}
+.foot{position:absolute;left:72px;right:72px;bottom:0;height:100px;border-top:1px solid #3a4a55;display:flex;justify-content:space-between;align-items:center;font-size:20px;letter-spacing:.22em;color:var(--brass)}
+.foot b{color:var(--ivory);font-weight:600;letter-spacing:.1em}
+h1{font-family:Corm;font-weight:600;font-size:104px;line-height:1.02;margin:0}
+h2{font-family:Corm;font-weight:600;font-size:80px;line-height:1.05;margin:56px 0 0}
+.rule{width:200px;height:7px;background:var(--brass);margin:34px 0 40px}
+.kicker{font-size:24px;letter-spacing:.3em;color:var(--brass);font-weight:600;margin:90px 0 18px}
+.lede{font-size:36px;line-height:1.45}
+ol{list-style:none;padding:0;margin:0}li{display:flex;gap:44px;margin-bottom:46px}
+.n{font-family:Corm;font-size:58px;color:var(--brass);width:48px;line-height:1;flex:none}
+.t{font-size:34px;line-height:1.42}.s{font-size:21px;color:var(--slate);letter-spacing:.06em;margin-top:10px}
+.q{text-align:center;padding-top:150px}.q .mk{font-family:Corm;font-size:110px;color:var(--brass);line-height:.6;margin-top:24px}
+.q h3{font-family:Corm;font-weight:500;font-size:74px;line-height:1.14;margin:36px 40px 40px}
+.q p{font-size:30px;line-height:1.5;color:var(--slate);margin:0 70px}.q .src{font-size:22px;margin-top:34px}
+.area{margin-top:58px}.an{font-family:Corm;font-weight:600;font-size:60px}.ad{font-size:21px;color:var(--slate);margin:6px 0 22px}
+.row{display:flex;align-items:center;height:56px}.yr{width:90px;font-size:24px;font-weight:600}
+.bar{height:14px;border-radius:7px}.v{font-size:30px;margin-left:18px;font-weight:600}
+.chg{font-family:Inter;font-size:30px;font-weight:700;margin-left:auto}
+.per{font-size:22px;letter-spacing:.2em;color:var(--brass);margin-top:40px}
+.srcl{position:absolute;left:72px;right:72px;bottom:130px;font-size:20px;color:var(--slate);line-height:1.5}
+.close{display:flex;flex-direction:column;align-items:center;justify-content:center;height:1150px;text-align:center}
+.card.reel .close{height:1720px}
+.close img{width:760px}.close .tag{font-family:Corm;font-style:italic;font-size:56px;margin-top:70px}
+.close .r{width:120px;height:3px;background:var(--brass);margin:40px auto}
+.close .p{font-size:26px;letter-spacing:.24em;color:var(--slate)}
+/* Chart (Rules 1c v6.9), the reference's inline styles as classes. */
+.chart h2{font-size:66px}
+.per + .area{margin-top:70px}
+.area + .area{margin-top:80px}
+.bar.now{background:var(--brass)}
+.bar.before{border:3px solid var(--bdeep);box-sizing:border-box}
+.yr.before{color:var(--bdeep)}
+.chg.down{color:var(--brass)}
