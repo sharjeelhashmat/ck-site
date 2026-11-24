@@ -78,9 +78,7 @@ test('each new guide page renders at /areas/<slug> with its copy and the Dubai f
       assert.ok(t.includes(decodeEntities(piece)), `${g.slug}: ${piece.slice(0, 50)}`);
     }
     // Soft launch: no call to action, no contact link, no external link in the guide.
-    // The approved Jebel Ali Hills copy says "permitted build area" (a planning term, not an advertising permit); only that
-    // exact phrase is set aside, so any permit wording elsewhere still fails.
-    assert.doesNotMatch(m.replace(/permitted build area/g, ''), /href="\/contact"|Ask me|wa\.me|ORN|BRN|permit/i, g.slug);
+    assert.doesNotMatch(m, /href="\/contact"|Ask me|wa\.me|ORN|BRN|permit/i, g.slug);
     for (const a of m.matchAll(/<a\b[^>]*href="([^"]+)"/g)) assert.match(a[1], /^(\/|#)/, `${g.slug}: internal link only, found ${a[1]}`);
   }
 });
