@@ -1,30 +1,30 @@
 {
   "schema": 1,
-  "fetched_at": "2026-11-20T09:22:58.834Z",
+  "fetched_at": "2026-11-24T08:38:18.341Z",
   "source": "https://ck-lead-worker.sharjeelhashmat.workers.dev",
-  "as_of": "2026-11-18",
+  "as_of": "2026-11-20",
   "as_of_by_source": {
-    "dubai_transactions": "2026-11-18",
+    "dubai_transactions": "2026-11-20",
     "dubai_projects": "2026-11-01",
-    "abu_dhabi": "2026-11-20",
-    "dld_synced_at": "2026-11-20T09:11:30.945Z",
-    "adrec_synced_at": "2026-11-20T09:11:30.945Z"
+    "abu_dhabi": "2026-11-24",
+    "dld_synced_at": "2026-11-24T08:26:52.033Z",
+    "adrec_synced_at": "2026-11-24T08:26:52.033Z"
   },
   "files": {
     "status.json": {
       "endpoint": "GET /market/status",
       "raw_url": "https://raw.githubusercontent.com/sharjeelhashmat/ck-site/market-data/data/market/status.json",
-      "sha256": "6ac95bdd893f9d0e0ad82be11c45e567730654e7e0783c083eb9743097bb602f"
+      "sha256": "a6cd805618f081c855e9f6cf4b6efc5f7a533e1f610d3e31db7696ac69e7b264"
     },
     "areas-ytd.json": {
       "endpoint": "GET /market/areas?period=ytd",
       "raw_url": "https://raw.githubusercontent.com/sharjeelhashmat/ck-site/market-data/data/market/areas-ytd.json",
-      "sha256": "69842e8fe3b601fdc3ebc96bb6c7c59d6fa0d97d528ec5b81dce011a317b39b1"
+      "sha256": "07514f7bd61b627a255db83b92bf888908030d3dffd1bcb129a9e8fe2f956ee1"
     },
     "launches.json": {
       "endpoint": "GET /market/launches",
       "raw_url": "https://raw.githubusercontent.com/sharjeelhashmat/ck-site/market-data/data/market/launches.json",
-      "sha256": "46055ad57f64e2c0bdee13ac0a3a9976c16e0dbc9cc78c392e761c110f106bae"
+      "sha256": "049a4999767018fa342eeed6957d85427ab77be0e02ee78c9453e02ab8751c53"
     }
   }
 }
